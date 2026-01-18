@@ -1,0 +1,6 @@
+@Misfitz_Games_HostAddress = http://localhost:5006
+
+GET {{Misfitz_Games_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
