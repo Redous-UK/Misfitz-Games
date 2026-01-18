@@ -16,7 +16,17 @@ public static class Program
         builder.Services.AddSingleton<Misfitz_Games.Services.RoomBroadcastService>();
 
         builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
-    ConnectionMultiplexer.Connect(builder.Configuration["REDIS_URL"] ?? throw new InvalidOperationException("REDIS_URL not set"))
+        {
+            var redisUrl = builder.Configuration["REDIS_URL"]
+                ?? throw new InvalidOperationException("REDIS_URL not set");
+
+            var options = ConfigurationOptions.Parse(redisUrl, ignoreUnknown: true);
+            options.AbortOnConnectFail = false;   // keep retrying
+            options.ConnectRetry = 5;
+            options.ConnectTimeout = 10000;
+
+            return ConnectionMultiplexer.Connect(options);
+        }
 );
         builder.Services.AddSingleton<IRoomStateStore, RedisRoomStateStore>();
         builder.Services.AddSingleton<ContextoEngine>();
