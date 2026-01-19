@@ -5,8 +5,15 @@ using StackExchange.Redis;
 namespace Misfitz_Games.Controllers;
 
 [ApiController]
-public class HealthController(IConfiguration config, IConnectionMultiplexer? redisMux = null) : ControllerBase
+public class HealthController : ControllerBase
 {
+    private readonly IConfiguration _config;
+
+    public HealthController(IConfiguration config)
+    {
+        _config = config;
+    }
+
     [HttpGet("/healthz")]
     public async Task<IActionResult> Healthz()
     {
@@ -14,22 +21,19 @@ public class HealthController(IConfiguration config, IConnectionMultiplexer? red
         var ok = true;
 
         // --- Redis check ---
-        var redisUrl = config["REDIS_URL"];
+        var redisUrl = _config["REDIS_URL"];
         if (!string.IsNullOrWhiteSpace(redisUrl))
         {
             try
             {
-                if (redisMux is null)
-                    throw new InvalidOperationException("Redis not registered (IConnectionMultiplexer is null)");
-
-                var db = redisMux.GetDatabase();
+                var mux = await ConnectionMultiplexer.ConnectAsync(redisUrl);
+                var db = mux.GetDatabase();
                 var pong = await db.PingAsync();
 
                 results["redis"] = new
                 {
                     ok = true,
-                    pingMs = (int)pong.TotalMilliseconds,
-                    isConnected = redisMux.IsConnected
+                    pingMs = (int)pong.TotalMilliseconds
                 };
             }
             catch (Exception ex)
@@ -38,9 +42,7 @@ public class HealthController(IConfiguration config, IConnectionMultiplexer? red
                 results["redis"] = new
                 {
                     ok = false,
-                    error = ex.Message,
-                    type = ex.GetType().FullName,
-                    inner = ex.InnerException?.Message
+                    error = ex.Message
                 };
             }
         }
@@ -49,26 +51,34 @@ public class HealthController(IConfiguration config, IConnectionMultiplexer? red
             results["redis"] = new { ok = true, skipped = true, reason = "REDIS_URL not set" };
         }
 
-        // --- Postgres check (unchanged) ---
-        var databaseUrl = config["DATABASE_URL"];
+        // --- Postgres check ---
+        // Render often sets DATABASE_URL (postgres://user:pass@host:port/db)
+        var databaseUrl = _config["DATABASE_URL"];
         if (!string.IsNullOrWhiteSpace(databaseUrl))
         {
             try
             {
                 var connString = ConvertDatabaseUrlToNpgsql(databaseUrl);
-
                 await using var conn = new NpgsqlConnection(connString);
                 await conn.OpenAsync();
 
                 await using var cmd = new NpgsqlCommand("SELECT 1", conn);
                 var scalar = await cmd.ExecuteScalarAsync();
 
-                results["postgres"] = new { ok = true, scalar };
+                results["postgres"] = new
+                {
+                    ok = true,
+                    scalar
+                };
             }
             catch (Exception ex)
             {
                 ok = false;
-                results["postgres"] = new { ok = false, error = ex.Message };
+                results["postgres"] = new
+                {
+                    ok = false,
+                    error = ex.Message
+                };
             }
         }
         else
@@ -76,13 +86,22 @@ public class HealthController(IConfiguration config, IConnectionMultiplexer? red
             results["postgres"] = new { ok = true, skipped = true, reason = "DATABASE_URL not set" };
         }
 
-        results["service"] = new { ok = true, name = "Misfitz-Games", utc = DateTimeOffset.UtcNow };
+        results["service"] = new
+        {
+            ok = true,
+            name = "Misfitz-Games",
+            utc = DateTimeOffset.UtcNow
+        };
 
-        return ok ? Ok(results) : StatusCode(503, results);
+        if (!ok)
+            return StatusCode(503, results);
+
+        return Ok(results);
     }
 
     private static string ConvertDatabaseUrlToNpgsql(string databaseUrl)
     {
+        // Example: postgres://user:pass@host:5432/dbname
         var uri = new Uri(databaseUrl);
 
         var userInfo = uri.UserInfo.Split(':', 2);
