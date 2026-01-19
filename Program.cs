@@ -29,6 +29,7 @@ public static class Program
         builder.Services.AddSingleton<IRoomStateStore, RedisRoomStateStore>();
         builder.Services.AddSingleton<ContextoEngine>();
         builder.Services.AddSingleton<RoomBroadcastService>();
+        builder.Services.AddSingleton<ContextoWordProvider>();
 
         var app = builder.Build();
 
