@@ -84,11 +84,16 @@ public static class Program
             utc = DateTimeOffset.UtcNow
         }));
 
-        app.MapGet("/debug/redis", (IConnectionMultiplexer mux) => Results.Ok(new
+        app.MapGet("/debug/redis", (StackExchange.Redis.IConnectionMultiplexer mux) =>
         {
-            isConnected = mux.IsConnected,
-            endpoints = mux.GetEndPoints().Select(e => e.ToString()).ToArray()
-        }));
+            var endpoints = mux.GetEndPoints().Select(e => e.ToString()).ToArray();
+
+            return Results.Ok(new
+            {
+                isConnected = mux.IsConnected,
+                endpoints
+            });
+        });
 
         app.Run();
     }
