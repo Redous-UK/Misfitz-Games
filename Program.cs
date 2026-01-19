@@ -32,8 +32,10 @@ public static class Program
                 ConnectRetry = 10,
                 ConnectTimeout = 20000,
                 KeepAlive = 30,
-                Ssl = uri.Scheme.Equals("rediss", StringComparison.OrdinalIgnoreCase),
-                SslHost = uri.Host,          // important for SNI
+
+                // External Render Key Value needs TLS:
+                Ssl = true,
+                SslHost = uri.Host, // important for SNI
             };
 
             opts.EndPoints.Add(uri.Host, uri.Port);
