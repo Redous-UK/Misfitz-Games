@@ -53,6 +53,7 @@ public static class Program
                     IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
                     ValidateLifetime = true,
                     ClockSkew = TimeSpan.FromSeconds(30),
+                    RoleClaimType = "role",
                 };
 
                 // Read JWT from HttpOnly cookie: mf_admin
@@ -121,6 +122,12 @@ public static class Program
                 endpoints = mux.GetEndPoints().Select(e => e.ToString()).ToArray()
             });
         });
+
+        app.MapGet("/debug/whoami", (HttpContext ctx) => Results.Ok(new
+        {
+            isAuth = ctx.User?.Identity?.IsAuthenticated == true,
+            claims = ctx.User?.Claims?.Select(c => new { c.Type, c.Value }).ToArray() ?? Array.Empty<object>()
+        }));
 
         app.Run();
     }

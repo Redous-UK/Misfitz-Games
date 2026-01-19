@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Misfitz_Games.Models;
 using Misfitz_Games.Services;
+using System.Security.Claims;
 
 namespace Misfitz_Games.Controllers;
 
@@ -16,7 +17,10 @@ public class IngestController(
     public async Task<IActionResult> Ingest([FromBody] IngestEvent evt, CancellationToken ct)
     {
         var expectedKey = config["CONNECTOR_INGEST_KEY"];
-        var isAdmin = User?.Claims?.Any(c => c.Type == "role" && c.Value == "admin") == true;
+        var isAdmin =
+            User?.IsInRole("admin") == true ||
+            User?.Claims?.Any(c => c.Type == "role" && c.Value == "admin") == true ||
+            User?.Claims?.Any(c => c.Type == ClaimTypes.Role && c.Value == "admin") == true;
 
         if (!isAdmin && !string.IsNullOrWhiteSpace(expectedKey))
         {
