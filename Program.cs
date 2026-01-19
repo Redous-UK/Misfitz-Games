@@ -1,9 +1,10 @@
-using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
-using System.Text;
 using Misfitz_Games.Hubs;
 using Misfitz_Games.Services;
+using System.Security.Claims;
+using System.Text;
 
 namespace Misfitz_Games;
 
@@ -71,7 +72,7 @@ public static class Program
 
         builder.Services.AddAuthorization(options =>
         {
-            options.AddPolicy("AdminOnly", p => p.RequireClaim("role", "admin"));
+            options.AddPolicy("AdminOnly", p => p.RequireClaim(ClaimTypes.Role, "admin"));
         });
 
 
