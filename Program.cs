@@ -17,14 +17,14 @@ public static class Program
 
         builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
         {
-            var redisUrl = builder.Configuration["REDIS_URL"];
-            if (string.IsNullOrWhiteSpace(redisUrl))
-                throw new InvalidOperationException("REDIS_URL not set");
+            var redisUrl = builder.Configuration["REDIS_URL"]
+                ?? throw new InvalidOperationException("REDIS_URL not set");
 
             var options = ConfigurationOptions.Parse(redisUrl, ignoreUnknown: true);
             options.AbortOnConnectFail = false;
             options.ConnectRetry = 10;
             options.ConnectTimeout = 15000;
+            options.KeepAlive = 30;
 
             return ConnectionMultiplexer.Connect(options);
         });
@@ -65,6 +65,12 @@ public static class Program
             ok = true,
             service = "Misfitz-Games",
             utc = DateTimeOffset.UtcNow
+        }));
+
+        app.MapGet("/debug/redis", (IConnectionMultiplexer mux) => Results.Ok(new
+        {
+            isConnected = mux.IsConnected,
+            endpoints = mux.GetEndPoints().Select(e => e.ToString()).ToArray()
         }));
 
         app.Run();
