@@ -22,7 +22,9 @@ public class IngestController(
         //        User?.Claims?.Any(c => c.Type == "role" && c.Value == "admin") == true ||
         //        User?.Claims?.Any(c => c.Type == ClaimTypes.Role && c.Value == "admin") == true;
 
-        var isAdmin = User?.IsInRole("admin") == true;
+        var isAdmin =
+            User?.IsInRole("admin") == true ||
+            User?.Claims?.Any(c => c.Type == ClaimTypes.Role && c.Value == "admin") == true;
 
         if (!isAdmin && !string.IsNullOrWhiteSpace(expectedKey))
         {
