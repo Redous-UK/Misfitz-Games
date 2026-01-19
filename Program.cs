@@ -17,38 +17,19 @@ public static class Program
 
         builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
         {
-            var redisUrl = builder.Configuration["REDIS_URL"]
-                ?? throw new InvalidOperationException("REDIS_URL not set");
+            var redisUrl = builder.Configuration["REDIS_URL"];
+            if (string.IsNullOrWhiteSpace(redisUrl))
+                throw new InvalidOperationException("REDIS_URL not set");
 
-            var uri = new Uri(redisUrl);
+            var options = ConfigurationOptions.Parse(redisUrl, ignoreUnknown: true);
+            options.AbortOnConnectFail = false;
+            options.ConnectRetry = 10;
+            options.ConnectTimeout = 15000;
 
-            var userInfo = uri.UserInfo.Split(':', 2);
-            var username = userInfo.Length > 0 ? Uri.UnescapeDataString(userInfo[0]) : "";
-            var password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
+            return ConnectionMultiplexer.Connect(options);
+        });
 
-            var opts = new ConfigurationOptions
-            {
-                AbortOnConnectFail = false,
-                ConnectRetry = 10,
-                ConnectTimeout = 15000,
-                KeepAlive = 30,
-            };
 
-            opts.EndPoints.Add(uri.Host, uri.Port);
-
-            if (!string.IsNullOrWhiteSpace(password))
-                opts.Password = password; // password is part of the config string format :contentReference[oaicite:2]{index=2}
-
-            // Only needed for rediss:// (TLS)
-            if (uri.Scheme.Equals("rediss", StringComparison.OrdinalIgnoreCase))
-            {
-                opts.Ssl = true;
-                opts.SslHost = uri.Host;
-            }
-
-            return ConnectionMultiplexer.Connect(opts);
-        }
-);
         builder.Services.AddSingleton<IRoomStateStore, RedisRoomStateStore>();
         builder.Services.AddSingleton<ContextoEngine>();
         builder.Services.AddSingleton<RoomBroadcastService>();

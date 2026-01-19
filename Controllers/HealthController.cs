@@ -5,7 +5,7 @@ using StackExchange.Redis;
 namespace Misfitz_Games.Controllers;
 
 [ApiController]
-public class HealthController(IConfiguration config) : ControllerBase
+public class HealthController(IConfiguration config, IConnectionMultiplexer? redisMux = null) : ControllerBase
 {
     [HttpGet("/healthz")]
     public async Task<IActionResult> Healthz()
@@ -19,17 +19,29 @@ public class HealthController(IConfiguration config) : ControllerBase
         {
             try
             {
-                // Keep it lightweight: connect + ping
-                var mux = await ConnectionMultiplexer.ConnectAsync(redisUrl);
-                var db = mux.GetDatabase();
+                if (redisMux is null)
+                    throw new InvalidOperationException("Redis not registered (IConnectionMultiplexer is null)");
+
+                var db = redisMux.GetDatabase();
                 var pong = await db.PingAsync();
 
-                results["redis"] = new { ok = true, pingMs = (int)pong.TotalMilliseconds };
+                results["redis"] = new
+                {
+                    ok = true,
+                    pingMs = (int)pong.TotalMilliseconds,
+                    isConnected = redisMux.IsConnected
+                };
             }
             catch (Exception ex)
             {
                 ok = false;
-                results["redis"] = new { ok = false, error = ex.Message };
+                results["redis"] = new
+                {
+                    ok = false,
+                    error = ex.Message,
+                    type = ex.GetType().FullName,
+                    inner = ex.InnerException?.Message
+                };
             }
         }
         else
@@ -37,8 +49,8 @@ public class HealthController(IConfiguration config) : ControllerBase
             results["redis"] = new { ok = true, skipped = true, reason = "REDIS_URL not set" };
         }
 
-        // --- Postgres check ---
-        var databaseUrl = config["DATABASE_URL"]; // Render-style postgres://...
+        // --- Postgres check (unchanged) ---
+        var databaseUrl = config["DATABASE_URL"];
         if (!string.IsNullOrWhiteSpace(databaseUrl))
         {
             try
@@ -64,19 +76,13 @@ public class HealthController(IConfiguration config) : ControllerBase
             results["postgres"] = new { ok = true, skipped = true, reason = "DATABASE_URL not set" };
         }
 
-        results["service"] = new
-        {
-            ok = true,
-            name = "Misfitz-Games",
-            utc = DateTimeOffset.UtcNow
-        };
+        results["service"] = new { ok = true, name = "Misfitz-Games", utc = DateTimeOffset.UtcNow };
 
         return ok ? Ok(results) : StatusCode(503, results);
     }
 
     private static string ConvertDatabaseUrlToNpgsql(string databaseUrl)
     {
-        // Example: postgres://user:pass@host:5432/dbname
         var uri = new Uri(databaseUrl);
 
         var userInfo = uri.UserInfo.Split(':', 2);
