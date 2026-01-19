@@ -20,12 +20,33 @@ public static class Program
             var redisUrl = builder.Configuration["REDIS_URL"]
                 ?? throw new InvalidOperationException("REDIS_URL not set");
 
-            var options = ConfigurationOptions.Parse(redisUrl, ignoreUnknown: true);
-            options.AbortOnConnectFail = false;   // keep retrying
-            options.ConnectRetry = 5;
-            options.ConnectTimeout = 10000;
+            var uri = new Uri(redisUrl);
 
-            return ConnectionMultiplexer.Connect(options);
+            var userInfo = uri.UserInfo.Split(':', 2);
+            var username = userInfo.Length > 0 ? Uri.UnescapeDataString(userInfo[0]) : "";
+            var password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
+
+            var opts = new ConfigurationOptions
+            {
+                AbortOnConnectFail = false,
+                ConnectRetry = 10,
+                ConnectTimeout = 15000,
+                KeepAlive = 30,
+            };
+
+            opts.EndPoints.Add(uri.Host, uri.Port);
+
+            if (!string.IsNullOrWhiteSpace(password))
+                opts.Password = password; // password is part of the config string format :contentReference[oaicite:2]{index=2}
+
+            // Only needed for rediss:// (TLS)
+            if (uri.Scheme.Equals("rediss", StringComparison.OrdinalIgnoreCase))
+            {
+                opts.Ssl = true;
+                opts.SslHost = uri.Host;
+            }
+
+            return ConnectionMultiplexer.Connect(opts);
         }
 );
         builder.Services.AddSingleton<IRoomStateStore, RedisRoomStateStore>();
