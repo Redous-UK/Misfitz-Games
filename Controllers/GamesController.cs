@@ -5,7 +5,12 @@ using Misfitz_Games.Services;
 namespace Misfitz_Games.Controllers;
 
 [ApiController]
-public class GamesController(IRoomStateStore store, RoomBroadcastService broadcaster, ContextoEngine contexto) : ControllerBase
+public class GamesController(
+    IRoomStateStore store,
+    RoomBroadcastService broadcaster,
+    ContextoEngine contexto,
+    ContextoWordProvider words
+) : ControllerBase
 {
     [HttpPost("/rooms/{roomId:guid}/games/contexto/start")]
     public async Task<IActionResult> StartContexto(Guid roomId, [FromBody] ContextoStartRequest req, CancellationToken ct)
@@ -24,7 +29,7 @@ public class GamesController(IRoomStateStore store, RoomBroadcastService broadca
         };
 
         await store.SaveStateAsync(next, ct);
-        await broadcaster.BroadcastStateAsync(roomId, next, ct);
+        await broadcaster.BroadcastStateAsync(roomId, RoomStateProjector.ToPublic(next), ct);
 
         return Ok(new { ok = true });
     }
@@ -35,7 +40,7 @@ public class GamesController(IRoomStateStore store, RoomBroadcastService broadca
         var state = await store.GetStateAsync(roomId, ct);
         if (state is null) return NotFound(new { ok = false, error = "Room state not found" });
 
-        var secret = HttpContext.RequestServices.GetRequiredService<ContextoWordProvider>().NextSecret();
+        var secret = words.NextSecret();
 
         var next = state with
         {
@@ -47,7 +52,6 @@ public class GamesController(IRoomStateStore store, RoomBroadcastService broadca
         await store.SaveStateAsync(next, ct);
         await broadcaster.BroadcastStateAsync(roomId, RoomStateProjector.ToPublic(next), ct);
 
-        // IMPORTANT: don’t leak secret to overlay later; for now it’s included in state.
         return Ok(new { ok = true });
     }
 
