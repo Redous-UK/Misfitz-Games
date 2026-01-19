@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.HttpOverrides;
 using Misfitz_Games.Hubs;
 using Misfitz_Games.Services;
-using StackExchange.Redis;
 
 namespace Misfitz_Games;
 
@@ -13,44 +12,6 @@ public static class Program
 
         builder.Services.AddControllers();
         builder.Services.AddSignalR();
-        builder.Services.AddSingleton<Misfitz_Games.Services.RoomBroadcastService>();
-
-        builder.Services.AddSingleton<Task<IConnectionMultiplexer>>(_ =>
-        {
-            var redisUrl = builder.Configuration["REDIS_URL"]
-                ?? throw new InvalidOperationException("REDIS_URL not set");
-
-            var uri = new Uri(redisUrl);
-
-            var userInfo = uri.UserInfo.Split(':', 2);
-            var username = userInfo.Length > 0 ? Uri.UnescapeDataString(userInfo[0]) : "";
-            var password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
-
-            var opts = new ConfigurationOptions
-            {
-                AbortOnConnectFail = false,
-                ConnectRetry = 10,
-                ConnectTimeout = 20000,
-                KeepAlive = 30,
-                Ssl = uri.Scheme.Equals("rediss", StringComparison.OrdinalIgnoreCase),
-                SslHost = uri.Host,
-            };
-
-            opts.EndPoints.Add(uri.Host, uri.Port);
-
-            if (!string.IsNullOrWhiteSpace(password)) opts.Password = password;
-            if (!string.IsNullOrWhiteSpace(username)) opts.User = username;
-
-            // This async wrapper forces Task<IConnectionMultiplexer>
-            return ConnectAsync(opts);
-        });
-
-        static async Task<IConnectionMultiplexer> ConnectAsync(ConfigurationOptions opts)
-            => await ConnectionMultiplexer.ConnectAsync(opts);
-
-        builder.Services.AddSingleton<IRoomStateStore, RedisRoomStateStore>();
-        builder.Services.AddSingleton<ContextoEngine>();
-        builder.Services.AddSingleton<RoomBroadcastService>();
 
         builder.Services.AddCors(options =>
         {
@@ -60,6 +21,14 @@ public static class Program
                  .AllowCredentials()
                  .SetIsOriginAllowed(_ => true));
         });
+
+        // Redis factory (lazy, async)
+        builder.Services.AddSingleton<RedisMuxFactory>();
+
+        // App services
+        builder.Services.AddSingleton<IRoomStateStore, RedisRoomStateStore>();
+        builder.Services.AddSingleton<ContextoEngine>();
+        builder.Services.AddSingleton<RoomBroadcastService>();
 
         var app = builder.Build();
 
@@ -72,7 +41,6 @@ public static class Program
 
         app.UseRouting();
         app.UseCors("default");
-
         app.UseStaticFiles();
 
         app.MapControllers();
@@ -85,8 +53,9 @@ public static class Program
             utc = DateTimeOffset.UtcNow
         }));
 
-        app.MapGet("/debug/redis", (StackExchange.Redis.IConnectionMultiplexer mux) =>
+        app.MapGet("/debug/redis", async (Misfitz_Games.Services.RedisMuxFactory factory) =>
         {
+            var mux = await factory.GetAsync();
             var endpoints = mux.GetEndPoints().Select(e => e.ToString()).ToArray();
 
             return Results.Ok(new

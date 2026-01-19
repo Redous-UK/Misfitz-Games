@@ -1,11 +1,12 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Misfitz_Games.Services;
 using Npgsql;
 using StackExchange.Redis;
 
 namespace Misfitz_Games.Controllers;
 
 [ApiController]
-public class HealthController(IConfiguration config, Task<IConnectionMultiplexer> muxTask) : ControllerBase
+public class HealthController(IConfiguration config, RedisMuxFactory muxFactory) : ControllerBase
 {
     [HttpGet("/healthz")]
     public async Task<IActionResult> Healthz()
@@ -19,7 +20,7 @@ public class HealthController(IConfiguration config, Task<IConnectionMultiplexer
         {
             try
             {
-                var mux = await muxTask.ConfigureAwait(false);
+                var mux = await muxFactory.GetAsync().ConfigureAwait(false);
                 var db = mux.GetDatabase();
                 var pong = await db.PingAsync();
 

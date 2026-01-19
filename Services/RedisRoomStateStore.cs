@@ -4,10 +4,8 @@ using StackExchange.Redis;
 
 namespace Misfitz_Games.Services;
 
-public sealed class RedisRoomStateStore(Task<IConnectionMultiplexer> muxTask) : IRoomStateStore
+public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomStateStore
 {
-    private readonly Task<IConnectionMultiplexer> _muxTask = muxTask;
-
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -20,7 +18,7 @@ public sealed class RedisRoomStateStore(Task<IConnectionMultiplexer> muxTask) : 
 
     private async Task<IDatabase> DbAsync()
     {
-        var mux = await _muxTask.ConfigureAwait(false);
+        var mux = await muxFactory.GetAsync().ConfigureAwait(false);
         return mux.GetDatabase();
     }
 
@@ -45,11 +43,9 @@ public sealed class RedisRoomStateStore(Task<IConnectionMultiplexer> muxTask) : 
         foreach (var idVal in ids)
         {
             if (!Guid.TryParse(idVal.ToString(), out var id)) continue;
-
             var room = await GetRoomAsync(id, ct).ConfigureAwait(false);
             if (room is not null) results.Add(room);
         }
-
         return results;
     }
 
@@ -59,7 +55,6 @@ public sealed class RedisRoomStateStore(Task<IConnectionMultiplexer> muxTask) : 
 
         var json = await db.StringGetAsync(RoomKey(roomId)).ConfigureAwait(false);
         if (json.IsNullOrEmpty) return null;
-
         return JsonSerializer.Deserialize<RoomDto>(json!, JsonOpts);
     }
 
@@ -69,7 +64,6 @@ public sealed class RedisRoomStateStore(Task<IConnectionMultiplexer> muxTask) : 
 
         var json = await db.StringGetAsync(StateKey(roomId)).ConfigureAwait(false);
         if (json.IsNullOrEmpty) return null;
-
         return JsonSerializer.Deserialize<RoomState>(json!, JsonOpts);
     }
 
