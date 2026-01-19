@@ -53,15 +53,16 @@ public static class Program
             utc = DateTimeOffset.UtcNow
         }));
 
-        app.MapGet("/debug/redis", async (Misfitz_Games.Services.RedisMuxFactory factory) =>
+        app.MapGet("/debug/redis", (RedisMuxFactory factory) =>
         {
-            var mux = await factory.GetAsync();
-            var endpoints = mux.GetEndPoints().Select(e => e.ToString()).ToArray();
+            var task = factory.Task;
 
             return Results.Ok(new
             {
-                isConnected = mux.IsConnected,
-                endpoints
+                status = task.Status.ToString(),
+                isCompleted = task.IsCompleted,
+                isFaulted = task.IsFaulted,
+                isCanceled = task.IsCanceled
             });
         });
 

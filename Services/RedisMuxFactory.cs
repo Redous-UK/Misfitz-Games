@@ -6,6 +6,8 @@ public sealed class RedisMuxFactory(IConfiguration config)
 {
     private readonly Lazy<Task<IConnectionMultiplexer>> _lazy = new(() => ConnectAsync(config));
 
+    public Task<IConnectionMultiplexer> Task => _lazy.Value;
+
     public Task<IConnectionMultiplexer> GetAsync() => _lazy.Value;
 
     private static async Task<IConnectionMultiplexer> ConnectAsync(IConfiguration config)
