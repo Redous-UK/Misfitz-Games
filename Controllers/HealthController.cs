@@ -94,7 +94,7 @@ public class HealthController(IConfiguration config, IConnectionMultiplexer? red
         var builder = new NpgsqlConnectionStringBuilder
         {
             Host = uri.Host,
-            Port = uri.Port,
+            Port = uri.Port == -1 ? 5432 : uri.Port,
             Username = username,
             Password = password,
             Database = database,
