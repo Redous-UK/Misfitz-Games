@@ -10,7 +10,7 @@ namespace Misfitz_Games.Controllers;
 public sealed record AdminLoginRequest(string Password);
 
 [ApiController]
-public class AdminAuthController(IConfiguration config) : ControllerBase
+public class AdminAuthController(IConfiguration config, IWebHostEnvironment env) : ControllerBase
 {
     [HttpPost("/admin/login")]
     public IActionResult Login([FromBody] AdminLoginRequest req)
@@ -47,8 +47,13 @@ public class AdminAuthController(IConfiguration config) : ControllerBase
         Response.Cookies.Append("mf_admin", jwt, new CookieOptions
         {
             HttpOnly = true,
-            Secure = true,
+
+            // ✅ only secure cookies in production (Render = HTTPS)
+            Secure = !env.IsDevelopment(),
+
+            // ✅ Lax works well for same-site admin panel
             SameSite = SameSiteMode.Lax,
+
             Expires = DateTimeOffset.UtcNow.AddHours(12),
             Path = "/",
         });
@@ -62,7 +67,7 @@ public class AdminAuthController(IConfiguration config) : ControllerBase
         Response.Cookies.Delete("mf_admin", new CookieOptions
         {
             Path = "/",
-            Secure = true,
+            Secure = !env.IsDevelopment(),
             SameSite = SameSiteMode.Lax
         });
 
