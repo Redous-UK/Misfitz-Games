@@ -9,8 +9,17 @@ public class DebugController(IConfiguration config) : ControllerBase
     public IActionResult Env()
     {
         var redis = config["REDIS_URL"];
-        var u = new Uri(redis);
-        return Ok(new { hasRedisUrl = true, redisScheme = u.Scheme, host = u.Host, port = u.Port });
+        if (string.IsNullOrWhiteSpace(redis))
+            return Ok(new { hasRedisUrl = false });
 
+        var u = new Uri(redis);
+        return Ok(new
+        {
+            hasRedisUrl = true,
+            redisScheme = u.Scheme,
+            host = u.Host,
+            port = u.Port,
+            hasUserInfo = !string.IsNullOrWhiteSpace(u.UserInfo)
+        });
     }
 }
