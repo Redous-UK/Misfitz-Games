@@ -66,6 +66,16 @@ public static class Program
             });
         });
 
+        app.MapGet("/debug/redis/details", async (RedisMuxFactory factory) =>
+        {
+            var mux = await factory.GetAsync();
+            return Results.Ok(new
+            {
+                isConnected = mux.IsConnected,
+                endpoints = mux.GetEndPoints().Select(e => e.ToString()).ToArray()
+            });
+        });
+
         app.Run();
     }
 }
