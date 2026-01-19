@@ -56,7 +56,16 @@
 <body>
     <h1>Misfitz-Games Admin</h1>
     <div class="muted">Base URL: <span id="baseUrl"></span></div>
-
+    <div class="card">
+        <h2>Admin Login</h2>
+        <div class="row">
+            <input id="adminPassword" type="password" placeholder="Admin password" />
+            <button id="btnLogin">Login</button>
+            <button id="btnLogout">Logout</button>
+            <button id="btnMe">Check /admin/me</button>
+        </div>
+        <pre id="authOut">{}</pre>
+    </div>
     <div class="card">
         <h2>1) Rooms</h2>
         <div class="row">
@@ -110,150 +119,150 @@
     </div>
 
     <script>
-    const baseUrl = location.origin;
-    document.getElementById("baseUrl").textContent = baseUrl;
+        const baseUrl = location.origin;
+        document.getElementById("baseUrl").textContent = baseUrl;
 
-    const el = (id) => document.getElementById(id);
-    const pretty = (obj) => JSON.stringify(obj, null, 2);
+        const el = (id) => document.getElementById(id);
+        const pretty = (obj) => JSON.stringify(obj, null, 2);
 
-    async function api(path, opts = {}) {
-      const res = await fetch(baseUrl + path, opts);
-      const text = await res.text();
-      let json;
-      try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
-      if (!res.ok) throw new Error(`HTTP ${res.status}: ${pretty(json)}`);
-      return json;
-    }
+        async function api(path, opts = {}) {
+            const res = await fetch(baseUrl + path, opts);
+            const text = await res.text();
+            let json;
+            try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
+            if (!res.ok) throw new Error(`HTTP ${res.status}: ${pretty(json)}`);
+            return json;
+        }
 
-    // 1) Rooms
-    el("btnCreateRoom").onclick = async () => {
-      try {
-        const name = el("roomName").value.trim();
-        const room = await api("/rooms", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name })
-        });
-        el("roomsOut").textContent = pretty(room);
-        el("roomId").value = room.roomId;
-      } catch (e) { el("roomsOut").textContent = String(e); }
-    };
-
-    el("btnListRooms").onclick = async () => {
-      try {
-        const rooms = await api("/rooms");
-        el("roomsOut").textContent = pretty(rooms);
-      } catch (e) { el("roomsOut").textContent = String(e); }
-    };
-
-    // 2) State
-    el("btnGetState").onclick = async () => {
-      try {
-        const roomId = el("roomId").value.trim();
-        const state = await api(`/rooms/${roomId}/state`);
-        el("stateOut").textContent = pretty(state);
-      } catch (e) { el("stateOut").textContent = String(e); }
-    };
-
-    // 3) Contexto controls
-    el("btnStartContexto").onclick = async () => {
-      try {
-        const roomId = el("roomId").value.trim();
-        const secretWord = el("secretWord").value.trim();
-        const resp = await api(`/rooms/${roomId}/games/contexto/start`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ secretWord })
-        });
-        el("gameOut").textContent = pretty(resp);
-      } catch (e) { el("gameOut").textContent = String(e); }
-    };
-
-    el("btnNextContexto").onclick = async () => {
-      try {
-        const roomId = el("roomId").value.trim();
-        const resp = await api(`/rooms/${roomId}/games/contexto/next`, { method: "POST" });
-        el("gameOut").textContent = pretty(resp);
-      } catch (e) { el("gameOut").textContent = String(e); }
-    };
-
-    el("btnStopGame").onclick = async () => {
-      try {
-        const roomId = el("roomId").value.trim();
-        const resp = await api(`/rooms/${roomId}/games/stop`, { method: "POST" });
-        el("gameOut").textContent = pretty(resp);
-      } catch (e) { el("gameOut").textContent = String(e); }
-    };
-
-    el("btnLeaderboard").onclick = async () => {
-      try {
-        const roomId = el("roomId").value.trim();
-        const resp = await api(`/rooms/${roomId}/leaderboard`);
-        el("gameOut").textContent = pretty(resp);
-      } catch (e) { el("gameOut").textContent = String(e); }
-    };
-
-    // 4) Ingest tester
-    el("btnSendIngest").onclick = async () => {
-      try {
-        const roomId = el("roomId").value.trim();
-        const platform = el("platform").value;
-        const userId = el("userId").value.trim();
-        const username = el("username").value.trim();
-        const message = el("message").value;
-        const key = el("connectorKey").value.trim();
-
-        const headers = { "Content-Type": "application/json" };
-        if (key) headers["X-Connector-Key"] = key;
-
-        const payload = {
-          roomId,
-          platform,
-          channelId: "admin-ui",
-          userId,
-          username,
-          type: "chat",
-          message,
-          tsUtc: new Date().toISOString()
+        // 1) Rooms
+        el("btnCreateRoom").onclick = async () => {
+            try {
+                const name = el("roomName").value.trim();
+                const room = await api("/rooms", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name })
+                });
+                el("roomsOut").textContent = pretty(room);
+                el("roomId").value = room.roomId;
+            } catch (e) { el("roomsOut").textContent = String(e); }
         };
 
-        const resp = await api("/ingest/event", {
-          method: "POST",
-          headers,
-          body: JSON.stringify(payload)
-        });
+        el("btnListRooms").onclick = async () => {
+            try {
+                const rooms = await api("/rooms");
+                el("roomsOut").textContent = pretty(rooms);
+            } catch (e) { el("roomsOut").textContent = String(e); }
+        };
 
-        el("ingestOut").textContent = pretty({ ok: true, response: resp, payload });
-      } catch (e) { el("ingestOut").textContent = String(e); }
-    };
+        // 2) State
+        el("btnGetState").onclick = async () => {
+            try {
+                const roomId = el("roomId").value.trim();
+                const state = await api(`/rooms/${roomId}/state`);
+                el("stateOut").textContent = pretty(state);
+            } catch (e) { el("stateOut").textContent = String(e); }
+        };
 
-    // SignalR (minimal client without external lib):
-    // We'll use a super tiny WebSocket-based SignalR client later if you want.
-    // For now: keep it simple—poll state every 2s when "joined".
-    let pollTimer = null;
+        // 3) Contexto controls
+        el("btnStartContexto").onclick = async () => {
+            try {
+                const roomId = el("roomId").value.trim();
+                const secretWord = el("secretWord").value.trim();
+                const resp = await api(`/rooms/${roomId}/games/contexto/start`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ secretWord })
+                });
+                el("gameOut").textContent = pretty(resp);
+            } catch (e) { el("gameOut").textContent = String(e); }
+        };
 
-    el("btnJoinSignalR").onclick = async () => {
-      const roomId = el("roomId").value.trim();
-      if (!roomId) return alert("Enter roomId first.");
+        el("btnNextContexto").onclick = async () => {
+            try {
+                const roomId = el("roomId").value.trim();
+                const resp = await api(`/rooms/${roomId}/games/contexto/next`, { method: "POST" });
+                el("gameOut").textContent = pretty(resp);
+            } catch (e) { el("gameOut").textContent = String(e); }
+        };
 
-      el("btnLeaveSignalR").disabled = false;
-      el("btnJoinSignalR").disabled = true;
+        el("btnStopGame").onclick = async () => {
+            try {
+                const roomId = el("roomId").value.trim();
+                const resp = await api(`/rooms/${roomId}/games/stop`, { method: "POST" });
+                el("gameOut").textContent = pretty(resp);
+            } catch (e) { el("gameOut").textContent = String(e); }
+        };
 
-      // MVP: poll
-      pollTimer = setInterval(async () => {
-        try {
-          const state = await api(`/rooms/${roomId}/state`);
-          el("stateOut").textContent = pretty(state);
-        } catch { /* ignore */ }
-      }, 2000);
-    };
+        el("btnLeaderboard").onclick = async () => {
+            try {
+                const roomId = el("roomId").value.trim();
+                const resp = await api(`/rooms/${roomId}/leaderboard`);
+                el("gameOut").textContent = pretty(resp);
+            } catch (e) { el("gameOut").textContent = String(e); }
+        };
 
-    el("btnLeaveSignalR").onclick = () => {
-      if (pollTimer) clearInterval(pollTimer);
-      pollTimer = null;
-      el("btnLeaveSignalR").disabled = true;
-      el("btnJoinSignalR").disabled = false;
-    };
+        // 4) Ingest tester
+        el("btnSendIngest").onclick = async () => {
+            try {
+                const roomId = el("roomId").value.trim();
+                const platform = el("platform").value;
+                const userId = el("userId").value.trim();
+                const username = el("username").value.trim();
+                const message = el("message").value;
+                const key = el("connectorKey").value.trim();
+
+                const headers = { "Content-Type": "application/json" };
+                if (key) headers["X-Connector-Key"] = key;
+
+                const payload = {
+                    roomId,
+                    platform,
+                    channelId: "admin-ui",
+                    userId,
+                    username,
+                    type: "chat",
+                    message,
+                    tsUtc: new Date().toISOString()
+                };
+
+                const resp = await api("/ingest/event", {
+                    method: "POST",
+                    headers,
+                    body: JSON.stringify(payload)
+                });
+
+                el("ingestOut").textContent = pretty({ ok: true, response: resp, payload });
+            } catch (e) { el("ingestOut").textContent = String(e); }
+        };
+
+        // SignalR (minimal client without external lib):
+        // We'll use a super tiny WebSocket-based SignalR client later if you want.
+        // For now: keep it simple—poll state every 2s when "joined".
+        let pollTimer = null;
+
+        el("btnJoinSignalR").onclick = async () => {
+            const roomId = el("roomId").value.trim();
+            if (!roomId) return alert("Enter roomId first.");
+
+            el("btnLeaveSignalR").disabled = false;
+            el("btnJoinSignalR").disabled = true;
+
+            // MVP: poll
+            pollTimer = setInterval(async () => {
+                try {
+                    const state = await api(`/rooms/${roomId}/state`);
+                    el("stateOut").textContent = pretty(state);
+                } catch { /* ignore */ }
+            }, 2000);
+        };
+
+        el("btnLeaveSignalR").onclick = () => {
+            if (pollTimer) clearInterval(pollTimer);
+            pollTimer = null;
+            el("btnLeaveSignalR").disabled = true;
+            el("btnJoinSignalR").disabled = false;
+        };
     </script>
 </body>
 </html>

@@ -15,22 +15,14 @@ public class IngestController(
     [HttpPost("/ingest/event")]
     public async Task<IActionResult> Ingest([FromBody] IngestEvent evt, CancellationToken ct)
     {
-        // Connector auth (MVP)
         var expectedKey = config["CONNECTOR_INGEST_KEY"];
-        if (!string.IsNullOrWhiteSpace(expectedKey))
+        var isAdmin = User?.Claims?.Any(c => c.Type == "role" && c.Value == "admin") == true;
+
+        if (!isAdmin && !string.IsNullOrWhiteSpace(expectedKey))
         {
-            // allow same-origin browser calls without key (admin UI)
-            var origin = Request.Headers.Origin.ToString();
-            if (!string.IsNullOrWhiteSpace(origin) && origin == $"{Request.Scheme}://{Request.Host}")
-            {
-                // skip
-            }
-            else
-            {
-                var providedKey = Request.Headers["X-Connector-Key"].ToString();
-                if (!string.Equals(providedKey, expectedKey, StringComparison.Ordinal))
-                    return Unauthorized(new { ok = false, error = "Invalid connector key" });
-            }
+            var providedKey = Request.Headers["X-Connector-Key"].ToString();
+            if (!string.Equals(providedKey, expectedKey, StringComparison.Ordinal))
+                return Unauthorized(new { ok = false, error = "Invalid connector key" });
         }
 
         var state = await store.GetStateAsync(evt.RoomId, ct);
@@ -38,19 +30,16 @@ public class IngestController(
 
         RoomState next = state;
 
-        // Route to game
         if (state.ActiveGame == GameType.Contexto && state.GameState is not null)
         {
             if (contexto.TryExtractGuess(evt.Message, out var guess))
                 next = contexto.ApplyGuess(state, evt.UserId, evt.Username, guess);
         }
 
-        // (Always broadcast something so the overlay can show activity if you want)
-        // For now we broadcast updated state (or same state if no change).
         if (!ReferenceEquals(next, state))
             await store.SaveStateAsync(next, ct);
 
-        await broadcaster.BroadcastStateAsync(evt.RoomId, next, ct);
+        await broadcaster.BroadcastStateAsync(evt.RoomId, RoomStateProjector.ToPublic(next), ct);
 
         return Ok(new { ok = true });
     }
