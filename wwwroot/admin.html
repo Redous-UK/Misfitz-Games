@@ -4,6 +4,18 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Misfitz-Games Admin</title>
+
+    <div class="card">
+        <h2>Admin Login</h2>
+        <div class="row">
+            <input id="adminPassword" type="password" placeholder="Admin password" />
+            <button id="btnLogin">Login</button>
+            <button id="btnLogout">Logout</button>
+            <button id="btnMe">Check /admin/me</button>
+        </div>
+        <pre id="authOut">{}</pre>
+    </div>
+
     <style>
         body {
             font-family: system-ui, Arial;
@@ -56,16 +68,6 @@
 <body>
     <h1>Misfitz-Games Admin</h1>
     <div class="muted">Base URL: <span id="baseUrl"></span></div>
-    <div class="card">
-        <h2>Admin Login</h2>
-        <div class="row">
-            <input id="adminPassword" type="password" placeholder="Admin password" />
-            <button id="btnLogin">Login</button>
-            <button id="btnLogout">Logout</button>
-            <button id="btnMe">Check /admin/me</button>
-        </div>
-        <pre id="authOut">{}</pre>
-    </div>
     <div class="card">
         <h2>1) Rooms</h2>
         <div class="row">
@@ -133,6 +135,39 @@
             if (!res.ok) throw new Error(`HTTP ${res.status}: ${pretty(json)}`);
             return json;
         }
+
+        // Admin auth
+        el("btnLogin").onclick = async () => {
+            try {
+                const password = el("adminPassword").value;
+                const resp = await api("/admin/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ password })
+                });
+                el("authOut").textContent = pretty(resp);
+            } catch (e) {
+                el("authOut").textContent = String(e);
+            }
+        };
+
+        el("btnLogout").onclick = async () => {
+            try {
+                const resp = await api("/admin/logout", { method: "POST" });
+                el("authOut").textContent = pretty(resp);
+            } catch (e) {
+                el("authOut").textContent = String(e);
+            }
+        };
+
+        el("btnMe").onclick = async () => {
+            try {
+                const resp = await api("/admin/me");
+                el("authOut").textContent = pretty(resp);
+            } catch (e) {
+                el("authOut").textContent = String(e);
+            }
+        };
 
         // 1) Rooms
         el("btnCreateRoom").onclick = async () => {
