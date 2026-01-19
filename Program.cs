@@ -15,7 +15,7 @@ public static class Program
         builder.Services.AddSignalR();
         builder.Services.AddSingleton<Misfitz_Games.Services.RoomBroadcastService>();
 
-        builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+        builder.Services.AddSingleton<Task<IConnectionMultiplexer>>(_ =>
         {
             var redisUrl = builder.Configuration["REDIS_URL"]
                 ?? throw new InvalidOperationException("REDIS_URL not set");
@@ -32,10 +32,8 @@ public static class Program
                 ConnectRetry = 10,
                 ConnectTimeout = 20000,
                 KeepAlive = 30,
-
-                // External Render Key Value needs TLS:
-                Ssl = true,
-                SslHost = uri.Host, // important for SNI
+                Ssl = uri.Scheme.Equals("rediss", StringComparison.OrdinalIgnoreCase),
+                SslHost = uri.Host,
             };
 
             opts.EndPoints.Add(uri.Host, uri.Port);
@@ -43,9 +41,12 @@ public static class Program
             if (!string.IsNullOrWhiteSpace(password)) opts.Password = password;
             if (!string.IsNullOrWhiteSpace(username)) opts.User = username;
 
-            return ConnectionMultiplexer.Connect(opts);
+            // This async wrapper forces Task<IConnectionMultiplexer>
+            return ConnectAsync(opts);
         });
 
+        static async Task<IConnectionMultiplexer> ConnectAsync(ConfigurationOptions opts)
+            => await ConnectionMultiplexer.ConnectAsync(opts);
 
         builder.Services.AddSingleton<IRoomStateStore, RedisRoomStateStore>();
         builder.Services.AddSingleton<ContextoEngine>();

@@ -5,15 +5,8 @@ using StackExchange.Redis;
 namespace Misfitz_Games.Controllers;
 
 [ApiController]
-public class HealthController : ControllerBase
+public class HealthController(IConfiguration config, Task<IConnectionMultiplexer> muxTask) : ControllerBase
 {
-    private readonly IConfiguration _config;
-
-    public HealthController(IConfiguration config)
-    {
-        _config = config;
-    }
-
     [HttpGet("/healthz")]
     public async Task<IActionResult> Healthz()
     {
@@ -21,18 +14,19 @@ public class HealthController : ControllerBase
         var ok = true;
 
         // --- Redis check ---
-        var redisUrl = _config["REDIS_URL"];
+        var redisUrl = config["REDIS_URL"];
         if (!string.IsNullOrWhiteSpace(redisUrl))
         {
             try
             {
-                var mux = await ConnectionMultiplexer.ConnectAsync(redisUrl);
+                var mux = await muxTask.ConfigureAwait(false);
                 var db = mux.GetDatabase();
                 var pong = await db.PingAsync();
 
                 results["redis"] = new
                 {
                     ok = true,
+                    isConnected = mux.IsConnected,
                     pingMs = (int)pong.TotalMilliseconds
                 };
             }
@@ -42,7 +36,9 @@ public class HealthController : ControllerBase
                 results["redis"] = new
                 {
                     ok = false,
-                    error = ex.Message
+                    error = ex.Message,
+                    type = ex.GetType().FullName,
+                    inner = ex.InnerException?.Message
                 };
             }
         }
@@ -52,8 +48,7 @@ public class HealthController : ControllerBase
         }
 
         // --- Postgres check ---
-        // Render often sets DATABASE_URL (postgres://user:pass@host:port/db)
-        var databaseUrl = _config["DATABASE_URL"];
+        var databaseUrl = config["DATABASE_URL"];
         if (!string.IsNullOrWhiteSpace(databaseUrl))
         {
             try
@@ -93,15 +88,11 @@ public class HealthController : ControllerBase
             utc = DateTimeOffset.UtcNow
         };
 
-        if (!ok)
-            return StatusCode(503, results);
-
-        return Ok(results);
+        return ok ? Ok(results) : StatusCode(503, results);
     }
 
     private static string ConvertDatabaseUrlToNpgsql(string databaseUrl)
     {
-        // Example: postgres://user:pass@host:5432/dbname
         var uri = new Uri(databaseUrl);
 
         var userInfo = uri.UserInfo.Split(':', 2);
