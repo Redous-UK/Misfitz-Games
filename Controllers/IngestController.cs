@@ -19,9 +19,18 @@ public class IngestController(
         var expectedKey = config["CONNECTOR_INGEST_KEY"];
         if (!string.IsNullOrWhiteSpace(expectedKey))
         {
-            var providedKey = Request.Headers["X-Connector-Key"].ToString();
-            if (!string.Equals(providedKey, expectedKey, StringComparison.Ordinal))
-                return Unauthorized(new { ok = false, error = "Invalid connector key" });
+            // allow same-origin browser calls without key (admin UI)
+            var origin = Request.Headers.Origin.ToString();
+            if (!string.IsNullOrWhiteSpace(origin) && origin == $"{Request.Scheme}://{Request.Host}")
+            {
+                // skip
+            }
+            else
+            {
+                var providedKey = Request.Headers["X-Connector-Key"].ToString();
+                if (!string.Equals(providedKey, expectedKey, StringComparison.Ordinal))
+                    return Unauthorized(new { ok = false, error = "Invalid connector key" });
+            }
         }
 
         var state = await store.GetStateAsync(evt.RoomId, ct);
