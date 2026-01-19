@@ -4,18 +4,6 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Misfitz-Games Admin</title>
-
-    <div class="card">
-        <h2>Admin Login</h2>
-        <div class="row">
-            <input id="adminPassword" type="password" placeholder="Admin password" />
-            <button id="btnLogin">Login</button>
-            <button id="btnLogout">Logout</button>
-            <button id="btnMe">Check /admin/me</button>
-        </div>
-        <pre id="authOut">{}</pre>
-    </div>
-
     <style>
         body {
             font-family: system-ui, Arial;
@@ -68,6 +56,16 @@
 <body>
     <h1>Misfitz-Games Admin</h1>
     <div class="muted">Base URL: <span id="baseUrl"></span></div>
+    <div class="card">
+        <h2>Admin Login</h2>
+        <div class="row">
+            <input id="adminPassword" type="password" placeholder="Admin password" />
+            <button id="btnLogin">Login</button>
+            <button id="btnLogout">Logout</button>
+            <button id="btnMe">Check /admin/me</button>
+        </div>
+        <pre id="authOut">{}</pre>
+    </div>
     <div class="card">
         <h2>1) Rooms</h2>
         <div class="row">
@@ -128,7 +126,7 @@
         const pretty = (obj) => JSON.stringify(obj, null, 2);
 
         async function api(path, opts = {}) {
-            const res = await fetch(baseUrl + path, opts);
+            const res = await fetch(baseUrl + path, { credentials: "include", ...opts });
             const text = await res.text();
             let json;
             try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
