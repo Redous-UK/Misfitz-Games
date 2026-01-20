@@ -15,7 +15,7 @@ public sealed class ContextoEngine
         // Command form: "!guess word"
         if (m.StartsWith("!guess", StringComparison.OrdinalIgnoreCase))
         {
-            var rest = m.Substring(5).Trim(); // everything after "!guess"
+            var rest = m[5..].Trim(); // everything after "!guess"
             if (string.IsNullOrWhiteSpace(rest)) return false;
 
             guess = rest.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0].Trim();
@@ -23,7 +23,7 @@ public sealed class ContextoEngine
         }
 
         // Plain single-word form: "word"
-        if (m.IndexOf(' ') == -1)
+        if (!m.Contains(' '))
         {
             guess = m;
             return true;
@@ -64,7 +64,7 @@ public sealed class ContextoEngine
         if (guesses.Count > 30) guesses.RemoveRange(30, guesses.Count - 30);
 
         var endedAt = isWinner ? DateTimeOffset.UtcNow : s.EndedAtUtc;
-        var isActive = isWinner ? false : s.IsActive;
+        var isActive = !isWinner && s.IsActive;
 
         var next = s with
         {
@@ -87,7 +87,7 @@ public sealed class ContextoEngine
             IsActive: true,
             StartedAtUtc: DateTimeOffset.UtcNow,
             EndedAtUtc: null,
-            RecentGuesses: new List<ContextoGuess>(),
-            ScoresByUserId: new Dictionary<string, int>()
+            RecentGuesses: [],
+            ScoresByUserId: []
         );
 }

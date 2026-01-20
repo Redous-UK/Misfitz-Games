@@ -75,10 +75,8 @@ public static class Program
                 };
             });
 
-        builder.Services.AddAuthorization(options =>
-        {
-            options.AddPolicy("AdminOnly", p => p.RequireClaim(ClaimTypes.Role, "admin"));
-        });
+        builder.Services.AddAuthorizationBuilder()
+            .AddPolicy("AdminOnly", p => p.RequireClaim(ClaimTypes.Role, "admin"));
 
 
         var app = builder.Build();

@@ -110,7 +110,6 @@ public class HealthController(IConfiguration config, RedisMuxFactory muxFactory)
             Password = password,
             Database = database,
             SslMode = SslMode.Require,
-            TrustServerCertificate = true
         };
 
         return builder.ConnectionString;

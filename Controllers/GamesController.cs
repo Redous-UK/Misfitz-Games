@@ -8,7 +8,6 @@ namespace Misfitz_Games.Controllers;
 public class GamesController(
     IRoomStateStore store,
     RoomBroadcastService broadcaster,
-    ContextoEngine contexto,
     ContextoWordProvider words
 ) : ControllerBase
 {
