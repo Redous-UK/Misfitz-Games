@@ -64,7 +64,19 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
 
         var json = await db.StringGetAsync(StateKey(roomId)).ConfigureAwait(false);
         if (json.IsNullOrEmpty) return null;
-        return JsonSerializer.Deserialize<RoomState>(json!, JsonOpts);
+
+        var state = JsonSerializer.Deserialize<RoomState>(json!, JsonOpts);
+        if (state is null) return null;
+
+        // ✅ Fix: convert GameState back into the correct concrete type
+        if (state.ActiveGame == GameType.Contexto && state.GameState is JsonElement je)
+        {
+            var cs = je.Deserialize<ContextoState>(JsonOpts);
+            if (cs is not null)
+                state = state with { GameState = cs };
+        }
+
+        return state;
     }
 
     public async Task SaveStateAsync(RoomState state, CancellationToken ct = default)
