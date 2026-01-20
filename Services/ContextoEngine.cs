@@ -5,20 +5,25 @@ namespace Misfitz_Games.Services;
 public sealed class ContextoEngine
 {
     // MVP parsing: accept either "!guess word" or a single word message
-    public bool TryExtractGuess(string message, out string guess)
+    public bool TryExtractGuess(string? message, out string guess)
     {
         guess = "";
         if (string.IsNullOrWhiteSpace(message)) return false;
 
         var m = message.Trim();
-        if (m.StartsWith("!guess ", StringComparison.OrdinalIgnoreCase))
+
+        // Command form: "!guess word"
+        if (m.StartsWith("!guess", StringComparison.OrdinalIgnoreCase))
         {
-            guess = m["!guess ".Length..].Trim();
+            var rest = m.Substring(5).Trim(); // everything after "!guess"
+            if (string.IsNullOrWhiteSpace(rest)) return false;
+
+            guess = rest.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0].Trim();
             return guess.Length > 0;
         }
 
-        // If it's a single token, treat it as a guess
-        if (!m.Contains(' ') && !m.StartsWith('!'))
+        // Plain single-word form: "word"
+        if (m.IndexOf(' ') == -1)
         {
             guess = m;
             return true;

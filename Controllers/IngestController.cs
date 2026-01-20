@@ -44,7 +44,7 @@ public class IngestController(
                 next = contexto.ApplyGuess(state, evt.UserId, evt.Username, guess);
         }
 
-        if (!ReferenceEquals(next, state))
+        if (!Equals(next, state))
             await store.SaveStateAsync(next, ct);
 
         await broadcaster.BroadcastStateAsync(evt.RoomId, RoomStateProjector.ToPublic(next), ct);

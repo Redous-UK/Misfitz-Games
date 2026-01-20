@@ -122,6 +122,17 @@
         const baseUrl = location.origin;
         document.getElementById("baseUrl").textContent = baseUrl;
 
+
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/hubs/room")
+            .withAutomaticReconnect([0, 2000, 5000, 10000])
+            .build();
+
+        connection.onreconnecting(err => console.log("SignalR reconnecting...", err));
+        connection.onreconnected(id => console.log("SignalR reconnected:", id));
+        connection.onclose(err => console.log("SignalR closed:", err));
+
+        await connection.start();
         const el = (id) => document.getElementById(id);
         const pretty = (obj) => JSON.stringify(obj, null, 2);
 

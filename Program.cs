@@ -15,7 +15,12 @@ public static class Program
         var builder = WebApplication.CreateBuilder(args);
 
         builder.Services.AddControllers();
-        builder.Services.AddSignalR();
+        builder.Services.AddSignalR(o =>
+        {
+            o.EnableDetailedErrors = true;
+            o.KeepAliveInterval = TimeSpan.FromSeconds(10);
+            o.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+        });
 
         builder.Services.AddCors(options =>
         {
