@@ -86,4 +86,20 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
         var json = JsonSerializer.Serialize(state, JsonOpts);
         await db.StringSetAsync(StateKey(state.RoomId), json).ConfigureAwait(false);
     }
+
+    public async Task<bool> DeleteRoomAsync(Guid roomId, CancellationToken ct = default)
+    {
+        var db = await DbAsync().ConfigureAwait(false);
+
+        // Remove from index + delete keys
+        var removed = await db.SortedSetRemoveAsync(RoomsIndexKey, roomId.ToString("D")).ConfigureAwait(false);
+        await db.KeyDeleteAsync(
+        [
+        RoomKey(roomId),
+        StateKey(roomId)
+        ]).ConfigureAwait(false);
+
+        return removed;
+    }
+
 }

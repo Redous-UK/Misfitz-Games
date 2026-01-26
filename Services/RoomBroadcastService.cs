@@ -12,4 +12,12 @@ public sealed class RoomBroadcastService(IHubContext<RoomHub> hub)
 
     public Task ToastAsync(Guid roomId, string message, CancellationToken ct = default)
         => hub.Clients.Group(GroupName(roomId)).SendAsync("Toast", message, ct);
+
+    public Task BroadcastRoomClosedAsync(Guid roomId, CancellationToken ct = default)
+        // Assuming you already broadcast to group "room:{roomId}"
+        => hub.Clients.Group($"room:{roomId:D}").SendAsync("RoomClosed", new
+        {
+            roomId,
+            utc = DateTimeOffset.UtcNow
+        }, ct);
 }

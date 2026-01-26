@@ -72,6 +72,7 @@
             <input id="roomName" placeholder="Room name" />
             <button id="btnCreateRoom">Create room</button>
             <button id="btnListRooms">List rooms</button>
+            <button id="btnCloseRoom">Close room</button>
         </div>
         <pre id="roomsOut">{}</pre>
     </div>
@@ -204,6 +205,16 @@
                     const rooms = await api("/rooms");
                     el("roomsOut").textContent = pretty(rooms);
                 } catch (e) { el("roomsOut").textContent = String(e); }
+            };
+
+            el("btnCloseRoom").onclick = async () => {
+                try {
+                    const roomId = el("roomId").value.trim();
+                    const resp = await api(`/rooms/${roomId}/close`, { method: "POST" });
+                    el("roomsOut").textContent = pretty(resp);
+                } catch (e) {
+                    el("roomsOut").textContent = String(e);
+                }
             };
 
             // State

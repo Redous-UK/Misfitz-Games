@@ -10,4 +10,6 @@ public interface IRoomStateStore
 
     Task<RoomState?> GetStateAsync(Guid roomId, CancellationToken ct = default);
     Task SaveStateAsync(RoomState state, CancellationToken ct = default);
+
+    Task<bool> DeleteRoomAsync(Guid roomId, CancellationToken ct = default);
 }
