@@ -86,9 +86,10 @@
             <button id="btnCloseRoom">Close room</button>
         </div>
         <div class="row">
-            <button id="btnCleanupRooms">Cleanup old rooms</button>
             <input id="cleanupHours" placeholder="olderThanHours" value="24" style="width:140px;" />
             <input id="cleanupMax" placeholder="max" value="200" style="width:120px;" />
+            <button id="btnPreviewCleanup">Preview cleanup</button>
+            <button id="btnCleanupRooms">Run cleanup</button>
         </div>
         <pre id="stateOut">{}</pre>
     </div>
@@ -267,6 +268,21 @@
                     const resp = await api(`/rooms/${roomId}/leaderboard`);
                     el("gameOut").textContent = pretty(resp);
                 } catch (e) { el("gameOut").textContent = String(e); }
+            };
+
+            el("btnCleanupRooms").onclick = async () => {
+                try {
+                    const olderThanHours = parseInt(el("cleanupHours").value || "24", 10);
+                    const max = parseInt(el("cleanupMax").value || "200", 10);
+
+                    const resp = await api(`/admin/rooms/cleanup?olderThanHours=${olderThanHours}&max=${max}`, {
+                        method: "POST"
+                    });
+
+                    el("roomsOut").textContent = pretty(resp);
+                } catch (e) {
+                    el("roomsOut").textContent = String(e);
+                }
             };
 
             // Ingest

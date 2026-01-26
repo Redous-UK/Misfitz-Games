@@ -7,6 +7,29 @@ namespace Misfitz_Games.Controllers;
 [ApiController]
 public class AdminMaintenanceController(IRoomStateStore store) : ControllerBase
 {
+
+    [Authorize(Policy = "AdminOnly")]
+    [HttpGet("/admin/rooms/cleanup/preview")]
+    public async Task<IActionResult> Preview([FromQuery] int olderThanHours = 24, [FromQuery] int max = 200, CancellationToken ct = default)
+    {
+        if (olderThanHours < 1) olderThanHours = 1;
+        if (max < 1) max = 1;
+        if (max > 2000) max = 2000;
+
+        var cutoffUtc = DateTimeOffset.UtcNow.AddHours(-olderThanHours);
+        var rooms = await store.ListRoomsOlderThanAsync(cutoffUtc, max, ct);
+
+        return Ok(new
+        {
+            ok = true,
+            olderThanHours,
+            max,
+            cutoffUtc,
+            count = rooms.Count,
+            rooms = rooms.Select(r => new { r.RoomId, r.Name, r.CreatedAtUtc }).ToArray()
+        });
+    }
+
     [Authorize(Policy = "AdminOnly")]
     [HttpPost("/admin/rooms/cleanup")]
     public async Task<IActionResult> CleanupRooms([FromQuery] int olderThanHours = 24, [FromQuery] int max = 200, CancellationToken ct = default)

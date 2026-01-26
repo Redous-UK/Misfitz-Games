@@ -141,4 +141,33 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
         return ids.Length;
     }
 
+    public async Task<IReadOnlyList<RoomDto>> ListRoomsOlderThanAsync(DateTimeOffset cutoffUtc, int max = 200, CancellationToken ct = default)
+    {
+        var db = await DbAsync().ConfigureAwait(false);
+
+        var cutoffScore = cutoffUtc.ToUnixTimeSeconds();
+
+        var ids = await db.SortedSetRangeByScoreAsync(
+            RoomsIndexKey,
+            start: double.NegativeInfinity,
+            stop: cutoffScore,
+            exclude: Exclude.None,
+            order: Order.Ascending,
+            skip: 0,
+            take: max
+        ).ConfigureAwait(false);
+
+        if (ids.Length == 0) return Array.Empty<RoomDto>();
+
+        var results = new List<RoomDto>(ids.Length);
+        foreach (var idVal in ids)
+        {
+            if (!Guid.TryParse(idVal.ToString(), out var id)) continue;
+            var room = await GetRoomAsync(id, ct).ConfigureAwait(false);
+            if (room is not null) results.Add(room);
+        }
+
+        return results;
+    }
+
 }
