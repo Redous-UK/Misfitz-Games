@@ -223,6 +223,30 @@
                 }
             };
 
+            el("btnPreviewCleanup").onclick = async () => {
+                try {
+                    const olderThanHours = parseInt(el("cleanupHours").value || "24", 10);
+                    const max = parseInt(el("cleanupMax").value || "200", 10);
+
+                    const resp = await api(`/admin/rooms/cleanup/preview?olderThanHours=${olderThanHours}&max=${max}`);
+                    el("roomsOut").textContent = pretty(resp);
+                } catch (e) {
+                    el("roomsOut").textContent = String(e);
+                }
+            };
+
+            el("btnCleanupRooms").onclick = async () => {
+                try {
+                    const olderThanHours = parseInt(el("cleanupHours").value || "24", 10);
+                    const max = parseInt(el("cleanupMax").value || "200", 10);
+
+                    const resp = await api(`/admin/rooms/cleanup?olderThanHours=${olderThanHours}&max=${max}`, { method: "POST" });
+                    el("roomsOut").textContent = pretty(resp);
+                } catch (e) {
+                    el("roomsOut").textContent = String(e);
+                }
+            };
+
             // State
             el("btnGetState").onclick = async () => {
                 try {
