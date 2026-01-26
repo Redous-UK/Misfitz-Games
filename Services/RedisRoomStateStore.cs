@@ -102,4 +102,43 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
         return removed;
     }
 
+    public async Task<int> DeleteRoomsOlderThanAsync(DateTimeOffset cutoffUtc, int maxToDelete = 200, CancellationToken ct = default)
+    {
+        var db = await DbAsync().ConfigureAwait(false);
+
+        var cutoffScore = cutoffUtc.ToUnixTimeSeconds();
+
+        // Get room IDs older than cutoff (by score)
+        var ids = await db.SortedSetRangeByScoreAsync(
+            RoomsIndexKey,
+            start: double.NegativeInfinity,
+            stop: cutoffScore,
+            exclude: Exclude.None,
+            order: Order.Ascending,
+            skip: 0,
+            take: maxToDelete
+        ).ConfigureAwait(false);
+
+        if (ids.Length == 0) return 0;
+
+        // Build delete batch
+        var keysToDelete = new List<RedisKey>(ids.Length * 2);
+        foreach (var idVal in ids)
+        {
+            if (!Guid.TryParse(idVal.ToString(), out var id)) continue;
+
+            // remove from index
+            await db.SortedSetRemoveAsync(RoomsIndexKey, id.ToString("D")).ConfigureAwait(false);
+
+            // delete meta/state
+            keysToDelete.Add(RoomKey(id));
+            keysToDelete.Add(StateKey(id));
+        }
+
+        if (keysToDelete.Count > 0)
+            await db.KeyDeleteAsync(keysToDelete.ToArray()).ConfigureAwait(false);
+
+        return ids.Length;
+    }
+
 }
