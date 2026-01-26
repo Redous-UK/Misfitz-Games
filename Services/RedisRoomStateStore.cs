@@ -136,7 +136,7 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
         }
 
         if (keysToDelete.Count > 0)
-            await db.KeyDeleteAsync(keysToDelete.ToArray()).ConfigureAwait(false);
+            await db.KeyDeleteAsync([.. keysToDelete]).ConfigureAwait(false);
 
         return ids.Length;
     }
@@ -157,7 +157,7 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
             take: max
         ).ConfigureAwait(false);
 
-        if (ids.Length == 0) return Array.Empty<RoomDto>();
+        if (ids.Length == 0) return [];
 
         var results = new List<RoomDto>(ids.Length);
         foreach (var idVal in ids)
