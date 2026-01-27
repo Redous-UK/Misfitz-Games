@@ -282,11 +282,6 @@
             }
         }
 
-        async function afterActionRefresh() {
-            await refreshState();
-            await refreshLeaderboard();
-        }
-
         async function refreshStats() {
             const roomId = el("roomId").value.trim();
             if (!isRoomRef(roomId)) return;
@@ -297,6 +292,12 @@
             } catch (e) {
                 el("statsOut").textContent = String(e);
             }
+        }
+
+        async function afterActionRefresh() {
+            await refreshState();
+            await refreshLeaderboard();
+            await refreshStats();
         }
 
         // ----- Admin auth -----
