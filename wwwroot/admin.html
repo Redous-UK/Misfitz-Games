@@ -350,7 +350,7 @@
                     body: JSON.stringify({ name })
                 });
                 el("roomsOut").textContent = pretty(room);
-                el("roomId").value = room.roomId || room.RoomId;
+                el("roomId").value = room.roomCode || room.RoomCode || room.roomId || room.RoomId;
                 setButtonsEnabled();
                 await afterActionRefresh();
             } catch (e) {
