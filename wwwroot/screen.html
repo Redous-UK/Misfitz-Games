@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Misfitz Overlay</title>
+    <title>Misfitz Game Screen</title>
     <style>
         :root {
             --bg: rgba(10,16,32,0.75);
@@ -30,7 +30,7 @@
             padding: 14px 14px 12px;
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
-            width: 420px;
+            width: 820px;
         }
 
         .row {
@@ -129,15 +129,22 @@
             <div id="contextoBlock">
                 <div class="sectionTitle">RECENT GUESSES</div>
                 <ul id="guessesList"></ul>
-
-                <div class="sectionTitle">TOP SCORES</div>
-                <ul id="scoresList"></ul>
             </div>
 
             <div id="noGameBlock" class="muted hidden" style="margin-top:10px;">
                 No active game in this room.
             </div>
         </div>
+        <br />
+        <div class="card">
+            <div id="contextoLeaderboard">
+                <div class="sectionTitle">TOP SCORES</div>
+                <ul id="scoresList"></ul>
+            </div>
+        </div>
+
+
+
     </div>
 
     <script>

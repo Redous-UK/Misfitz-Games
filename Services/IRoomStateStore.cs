@@ -13,4 +13,6 @@ public interface IRoomStateStore
     Task<int> DeleteRoomsOlderThanAsync(DateTimeOffset cutoffUtc, int maxToDelete = 200, CancellationToken ct = default);
     Task<IReadOnlyList<RoomDto>> ListRoomsOlderThanAsync(DateTimeOffset cutoffUtc, int max = 200, CancellationToken ct = default);
     Task<Guid?> ResolveRoomIdAsync(string roomIdOrCode, CancellationToken ct = default);
+    Task<bool> TryReserveRoomCodeAsync(string roomCode, Guid roomId, CancellationToken ct = default);
+    Task ReleaseRoomCodeAsync(string roomCode, CancellationToken ct = default);
 }
