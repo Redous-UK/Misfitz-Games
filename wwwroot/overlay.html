@@ -1,0 +1,296 @@
+﻿<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Misfitz Overlay</title>
+    <style>
+        :root {
+            --bg: rgba(10,16,32,0.75);
+            --fg: #e6edf3;
+            --muted: rgba(230,237,243,0.75);
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            font-family: system-ui, Arial;
+            color: var(--fg);
+        }
+
+        .wrap {
+            padding: 18px;
+        }
+
+        .card {
+            background: var(--bg);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 18px;
+            padding: 14px 14px 12px;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            width: 420px;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .title {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .badge {
+            font-size: 12px;
+            padding: 5px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: var(--muted);
+        }
+
+        .pill-ok {
+            border-color: rgba(110,231,183,0.45);
+            color: rgba(110,231,183,0.95);
+        }
+
+        .pill-warn {
+            border-color: rgba(252,211,77,0.45);
+            color: rgba(252,211,77,0.95);
+        }
+
+        .muted {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .sectionTitle {
+            margin-top: 10px;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--muted);
+            letter-spacing: 0.4px;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+            margin: 8px 0 0;
+            display: grid;
+            gap: 8px;
+        }
+
+        .guess {
+            padding: 10px 10px;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.10);
+            background: rgba(0,0,0,0.18);
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .who {
+            font-weight: 700;
+        }
+
+        .what {
+            font-weight: 800;
+        }
+
+        .right {
+            text-align: right;
+        }
+
+        .small {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="card">
+            <div class="row" style="justify-content:space-between;">
+                <div class="title" id="roomTitle">Misfitz Overlay</div>
+                <div class="badge" id="statusBadge">Loading…</div>
+            </div>
+
+            <div class="muted" id="subLine"></div>
+
+            <div id="contextoBlock">
+                <div class="sectionTitle">RECENT GUESSES</div>
+                <ul id="guessesList"></ul>
+
+                <div class="sectionTitle">TOP SCORES</div>
+                <ul id="scoresList"></ul>
+            </div>
+
+            <div id="noGameBlock" class="muted hidden" style="margin-top:10px;">
+                No active game in this room.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const qs = new URLSearchParams(location.search);
+        const roomId = (qs.get("roomId") || "").trim();
+
+        const el = (id) => document.getElementById(id);
+
+        function setStatus(text, kind) {
+            const b = el("statusBadge");
+            b.textContent = text;
+            b.className = "badge " + (kind === "ok" ? "pill-ok" : kind === "warn" ? "pill-warn" : "");
+        }
+
+        function safeText(s) {
+            if (s === null || s === undefined) return "";
+            return String(s);
+        }
+
+        function renderGuesses(guesses) {
+            const ul = el("guessesList");
+            ul.innerHTML = "";
+
+            const arr = Array.isArray(guesses) ? guesses : [];
+            // show newest first (if yours is already newest-first, remove reverse)
+            const newestFirst = arr.slice().reverse().slice(0, 8);
+
+            if (newestFirst.length === 0) {
+                ul.innerHTML = `<li class="muted">No guesses yet…</li>`;
+                return;
+            }
+
+            for (const g of newestFirst) {
+                const user = safeText(g.username ?? g.Username ?? "Unknown");
+                const guess = safeText(g.guess ?? g.Guess ?? g.word ?? g.Word ?? "");
+                const rank = g.rank ?? g.Rank;
+                const sim = g.similarity ?? g.Similarity;
+
+                const right = (rank !== undefined && rank !== null)
+                    ? `<div class="right"><div class="small">rank</div><div class="what">${rank}</div></div>`
+                    : (sim !== undefined && sim !== null)
+                        ? `<div class="right"><div class="small">score</div><div class="what">${sim}</div></div>`
+                        : `<div class="right"><div class="small">&nbsp;</div><div class="what">&nbsp;</div></div>`;
+
+                const li = document.createElement("li");
+                li.className = "guess";
+                li.innerHTML = `
+              <div>
+                <div class="who">${user}</div>
+                <div class="small">${guess}</div>
+              </div>
+              ${right}
+            `;
+                ul.appendChild(li);
+            }
+        }
+
+        function renderScores(scoresByUserId) {
+            const ul = el("scoresList");
+            ul.innerHTML = "";
+
+            const scores = scoresByUserId && typeof scoresByUserId === "object" ? scoresByUserId : {};
+            const entries = Object.entries(scores)
+                .map(([userId, score]) => ({ userId, score }))
+                .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+                .slice(0, 5);
+
+            if (entries.length === 0) {
+                ul.innerHTML = `<li class="muted">No scores yet…</li>`;
+                return;
+            }
+
+            for (const e of entries) {
+                const li = document.createElement("li");
+                li.className = "guess";
+                li.innerHTML = `
+              <div>
+                <div class="who">${safeText(e.userId)}</div>
+                <div class="small">score</div>
+              </div>
+              <div class="right">
+                <div class="small">&nbsp;</div>
+                <div class="what">${safeText(e.score)}</div>
+              </div>
+            `;
+                ul.appendChild(li);
+            }
+        }
+
+        async function fetchJson(url) {
+            const res = await fetch(url, { credentials: "include" });
+            const txt = await res.text();
+            let json = null;
+            try { json = txt ? JSON.parse(txt) : null; } catch { json = null; }
+            if (!res.ok) throw new Error(txt || ("HTTP " + res.status));
+            return json;
+        }
+
+        let lastUpdated = "";
+
+        async function tick() {
+            if (!roomId) {
+                el("roomTitle").textContent = "Misfitz Overlay";
+                el("subLine").textContent = "Missing roomId. Use ?roomId=GUID";
+                setStatus("No roomId", "warn");
+                return;
+            }
+
+            try {
+                const state = await fetchJson(`/rooms/${encodeURIComponent(roomId)}/state`);
+
+                const roomName = state.roomName ?? state.RoomName ?? "Room";
+                const activeGame = state.activeGame ?? state.ActiveGame ?? "None";
+                const updatedAt = state.updatedAtUtc ?? state.UpdatedAtUtc ?? "";
+
+                el("roomTitle").textContent = roomName;
+                el("subLine").textContent = roomId;
+
+                // Only re-render when updatedAt changes (reduces flicker)
+                if (updatedAt && updatedAt === lastUpdated) {
+                    setStatus(String(activeGame), "ok");
+                    return;
+                }
+                lastUpdated = updatedAt;
+
+                if (!activeGame || activeGame === "None" || activeGame === 0) {
+                    el("contextoBlock").classList.add("hidden");
+                    el("noGameBlock").classList.remove("hidden");
+                    setStatus("No active game", "warn");
+                    return;
+                }
+
+                // Contexto public state should include recentGuesses + scoresByUserId
+                const gs = state.gameState ?? state.GameState ?? null;
+
+                el("noGameBlock").classList.add("hidden");
+                el("contextoBlock").classList.remove("hidden");
+
+                const endedAt = gs?.endedAtUtc ?? gs?.EndedAtUtc ?? null;
+                if (endedAt) setStatus("Contexto complete", "ok");
+                else setStatus("Contexto running", "ok");
+
+                renderGuesses(gs?.recentGuesses ?? gs?.RecentGuesses ?? []);
+                renderScores(gs?.scoresByUserId ?? gs?.ScoresByUserId ?? {});
+            } catch (e) {
+                setStatus("Offline", "warn");
+                // don’t spam the overlay with errors; keep it quiet
+            }
+        }
+
+        // Poll every 1s (stream overlays feel snappier)
+        tick();
+        setInterval(tick, 1000);
+    </script>
+</body>
+</html>
