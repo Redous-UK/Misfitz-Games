@@ -109,19 +109,30 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
     {
         var db = await DbAsync().ConfigureAwait(false);
 
+        // Load room to find its RoomCode (if it exists)
         var room = await GetRoomAsync(roomId, ct).ConfigureAwait(false);
-        if (room is not null)
-            await db.KeyDeleteAsync(RoomCodeKey(room.RoomCode)).ConfigureAwait(false);
 
-        // Remove from index + delete keys
-        var removed = await db.SortedSetRemoveAsync(RoomsIndexKey, roomId.ToString("D")).ConfigureAwait(false);
-        await db.KeyDeleteAsync(
-        [
+        // Remove from rooms index
+        var removedFromIndex = await db
+            .SortedSetRemoveAsync(RoomsIndexKey, roomId.ToString("D"))
+            .ConfigureAwait(false);
+
+        // Delete meta + state keys
+        await db.KeyDeleteAsync(new RedisKey[]
+        {
         RoomKey(roomId),
         StateKey(roomId)
-        ]).ConfigureAwait(false);
+        }).ConfigureAwait(false);
 
-        return removed;
+        // Delete room-code reverse lookup
+        if (room is not null && !string.IsNullOrWhiteSpace(room.RoomCode))
+        {
+            await db.KeyDeleteAsync(RoomCodeKey(room.RoomCode))
+                    .ConfigureAwait(false);
+        }
+
+        // Return whether it actually existed in the index
+        return removedFromIndex;
     }
 
     public async Task<int> DeleteRoomsOlderThanAsync(DateTimeOffset cutoffUtc, int maxToDelete = 200, CancellationToken ct = default)
