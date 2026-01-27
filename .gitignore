@@ -104,6 +104,7 @@ dist/
 build/
 .next/
 out/
+tiktok-connector/
 
 ############################################################
 # SQLite (if you ever use local db files)

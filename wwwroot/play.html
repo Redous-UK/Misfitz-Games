@@ -1,0 +1,499 @@
+﻿<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Misfitz Games</title>
+    <style>
+        :root {
+            --bg: #0b1020;
+            --card: #111a33;
+            --fg: #e6edf3;
+            --muted: rgba(230,237,243,0.75);
+            --line: rgba(255,255,255,0.10);
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            background: var(--bg);
+            color: var(--fg);
+            font-family: system-ui, Arial;
+        }
+
+        .wrap {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 18px;
+        }
+
+        h1 {
+            margin: 0 0 12px;
+            font-size: 24px;
+        }
+
+        .muted {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 14px;
+        }
+
+        input, button, select {
+            padding: 10px;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+            background: rgba(255,255,255,0.06);
+            color: var(--fg);
+        }
+
+        button {
+            cursor: pointer;
+        }
+
+            button:disabled {
+                opacity: .5;
+                cursor: not-allowed;
+            }
+
+        .grow {
+            flex: 1;
+            min-width: 240px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        @media (min-width: 880px) {
+            .grid {
+                grid-template-columns: 1.2fr .8fr;
+            }
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .ok {
+            border-color: rgba(110,231,183,0.45);
+            color: rgba(110,231,183,0.95);
+        }
+
+        .warn {
+            border-color: rgba(252,211,77,0.45);
+            color: rgba(252,211,77,0.95);
+        }
+
+        .bad {
+            border-color: rgba(252,165,165,0.45);
+            color: rgba(252,165,165,0.95);
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+            margin: 10px 0 0;
+            display: grid;
+            gap: 10px;
+        }
+
+        li.item {
+            border: 1px solid var(--line);
+            background: rgba(0,0,0,0.18);
+            border-radius: 14px;
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .who {
+            font-weight: 800;
+        }
+
+        .small {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .right {
+            text-align: right;
+            min-width: 90px;
+        }
+
+        .titleRow {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sectionTitle {
+            font-size: 13px;
+            font-weight: 800;
+            color: var(--muted);
+            letter-spacing: .3px;
+            margin-top: 6px;
+        }
+
+        pre {
+            background: rgba(0,0,0,0.25);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 10px;
+            overflow: auto;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="titleRow">
+            <h1>Misfitz Games</h1>
+            <span id="statusBadge" class="badge warn">Not connected</span>
+        </div>
+        <div class="muted">Join a room using an 8-digit code or a custom code like <b>MISFITZ1</b>.</div>
+
+        <div class="card" style="margin-top:12px;">
+            <div class="row">
+                <input id="roomRef" class="grow" placeholder="Room code (e.g. 48392017 or MISFITZ1)" />
+                <input id="username" placeholder="Your name" value="Viewer" />
+                <button id="btnJoin">Join</button>
+                <button id="btnLeave" disabled>Leave</button>
+            </div>
+            <div class="muted" style="margin-top:8px;">
+                Room: <span id="roomLine">—</span>
+            </div>
+        </div>
+
+        <div class="grid" style="margin-top:12px;">
+            <div class="card">
+                <div class="titleRow">
+                    <div>
+                        <div style="font-weight:900;">Contexto</div>
+                        <div class="muted">Send guesses below. They’ll appear in recent guesses.</div>
+                    </div>
+                    <span id="gameBadge" class="badge warn">No game</span>
+                </div>
+
+                <div class="row" style="margin-top:12px;">
+                    <input id="guess" class="grow" placeholder="Type a guess (e.g. apple)" />
+                    <button id="btnGuess" disabled>Send guess</button>
+                </div>
+                <div class="muted" style="margin-top:6px;">Tip: you can type plain words (no command needed).</div>
+
+                <div class="sectionTitle">RECENT GUESSES</div>
+                <ul id="recentGuesses"></ul>
+
+                <div id="debugBlock" class="hidden">
+                    <div class="sectionTitle">DEBUG STATE</div>
+                    <pre id="stateOut">{}</pre>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="titleRow">
+                    <div style="font-weight:900;">Room</div>
+                    <button id="btnRefresh" class="mini">Refresh</button>
+                </div>
+
+                <div class="sectionTitle">STATS</div>
+                <pre id="statsOut">{}</pre>
+
+                <div class="sectionTitle">LEADERBOARD</div>
+                <ul id="leaderboard"></ul>
+
+                <div class="sectionTitle">ROOM LINKS</div>
+                <div class="muted">
+                    Overlay: <a id="overlayLink" href="#" target="_blank" style="color:var(--fg);">open</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const el = (id) => document.getElementById(id);
+    const pretty = (o) => JSON.stringify(o, null, 2);
+
+    const POLL_MS = 1200;
+
+    let joinedRef = "";
+    let pollTimer = null;
+
+    function setStatus(text, kind="warn") {
+      const b = el("statusBadge");
+      b.textContent = text;
+      b.className = "badge " + (kind === "ok" ? "ok" : kind === "bad" ? "bad" : "warn");
+    }
+
+    function setGame(text, kind="warn") {
+      const b = el("gameBadge");
+      b.textContent = text;
+      b.className = "badge " + (kind === "ok" ? "ok" : kind === "bad" ? "bad" : "warn");
+    }
+
+    function normalizeRef(s) {
+      return (s || "").trim();
+    }
+
+    function isRoomRef(s) {
+      s = normalizeRef(s);
+      if (!s) return false;
+
+      // GUID
+      if (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(s))
+        return true;
+
+      // 8-digit numeric
+      if (/^\d{8}$/.test(s))
+        return true;
+
+      // custom: 4-12 A-Z0-9
+      if (/^[A-Za-z0-9]{4,12}$/.test(s))
+        return true;
+
+      return false;
+    }
+
+    async function api(path, opts = {}) {
+      const res = await fetch(path, { credentials: "include", ...opts });
+      const txt = await res.text();
+      let json;
+      try { json = txt ? JSON.parse(txt) : null; } catch { json = { raw: txt }; }
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${pretty(json)}`);
+      return json;
+    }
+
+    function renderRecentGuesses(gs) {
+      const ul = el("recentGuesses");
+      ul.innerHTML = "";
+
+      const guesses = gs?.recentGuesses ?? gs?.RecentGuesses ?? [];
+      const arr = Array.isArray(guesses) ? guesses : [];
+
+      const list = arr.slice().reverse().slice(0, 10); // newest first
+
+      if (list.length === 0) {
+        ul.innerHTML = `<li class="small">No guesses yet…</li>`;
+        return;
+      }
+
+      for (const g of list) {
+        const user = (g.username ?? g.Username ?? "Unknown").toString();
+        const guess = (g.guess ?? g.Guess ?? g.word ?? g.Word ?? "").toString();
+
+        const rank = g.rank ?? g.Rank;
+        const score = g.similarity ?? g.Similarity;
+
+        const right = (rank !== undefined && rank !== null)
+          ? `<div class="right"><div class="small">rank</div><div class="who">${rank}</div></div>`
+          : (score !== undefined && score !== null)
+            ? `<div class="right"><div class="small">score</div><div class="who">${score}</div></div>`
+            : `<div class="right"><div class="small">&nbsp;</div><div class="who">&nbsp;</div></div>`;
+
+        const li = document.createElement("li");
+        li.className = "item";
+        li.innerHTML = `
+          <div>
+            <div class="who">${escapeHtml(user)}</div>
+            <div class="small">${escapeHtml(guess)}</div>
+          </div>
+          ${right}
+        `;
+        ul.appendChild(li);
+      }
+    }
+
+    function renderLeaderboard(lb) {
+      const ul = el("leaderboard");
+      ul.innerHTML = "";
+
+      const top = lb?.top ?? lb?.Top ?? [];
+      const arr = Array.isArray(top) ? top : [];
+
+      if (arr.length === 0) {
+        ul.innerHTML = `<li class="small">No scores yet…</li>`;
+        return;
+      }
+
+      for (const row of arr.slice(0, 10)) {
+        const userId = (row.userId ?? row.UserId ?? "user").toString();
+        const score = row.score ?? row.Score ?? 0;
+
+        const li = document.createElement("li");
+        li.className = "item";
+        li.innerHTML = `
+          <div>
+            <div class="who">${escapeHtml(userId)}</div>
+            <div class="small">score</div>
+          </div>
+          <div class="right">
+            <div class="small">&nbsp;</div>
+            <div class="who">${escapeHtml(String(score))}</div>
+          </div>
+        `;
+        ul.appendChild(li);
+      }
+    }
+
+    function escapeHtml(s) {
+      return (s ?? "").toString()
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+    }
+
+    async function refreshAll() {
+      if (!joinedRef) return;
+
+      try {
+        // state
+        const state = await api(`/rooms/${encodeURIComponent(joinedRef)}/state`);
+        // el("stateOut").textContent = pretty(state); // enable if you want debug
+
+        const roomName = state.roomName ?? state.RoomName ?? "Room";
+        const activeGame = state.activeGame ?? state.ActiveGame ?? "None";
+        const gs = state.gameState ?? state.GameState ?? null;
+
+        el("roomLine").textContent = `${roomName} (${joinedRef})`;
+
+        if (!activeGame || activeGame === "None" || activeGame === 0) {
+          setGame("No game", "warn");
+          renderRecentGuesses(null);
+        } else {
+          const endedAt = gs?.endedAtUtc ?? gs?.EndedAtUtc;
+          if (endedAt) setGame("Round complete", "ok");
+          else setGame(String(activeGame), "ok");
+          renderRecentGuesses(gs);
+        }
+
+        // leaderboard + stats in parallel
+        const [lb, stats] = await Promise.all([
+          api(`/rooms/${encodeURIComponent(joinedRef)}/leaderboard`),
+          api(`/rooms/${encodeURIComponent(joinedRef)}/stats`)
+        ]);
+
+        el("statsOut").textContent = pretty(stats);
+        renderLeaderboard(lb);
+
+        setStatus("Connected", "ok");
+      } catch (e) {
+        setStatus("Offline / Room not found", "bad");
+      }
+    }
+
+    async function join() {
+      const ref = normalizeRef(el("roomRef").value);
+      if (!isRoomRef(ref)) return alert("Enter a valid room code (8 digits) or custom code (4-12 A-Z0-9).");
+
+      joinedRef = ref.toUpperCase(); // normalize custom codes
+
+      el("btnJoin").disabled = true;
+      el("btnLeave").disabled = false;
+      el("btnGuess").disabled = false;
+
+      // overlay link
+      el("overlayLink").href = `/overlay.html?roomId=${encodeURIComponent(joinedRef)}`;
+
+      await refreshAll();
+
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(refreshAll, POLL_MS);
+    }
+
+    function leave() {
+      joinedRef = "";
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = null;
+
+      el("btnJoin").disabled = false;
+      el("btnLeave").disabled = true;
+      el("btnGuess").disabled = true;
+
+      el("roomLine").textContent = "—";
+      setStatus("Not connected", "warn");
+      setGame("No game", "warn");
+
+      el("recentGuesses").innerHTML = "";
+      el("leaderboard").innerHTML = "";
+      el("statsOut").textContent = "{}";
+    }
+
+    async function sendGuess() {
+      if (!joinedRef) return;
+
+      const username = (el("username").value || "Viewer").trim();
+      const message = (el("guess").value || "").trim();
+      if (!message) return;
+
+      const payload = {
+        roomId: joinedRef,
+        platform: "web",
+        channelId: "play",
+        userId: username.toLowerCase().replaceAll(" ", "_").slice(0, 32) || "web_user",
+        username,
+        type: "chat",
+        message,
+        tsUtc: new Date().toISOString()
+      };
+
+      try {
+        await api("/ingest/event", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        el("guess").value = "";
+        // quick refresh so it feels instant
+        await refreshAll();
+      } catch (e) {
+        alert(String(e));
+      }
+    }
+
+    // wire up
+    el("btnJoin").onclick = join;
+    el("btnLeave").onclick = leave;
+    el("btnRefresh").onclick = refreshAll;
+    el("btnGuess").onclick = sendGuess;
+
+    el("guess").addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") sendGuess();
+    });
+
+    // auto-join if ?roomId= is present
+    const qs = new URLSearchParams(location.search);
+    const qRoom = qs.get("roomId");
+    if (qRoom) {
+      el("roomRef").value = qRoom;
+      join();
+    }
+    </script>
+</body>
+</html>
