@@ -16,6 +16,8 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
     private static string RoomsIndexKey => "rooms:index";
     private static string StateKey(Guid roomId) => $"room:{roomId:D}:state";
 
+    private static string RoomCodeKey(string code) => $"roomcode:{code}";
+
     private async Task<IDatabase> DbAsync()
     {
         var mux = await muxFactory.GetAsync().ConfigureAwait(false);
@@ -27,9 +29,25 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
         var db = await DbAsync().ConfigureAwait(false);
 
         var json = JsonSerializer.Serialize(room, JsonOpts);
-        await db.StringSetAsync(RoomKey(room.RoomId), json).ConfigureAwait(false);
+        await db.StringSetAsync(RoomCodeKey(room.RoomCode), room.RoomId.ToString("D")).ConfigureAwait(false);
         await db.SortedSetAddAsync(RoomsIndexKey, room.RoomId.ToString("D"), room.CreatedAtUtc.ToUnixTimeSeconds())
                 .ConfigureAwait(false);
+    }
+
+    public async Task<Guid?> ResolveRoomIdAsync(string roomRef, CancellationToken ct = default)
+    {
+        if (Guid.TryParse(roomRef, out var guid))
+            return guid;
+
+        if (roomRef.Length == 8 && roomRef.All(char.IsDigit))
+        {
+            var db = await DbAsync().ConfigureAwait(false);
+            var val = await db.StringGetAsync(RoomCodeKey(roomRef)).ConfigureAwait(false);
+            if (!val.IsNullOrEmpty && Guid.TryParse(val.ToString(), out var resolved))
+                return resolved;
+        }
+
+        return null;
     }
 
     public async Task<IReadOnlyList<RoomDto>> ListRoomsAsync(CancellationToken ct = default)
@@ -90,6 +108,10 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
     public async Task<bool> DeleteRoomAsync(Guid roomId, CancellationToken ct = default)
     {
         var db = await DbAsync().ConfigureAwait(false);
+
+        var room = await GetRoomAsync(roomId, ct).ConfigureAwait(false);
+        if (room is not null)
+            await db.KeyDeleteAsync(RoomCodeKey(room.RoomCode)).ConfigureAwait(false);
 
         // Remove from index + delete keys
         var removed = await db.SortedSetRemoveAsync(RoomsIndexKey, roomId.ToString("D")).ConfigureAwait(false);
@@ -168,6 +190,17 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
         }
 
         return results;
+    }
+
+    public static class RoomCodeGenerator
+    {
+        private static readonly Random _rng = new();
+
+        public static string NewCode()
+        {
+            // 8 digits, leading zeros allowed
+            return _rng.Next(0, 100_000_000).ToString("D8");
+        }
     }
 
 }

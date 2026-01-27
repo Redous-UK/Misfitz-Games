@@ -33,10 +33,13 @@ public class GamesController(
         return Ok(new { ok = true });
     }
 
-    [HttpPost("/rooms/{roomId:guid}/games/contexto/next")]
-    public async Task<IActionResult> NextContextoRound(Guid roomId, CancellationToken ct)
+    [HttpPost("/rooms/{roomRef}/games/contexto/next")]
+    public async Task<IActionResult> NextContextoRound(string roomRef, CancellationToken ct)
     {
-        var state = await store.GetStateAsync(roomId, ct);
+        var roomId = await store.ResolveRoomIdAsync(roomRef, ct);
+        if (roomId is null) return NotFound(new { ok = false, error = "Room not found" });
+
+        var state = await store.GetStateAsync(roomId.Value, ct);
         if (state is null) return NotFound(new { ok = false, error = "Room state not found" });
 
         var secret = words.NextSecret();
@@ -49,15 +52,18 @@ public class GamesController(
         };
 
         await store.SaveStateAsync(next, ct);
-        await broadcaster.BroadcastStateAsync(roomId, RoomStateProjector.ToPublic(next), ct);
+        await broadcaster.BroadcastStateAsync(roomId.Value, RoomStateProjector.ToPublic(next), ct);
 
         return Ok(new { ok = true });
     }
 
-    [HttpGet("/rooms/{roomId:guid}/leaderboard")]
-    public async Task<IActionResult> Leaderboard(Guid roomId, CancellationToken ct)
+    [HttpGet("/rooms/{roomRef}/leaderboard")]
+    public async Task<IActionResult> Leaderboard(string roomRef, CancellationToken ct)
     {
-        var state = await store.GetStateAsync(roomId, ct);
+        var roomId = await store.ResolveRoomIdAsync(roomRef, ct);
+        if (roomId is null) return NotFound(new { ok = false, error = "Room not found" });
+
+        var state = await store.GetStateAsync(roomId.Value, ct);
         if (state is null) return NotFound(new { ok = false, error = "Room state not found" });
 
         if (state.ActiveGame == GameType.Contexto && state.GameState is ContextoState cs)
@@ -74,10 +80,13 @@ public class GamesController(
         return Ok(new { ok = true, roomId, game = state.ActiveGame.ToString(), top = Array.Empty<object>() });
     }
 
-    [HttpPost("/rooms/{roomId:guid}/games/stop")]
-    public async Task<IActionResult> Stop(Guid roomId, CancellationToken ct)
+    [HttpPost("/rooms/{roomRef}/games/stop")]
+    public async Task<IActionResult> Stop(string roomRef, CancellationToken ct)
     {
-        var state = await store.GetStateAsync(roomId, ct);
+        var roomId = await store.ResolveRoomIdAsync(roomRef, ct);
+        if (roomId is null) return NotFound(new { ok = false, error = "Room not found" });
+
+        var state = await store.GetStateAsync(roomId.Value, ct);
         if (state is null) return NotFound(new { ok = false, error = "Room state not found" });
 
         var next = state with
@@ -88,7 +97,7 @@ public class GamesController(
         };
 
         await store.SaveStateAsync(next, ct);
-        await broadcaster.BroadcastStateAsync(roomId, RoomStateProjector.ToPublic(next), ct);
+        await broadcaster.BroadcastStateAsync(roomId.Value, RoomStateProjector.ToPublic(next), ct);
 
         return Ok(new { ok = true });
     }

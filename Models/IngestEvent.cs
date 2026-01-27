@@ -1,7 +1,7 @@
 ﻿namespace Misfitz_Games.Models;
 
 public sealed record IngestEvent(
-    Guid RoomId,
+    string RoomId,
     string Platform,
     string ChannelId,
     string UserId,

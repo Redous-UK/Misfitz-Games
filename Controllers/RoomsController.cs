@@ -15,6 +15,7 @@ public class RoomsController(IRoomStateStore store) : ControllerBase
 
         var room = new RoomDto(
             RoomId: Guid.NewGuid(),
+            RoomCode: RoomCodeGenerator.NewCode(),
             Name: req.Name.Trim(),
             CreatedAtUtc: DateTimeOffset.UtcNow
         );
@@ -39,17 +40,23 @@ public class RoomsController(IRoomStateStore store) : ControllerBase
     public async Task<IActionResult> List(CancellationToken ct)
         => Ok(await store.ListRoomsAsync(ct));
 
-    [HttpGet("/rooms/{roomId:guid}")]
-    public async Task<IActionResult> Get(Guid roomId, CancellationToken ct)
+    [HttpGet("/rooms/{roomRef}")]
+    public async Task<IActionResult> Get(string roomRef, CancellationToken ct)
     {
-        var room = await store.GetRoomAsync(roomId, ct);
+        var roomId = await store.ResolveRoomIdAsync(roomRef, ct);
+        if (roomId is null) return NotFound(new { ok = false, error = "Room not found" });
+
+        var room = await store.GetRoomAsync(roomId.Value, ct);
         return room is null ? NotFound(new { ok = false, error = "Room not found" }) : Ok(room);
     }
 
-    [HttpGet("/rooms/{roomId:guid}/state")]
-    public async Task<IActionResult> GetState(Guid roomId, CancellationToken ct)
+    [HttpGet("/rooms/{roomRef}/state")]
+    public async Task<IActionResult> GetState(string roomRef, CancellationToken ct)
     {
-        var state = await store.GetStateAsync(roomId, ct);
+        var roomId = await store.ResolveRoomIdAsync(roomRef, ct);
+        if (roomId is null) return NotFound(new { ok = false, error = "Room not found" });
+
+        var state = await store.GetStateAsync(roomId.Value, ct);
         return state is null ? NotFound(new { ok = false, error = "State not found" }) : Ok(state);
     }
 }

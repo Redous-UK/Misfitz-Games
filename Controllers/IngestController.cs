@@ -33,7 +33,11 @@ public class IngestController(
                 return Unauthorized(new { ok = false, error = "Invalid connector key" });
         }
 
-        var state = await store.GetStateAsync(evt.RoomId, ct);
+        var resolvedRoomId = await store.ResolveRoomIdAsync(evt.RoomId, ct);
+        if (resolvedRoomId is null)
+            return NotFound(new { ok = false, error = "Room not found" });
+
+        var state = await store.GetStateAsync(resolvedRoomId.Value, ct);
         if (state is null) return NotFound(new { ok = false, error = "Room state not found" });
 
         RoomState next = state;
@@ -47,7 +51,7 @@ public class IngestController(
         if (!Equals(next, state))
             await store.SaveStateAsync(next, ct);
 
-        await broadcaster.BroadcastStateAsync(evt.RoomId, RoomStateProjector.ToPublic(next), ct);
+        await broadcaster.BroadcastStateAsync(resolvedRoomId.Value, RoomStateProjector.ToPublic(next), ct);
 
         return Ok(new { ok = true });
     }
