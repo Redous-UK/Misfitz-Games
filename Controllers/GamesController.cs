@@ -29,6 +29,7 @@ public class GamesController(
 
         await store.SaveStateAsync(next, ct);
         await broadcaster.BroadcastStateAsync(roomId, RoomStateProjector.ToPublic(next), ct);
+        await store.IncrementGamesPlayedAsync(state.RoomId, 1, ct);
 
         return Ok(new { ok = true });
     }
@@ -53,6 +54,7 @@ public class GamesController(
 
         await store.SaveStateAsync(next, ct);
         await broadcaster.BroadcastStateAsync(roomId.Value, RoomStateProjector.ToPublic(next), ct);
+        await store.IncrementGamesPlayedAsync(state.RoomId, 1, ct);
 
         return Ok(new { ok = true });
     }

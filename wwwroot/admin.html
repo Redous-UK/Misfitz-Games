@@ -117,7 +117,7 @@
     <div class="card">
         <h2>Selected room</h2>
         <div class="row">
-            <input id="roomId" class="grow" placeholder="RoomId (GUID)" />
+            <input id="roomId" class="grow" placeholder="Room code or GUID (e.g. 48392017 or MISFITZ1)" />
             <button id="btnCopyRoomId" class="mini">Copy RoomId</button>
             <button id="btnOpenOverlay" class="mini">Open Overlay</button>
 
@@ -144,6 +144,15 @@
     </div>
 
     <div class="card">
+        <h2>Room stats</h2>
+        <div class="row">
+            <button id="btnStats">Get stats</button>
+            <button id="btnResetStats" class="mini">Reset stats (admin)</button>
+        </div>
+        <pre id="statsOut">{}</pre>
+    </div>
+
+    <div class="card">
         <h2>Ingest tester</h2>
         <div class="row">
             <select id="platform">
@@ -162,312 +171,354 @@
     </div>
 
     <script>
-    const baseUrl = location.origin;
-    document.getElementById("baseUrl").textContent = baseUrl;
+        const baseUrl = location.origin;
+        document.getElementById("baseUrl").textContent = baseUrl;
 
-    const el = (id) => document.getElementById(id);
-    const pretty = (obj) => JSON.stringify(obj, null, 2);
+        const el = (id) => document.getElementById(id);
+        const pretty = (obj) => JSON.stringify(obj, null, 2);
 
-    const POLL_MS = 2000;
-    el("pollSeconds").textContent = String(POLL_MS / 1000);
+        const POLL_MS = 2000;
+        el("pollSeconds").textContent = String(POLL_MS / 1000);
 
-    async function api(path, opts = {}) {
-      const res = await fetch(baseUrl + path, { credentials: "include", ...opts });
-      const text = await res.text();
-      let json;
-      try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
-      if (!res.ok) throw new Error(`HTTP ${res.status}: ${pretty(json)}`);
-      return json;
-    }
+        async function api(path, opts = {}) {
+            const res = await fetch(baseUrl + path, { credentials: "include", ...opts });
+            const text = await res.text();
+            let json;
+            try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
+            if (!res.ok) throw new Error(`HTTP ${res.status}: ${pretty(json)}`);
+            return json;
+        }
 
-    function isGuid(s) {
-      return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(s || "");
-    }
+        function isRoomRef(s) {
+            s = (s || "").trim();
+            if (!s) return false;
 
-    function setBadge(id, text, cls) {
-      const b = el(id);
-      b.textContent = text;
-      b.className = "badge " + (cls || "warn");
-    }
+            // GUID
+            if (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(s))
+                return true;
 
-    function setButtonsEnabled() {
-      const roomId = el("roomId").value.trim();
-      const ok = isGuid(roomId);
+            // 8-digit numeric
+            if (/^\d{8}$/.test(s))
+                return true;
 
-      el("btnGetState").disabled = !ok;
-      el("btnJoinLive").disabled = !ok;
-      el("btnCopyRoomId").disabled = !ok;
-      el("btnOpenOverlay").disabled = !ok;
+            // custom: 4-12 A-Z0-9
+            if (/^[A-Za-z0-9]{4,12}$/.test(s))
+                return true;
 
-      el("btnStartContexto").disabled = !ok;
-      el("btnNextContexto").disabled = !ok;
-      el("btnStopGame").disabled = !ok;
-      el("btnLeaderboard").disabled = !ok;
+            return false;
+        }
 
-      el("btnSendIngest").disabled = !ok;
+        function setBadge(id, text, cls) {
+            const b = el(id);
+            b.textContent = text;
+            b.className = "badge " + (cls || "warn");
+        }
 
-      if (!ok) setBadge("roomBadge", "No room selected", "warn");
-    }
+        function setButtonsEnabled() {
+            const roomId = el("roomId").value.trim();
+            const ok = isRoomRef(roomId);
 
-    // Room status hint from state
-    function updateRoomBadgeFromState(state) {
-      if (!state) return;
-      const game = state.activeGame || state.ActiveGame || "None";
-      const gs = state.gameState || state.GameState || null;
+            el("btnGetState").disabled = !ok;
+            el("btnJoinLive").disabled = !ok;
+            el("btnCopyRoomId").disabled = !ok;
+            el("btnOpenOverlay").disabled = !ok;
 
-      if (!game || game === "None" || game === 0) {
-        setBadge("roomBadge", "No active game", "warn");
-        return;
-      }
+            el("btnStartContexto").disabled = !ok;
+            el("btnNextContexto").disabled = !ok;
+            el("btnStopGame").disabled = !ok;
+            el("btnLeaderboard").disabled = !ok;
 
-      // Contexto heuristics
-      if (typeof gs === "object" && gs) {
-        const isActive = gs.isActive ?? gs.IsActive;
-        const endedAt = gs.endedAtUtc ?? gs.EndedAtUtc;
-        if (endedAt) setBadge("roomBadge", `Contexto complete`, "ok");
-        else if (isActive === false) setBadge("roomBadge", `Contexto not active`, "warn");
-        else setBadge("roomBadge", `Contexto running`, "ok");
-      } else {
-        setBadge("roomBadge", `Active game: ${game}`, "ok");
-      }
-    }
+            el("btnSendIngest").disabled = !ok;
 
-    async function refreshState() {
-      const roomId = el("roomId").value.trim();
-      if (!isGuid(roomId)) return;
+            if (!ok) setBadge("roomBadge", "No room selected", "warn");
+        }
 
-      try {
-        const state = await api(`/rooms/${roomId}/state`);
-        el("stateOut").textContent = pretty(state);
-        updateRoomBadgeFromState(state);
-      } catch (e) {
-        el("stateOut").textContent = String(e);
-        setBadge("roomBadge", "State fetch failed", "bad");
-      }
-    }
+        // Room status hint from state
+        function updateRoomBadgeFromState(state) {
+            if (!state) return;
+            const game = state.activeGame || state.ActiveGame || "None";
+            const gs = state.gameState || state.GameState || null;
 
-    async function refreshLeaderboard() {
-      const roomId = el("roomId").value.trim();
-      if (!isGuid(roomId)) return;
+            if (!game || game === "None" || game === 0) {
+                setBadge("roomBadge", "No active game", "warn");
+                return;
+            }
 
-      try {
-        const lb = await api(`/rooms/${roomId}/leaderboard`);
-        el("gameOut").textContent = pretty(lb);
-      } catch (e) {
-        el("gameOut").textContent = String(e);
-      }
-    }
+            // Contexto heuristics
+            if (typeof gs === "object" && gs) {
+                const isActive = gs.isActive ?? gs.IsActive;
+                const endedAt = gs.endedAtUtc ?? gs.EndedAtUtc;
+                if (endedAt) setBadge("roomBadge", `Contexto complete`, "ok");
+                else if (isActive === false) setBadge("roomBadge", `Contexto not active`, "warn");
+                else setBadge("roomBadge", `Contexto running`, "ok");
+            } else {
+                setBadge("roomBadge", `Active game: ${game}`, "ok");
+            }
+        }
 
-    async function afterActionRefresh() {
-      await refreshState();
-      await refreshLeaderboard();
-    }
+        async function refreshState() {
+            const roomId = el("roomId").value.trim();
+            if (!isRoomRef(roomId)) return;
 
-    // ----- Admin auth -----
-    el("btnLogin").onclick = async () => {
-      try {
-        const password = el("adminPassword").value;
-        const resp = await api("/admin/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password })
-        });
-        el("authOut").textContent = pretty(resp);
-        await checkMe();
-      } catch (e) {
-        el("authOut").textContent = String(e);
-        setBadge("authBadge", "Login failed", "bad");
-      }
-    };
+            try {
+                const state = await api(`/rooms/${roomId}/state`);
+                el("stateOut").textContent = pretty(state);
+                updateRoomBadgeFromState(state);
+            } catch (e) {
+                el("stateOut").textContent = String(e);
+                setBadge("roomBadge", "State fetch failed", "bad");
+            }
+        }
 
-    el("btnLogout").onclick = async () => {
-      try {
-        const resp = await api("/admin/logout", { method: "POST" });
-        el("authOut").textContent = pretty(resp);
-        setBadge("authBadge", "Logged out", "warn");
-      } catch (e) {
-        el("authOut").textContent = String(e);
-      }
-    };
+        async function refreshLeaderboard() {
+            const roomId = el("roomId").value.trim();
+            if (!isRoomRef(roomId)) return;
 
-    async function checkMe() {
-      try {
-        const resp = await api("/admin/me");
-        el("authOut").textContent = pretty(resp);
-        setBadge("authBadge", "Admin OK", "ok");
-      } catch (e) {
-        el("authOut").textContent = String(e);
-        setBadge("authBadge", "Not admin", "warn");
-      }
-    }
+            try {
+                const lb = await api(`/rooms/${roomId}/leaderboard`);
+                el("gameOut").textContent = pretty(lb);
+            } catch (e) {
+                el("gameOut").textContent = String(e);
+            }
+        }
 
-    el("btnMe").onclick = checkMe;
+        async function afterActionRefresh() {
+            await refreshState();
+            await refreshLeaderboard();
+        }
 
-    // ----- Rooms -----
-    el("btnCreateRoom").onclick = async () => {
-      try {
-        const name = el("roomName").value.trim();
-        const room = await api("/rooms", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name })
-        });
-        el("roomsOut").textContent = pretty(room);
-        el("roomId").value = room.roomId || room.RoomId;
-        setButtonsEnabled();
-        await afterActionRefresh();
-      } catch (e) {
-        el("roomsOut").textContent = String(e);
-      }
-    };
+        async function refreshStats() {
+            const roomId = el("roomId").value.trim();
+            if (!isRoomRef(roomId)) return;
 
-    el("btnListRooms").onclick = async () => {
-      try {
-        const rooms = await api("/rooms");
-        el("roomsOut").textContent = pretty(rooms);
-      } catch (e) {
-        el("roomsOut").textContent = String(e);
-      }
-    };
+            try {
+                const stats = await api(`/rooms/${encodeURIComponent(roomId)}/stats`);
+                el("statsOut").textContent = pretty(stats);
+            } catch (e) {
+                el("statsOut").textContent = String(e);
+            }
+        }
 
-    el("btnPreviewCleanup").onclick = async () => {
-      try {
-        const olderThanHours = parseInt(el("cleanupHours").value || "24", 10);
-        const max = parseInt(el("cleanupMax").value || "200", 10);
-        const resp = await api(`/admin/rooms/cleanup/preview?olderThanHours=${olderThanHours}&max=${max}`);
-        el("roomsOut").textContent = pretty(resp);
-      } catch (e) { el("roomsOut").textContent = String(e); }
-    };
-
-    el("btnCleanupRooms").onclick = async () => {
-      try {
-        const olderThanHours = parseInt(el("cleanupHours").value || "24", 10);
-        const max = parseInt(el("cleanupMax").value || "200", 10);
-        const resp = await api(`/admin/rooms/cleanup?olderThanHours=${olderThanHours}&max=${max}`, { method: "POST" });
-        el("roomsOut").textContent = pretty(resp);
-      } catch (e) { el("roomsOut").textContent = String(e); }
-    };
-
-    // ----- Selected room helpers -----
-    el("roomId").addEventListener("input", () => setButtonsEnabled());
-
-    el("btnCopyRoomId").onclick = async () => {
-      const roomId = el("roomId").value.trim();
-      if (!isGuid(roomId)) return;
-      await navigator.clipboard.writeText(roomId);
-      setBadge("roomBadge", "Copied RoomId", "ok");
-      setTimeout(() => refreshState(), 500);
-    };
-
-    // Update this if your overlay url differs
-    el("btnOpenOverlay").onclick = () => {
-      const roomId = el("roomId").value.trim();
-      if (!isGuid(roomId)) return;
-      const url = `${baseUrl}/overlay.html?roomId=${encodeURIComponent(roomId)}`;
-      window.open(url, "_blank");
-    };
-
-    el("btnGetState").onclick = refreshState;
-
-    // ----- Contexto controls -----
-    el("btnStartContexto").onclick = async () => {
-      try {
-        const roomId = el("roomId").value.trim();
-        const secretWord = el("secretWord").value.trim();
-        const resp = await api(`/rooms/${roomId}/games/contexto/start`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ secretWord })
-        });
-        el("gameOut").textContent = pretty(resp);
-        await afterActionRefresh();
-      } catch (e) { el("gameOut").textContent = String(e); }
-    };
-
-    el("btnNextContexto").onclick = async () => {
-      try {
-        const roomId = el("roomId").value.trim();
-        const resp = await api(`/rooms/${roomId}/games/contexto/next`, { method: "POST" });
-        el("gameOut").textContent = pretty(resp);
-        await afterActionRefresh();
-      } catch (e) { el("gameOut").textContent = String(e); }
-    };
-
-    el("btnStopGame").onclick = async () => {
-      try {
-        const roomId = el("roomId").value.trim();
-        const resp = await api(`/rooms/${roomId}/games/stop`, { method: "POST" });
-        el("gameOut").textContent = pretty(resp);
-        await afterActionRefresh();
-      } catch (e) { el("gameOut").textContent = String(e); }
-    };
-
-    el("btnLeaderboard").onclick = refreshLeaderboard;
-
-    // ----- Ingest tester -----
-    el("btnSendIngest").onclick = async () => {
-      try {
-        const roomId = el("roomId").value.trim();
-        const platform = el("platform").value;
-        const userId = el("userId").value.trim();
-        const username = el("username").value.trim();
-        const message = el("message").value;
-        const key = el("connectorKey").value.trim();
-
-        const headers = { "Content-Type": "application/json" };
-        if (key) headers["X-Connector-Key"] = key;
-
-        const payload = {
-          roomId,
-          platform,
-          channelId: "admin-ui",
-          userId,
-          username,
-          type: "chat",
-          message,
-          tsUtc: new Date().toISOString()
+        // ----- Admin auth -----
+        el("btnLogin").onclick = async () => {
+            try {
+                const password = el("adminPassword").value;
+                const resp = await api("/admin/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ password })
+                });
+                el("authOut").textContent = pretty(resp);
+                await checkMe();
+            } catch (e) {
+                el("authOut").textContent = String(e);
+                setBadge("authBadge", "Login failed", "bad");
+            }
         };
 
-        const resp = await api("/ingest/event", {
-          method: "POST",
-          headers,
-          body: JSON.stringify(payload)
-        });
+        el("btnLogout").onclick = async () => {
+            try {
+                const resp = await api("/admin/logout", { method: "POST" });
+                el("authOut").textContent = pretty(resp);
+                setBadge("authBadge", "Logged out", "warn");
+            } catch (e) {
+                el("authOut").textContent = String(e);
+            }
+        };
 
-        el("ingestOut").textContent = pretty({ ok: true, response: resp, payload });
+        async function checkMe() {
+            try {
+                const resp = await api("/admin/me");
+                el("authOut").textContent = pretty(resp);
+                setBadge("authBadge", "Admin OK", "ok");
+            } catch (e) {
+                el("authOut").textContent = String(e);
+                setBadge("authBadge", "Not admin", "warn");
+            }
+        }
 
-        // UX: auto-refresh after ingest
-        await afterActionRefresh();
-      } catch (e) { el("ingestOut").textContent = String(e); }
-    };
+        el("btnMe").onclick = checkMe;
 
-    // ----- Auto refresh (polling) -----
-    let pollTimer = null;
+        // ----- Rooms -----
+        el("btnCreateRoom").onclick = async () => {
+            try {
+                const name = el("roomName").value.trim();
+                const room = await api("/rooms", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name })
+                });
+                el("roomsOut").textContent = pretty(room);
+                el("roomId").value = room.roomId || room.RoomId;
+                setButtonsEnabled();
+                await afterActionRefresh();
+            } catch (e) {
+                el("roomsOut").textContent = String(e);
+            }
+        };
 
-    el("btnJoinLive").onclick = async () => {
-      const roomId = el("roomId").value.trim();
-      if (!isGuid(roomId)) return alert("Enter a valid roomId first.");
+        el("btnListRooms").onclick = async () => {
+            try {
+                const rooms = await api("/rooms");
+                el("roomsOut").textContent = pretty(rooms);
+            } catch (e) {
+                el("roomsOut").textContent = String(e);
+            }
+        };
 
-      el("btnLeaveLive").disabled = false;
-      el("btnJoinLive").disabled = true;
+        el("btnPreviewCleanup").onclick = async () => {
+            try {
+                const olderThanHours = parseInt(el("cleanupHours").value || "24", 10);
+                const max = parseInt(el("cleanupMax").value || "200", 10);
+                const resp = await api(`/admin/rooms/cleanup/preview?olderThanHours=${olderThanHours}&max=${max}`);
+                el("roomsOut").textContent = pretty(resp);
+            } catch (e) { el("roomsOut").textContent = String(e); }
+        };
 
-      await afterActionRefresh();
+        el("btnCleanupRooms").onclick = async () => {
+            try {
+                const olderThanHours = parseInt(el("cleanupHours").value || "24", 10);
+                const max = parseInt(el("cleanupMax").value || "200", 10);
+                const resp = await api(`/admin/rooms/cleanup?olderThanHours=${olderThanHours}&max=${max}`, { method: "POST" });
+                el("roomsOut").textContent = pretty(resp);
+            } catch (e) { el("roomsOut").textContent = String(e); }
+        };
 
-      pollTimer = setInterval(async () => {
-        await refreshState();
-      }, POLL_MS);
-    };
+        // ----- Selected room helpers -----
+        el("roomId").addEventListener("input", () => setButtonsEnabled());
 
-    el("btnLeaveLive").onclick = () => {
-      if (pollTimer) clearInterval(pollTimer);
-      pollTimer = null;
-      el("btnLeaveLive").disabled = true;
-      el("btnJoinLive").disabled = false;
-    };
+        el("btnCopyRoomId").onclick = async () => {
+            const roomId = el("roomId").value.trim();
+            if (!isRoomRef(roomId)) return;
+            await navigator.clipboard.writeText(roomId);
+            setBadge("roomBadge", "Copied RoomId", "ok");
+            setTimeout(() => refreshState(), 500);
+        };
 
-    // init
-    setButtonsEnabled();
-    checkMe();
+        // Update this if your overlay url differs
+        el("btnOpenOverlay").onclick = () => {
+            const roomId = el("roomId").value.trim();
+            if (!isRoomRef(roomId)) return;
+            const url = `${baseUrl}/overlay.html?roomId=${encodeURIComponent(roomId)}`;
+            window.open(url, "_blank");
+        };
+
+        el("btnGetState").onclick = refreshState;
+
+        // ----- Contexto controls -----
+        el("btnStartContexto").onclick = async () => {
+            try {
+                const roomId = el("roomId").value.trim();
+                const secretWord = el("secretWord").value.trim();
+                const resp = await api(`/rooms/${roomId}/games/contexto/start`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ secretWord })
+                });
+                el("gameOut").textContent = pretty(resp);
+                await afterActionRefresh();
+            } catch (e) { el("gameOut").textContent = String(e); }
+        };
+
+        el("btnNextContexto").onclick = async () => {
+            try {
+                const roomId = el("roomId").value.trim();
+                const resp = await api(`/rooms/${roomId}/games/contexto/next`, { method: "POST" });
+                el("gameOut").textContent = pretty(resp);
+                await afterActionRefresh();
+            } catch (e) { el("gameOut").textContent = String(e); }
+        };
+
+        el("btnStopGame").onclick = async () => {
+            try {
+                const roomId = el("roomId").value.trim();
+                const resp = await api(`/rooms/${roomId}/games/stop`, { method: "POST" });
+                el("gameOut").textContent = pretty(resp);
+                await afterActionRefresh();
+            } catch (e) { el("gameOut").textContent = String(e); }
+        };
+
+        el("btnLeaderboard").onclick = refreshLeaderboard;
+
+        el("btnStats").onclick = refreshStats;
+
+        el("btnResetStats").onclick = async () => {
+            try {
+                const roomId = el("roomId").value.trim();
+                if (!isRoomRef(roomId)) return alert("Enter a valid room code or GUID first.");
+
+                const resp = await api(`/rooms/${encodeURIComponent(roomId)}/stats/reset`, { method: "POST" });
+                el("statsOut").textContent = pretty(resp);
+                await refreshStats();
+            } catch (e) {
+                el("statsOut").textContent = String(e);
+            }
+        };
+
+        // ----- Ingest tester -----
+        el("btnSendIngest").onclick = async () => {
+            try {
+                const roomId = el("roomId").value.trim();
+                const platform = el("platform").value;
+                const userId = el("userId").value.trim();
+                const username = el("username").value.trim();
+                const message = el("message").value;
+                const key = el("connectorKey").value.trim();
+
+                const headers = { "Content-Type": "application/json" };
+                if (key) headers["X-Connector-Key"] = key;
+
+                const payload = {
+                    roomId,
+                    platform,
+                    channelId: "admin-ui",
+                    userId,
+                    username,
+                    type: "chat",
+                    message,
+                    tsUtc: new Date().toISOString()
+                };
+
+                const resp = await api("/ingest/event", {
+                    method: "POST",
+                    headers,
+                    body: JSON.stringify(payload)
+                });
+
+                el("ingestOut").textContent = pretty({ ok: true, response: resp, payload });
+
+                // UX: auto-refresh after ingest
+                await afterActionRefresh();
+            } catch (e) { el("ingestOut").textContent = String(e); }
+        };
+
+        // ----- Auto refresh (polling) -----
+        let pollTimer = null;
+
+        el("btnJoinLive").onclick = async () => {
+            const roomId = el("roomId").value.trim();
+            if (!isGuid(roomId)) return alert("Enter a valid roomId first.");
+
+            el("btnLeaveLive").disabled = false;
+            el("btnJoinLive").disabled = true;
+
+            await afterActionRefresh();
+
+            pollTimer = setInterval(async () => {
+                await refreshState();
+            }, POLL_MS);
+        };
+
+        el("btnLeaveLive").onclick = () => {
+            if (pollTimer) clearInterval(pollTimer);
+            pollTimer = null;
+            el("btnLeaveLive").disabled = true;
+            el("btnJoinLive").disabled = false;
+        };
+
+        // init
+        setButtonsEnabled();
+        checkMe();
     </script>
 </body>
 </html>

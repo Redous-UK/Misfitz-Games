@@ -17,6 +17,7 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
     private static string RoomsIndexKey => "rooms:index";
     private static string RoomCodeKey(string code) => $"roomcode:{NormalizeCode(code)}";
     private static string LeaderboardKey(Guid roomId) => $"room:{roomId:D}:leaderboard";
+    private static string RoomStatsKey(Guid roomId) => $"room:{roomId:D}:stats";
 
     private static string NormalizeCode(string code)
         => (code ?? "").Trim().ToUpperInvariant();
@@ -191,6 +192,51 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
         return [.. entries.Select(e => (userId: e.Element.ToString(), score: e.Score))];
     }
 
+    public async Task IncrementGamesPlayedAsync(Guid roomId, long delta = 1, CancellationToken ct = default)
+    {
+        var db = await DbAsync().ConfigureAwait(false);
+
+        await db.HashIncrementAsync(RoomStatsKey(roomId), "gamesPlayed", delta).ConfigureAwait(false);
+        await db.HashSetAsync(RoomStatsKey(roomId), "lastActivityUtc", DateTimeOffset.UtcNow.ToString("O")).ConfigureAwait(false);
+    }
+
+    public async Task IncrementGuessesTotalAsync(Guid roomId, long delta = 1, CancellationToken ct = default)
+    {
+        var db = await DbAsync().ConfigureAwait(false);
+
+        await db.HashIncrementAsync(RoomStatsKey(roomId), "guessesTotal", delta).ConfigureAwait(false);
+        await db.HashSetAsync(RoomStatsKey(roomId), "lastActivityUtc", DateTimeOffset.UtcNow.ToString("O")).ConfigureAwait(false);
+    }
+
+    public async Task<RoomStatsDto> GetRoomStatsAsync(Guid roomId, CancellationToken ct = default)
+    {
+        var db = await DbAsync().ConfigureAwait(false);
+
+        var entries = await db.HashGetAllAsync(RoomStatsKey(roomId)).ConfigureAwait(false);
+
+        long gamesPlayed = 0;
+        long guessesTotal = 0;
+        DateTimeOffset? last = null;
+
+        foreach (var e in entries)
+        {
+            var name = e.Name.ToString();
+            var val = e.Value.ToString();
+
+            if (name == "gamesPlayed" && long.TryParse(val, out var gp)) gamesPlayed = gp;
+            else if (name == "guessesTotal" && long.TryParse(val, out var gt)) guessesTotal = gt;
+            else if (name == "lastActivityUtc" && DateTimeOffset.TryParse(val, out var dt)) last = dt;
+        }
+
+        return new RoomStatsDto(roomId, gamesPlayed, guessesTotal, last);
+    }
+
+    public async Task ResetRoomStatsAsync(Guid roomId, CancellationToken ct = default)
+    {
+        var db = await DbAsync().ConfigureAwait(false);
+        await db.KeyDeleteAsync(RoomStatsKey(roomId)).ConfigureAwait(false);
+    }
+
     // ----------------------------
     // Delete room
     // ----------------------------
@@ -216,6 +262,7 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
         // Release code mapping
         if (room is not null && !string.IsNullOrWhiteSpace(room.RoomCode))
             await db.KeyDeleteAsync(RoomCodeKey(room.RoomCode)).ConfigureAwait(false);
+            await db.KeyDeleteAsync(RoomStatsKey(roomId)).ConfigureAwait(false);
 
         return removedFromIndex;
     }

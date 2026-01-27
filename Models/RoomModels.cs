@@ -11,3 +11,10 @@ public sealed record RoomDto(
     DateTimeOffset CreatedAtUtc,
     string RoomCode
 );
+
+public sealed record RoomStatsDto(
+    Guid RoomId,
+    long GamesPlayed,
+    long GuessesTotal,
+    DateTimeOffset? LastActivityUtc
+);
