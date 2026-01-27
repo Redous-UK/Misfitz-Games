@@ -15,4 +15,6 @@ public interface IRoomStateStore
     Task<Guid?> ResolveRoomIdAsync(string roomIdOrCode, CancellationToken ct = default);
     Task<bool> TryReserveRoomCodeAsync(string roomCode, Guid roomId, CancellationToken ct = default);
     Task ReleaseRoomCodeAsync(string roomCode, CancellationToken ct = default);
+    Task AddToLeaderboardAsync(Guid roomId, IReadOnlyDictionary<string, int> deltaByUserId, CancellationToken ct = default);
+    Task<IReadOnlyList<(string userId, double score)>> GetLeaderboardAsync(Guid roomId, int top = 20, CancellationToken ct = default);
 }

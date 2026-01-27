@@ -16,6 +16,7 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
     private static string StateKey(Guid roomId) => $"room:{roomId:D}:state";
     private static string RoomsIndexKey => "rooms:index";
     private static string RoomCodeKey(string code) => $"roomcode:{NormalizeCode(code)}";
+    private static string LeaderboardKey(Guid roomId) => $"room:{roomId:D}:leaderboard";
 
     private static string NormalizeCode(string code)
         => (code ?? "").Trim().ToUpperInvariant();
@@ -160,6 +161,34 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
 
         var db = await DbAsync().ConfigureAwait(false);
         await db.KeyDeleteAsync(RoomCodeKey(code)).ConfigureAwait(false);
+    }
+
+    // ----------------------------
+    // Leaderboard
+    // ----------------------------
+    public async Task AddToLeaderboardAsync(Guid roomId, IReadOnlyDictionary<string, int> deltaByUserId, CancellationToken ct = default)
+    {
+        var db = await DbAsync().ConfigureAwait(false);
+
+        foreach (var kv in deltaByUserId)
+        {
+            if (string.IsNullOrWhiteSpace(kv.Key)) continue;
+            await db.SortedSetIncrementAsync(LeaderboardKey(roomId), kv.Key, kv.Value).ConfigureAwait(false);
+        }
+    }
+
+    public async Task<IReadOnlyList<(string userId, double score)>> GetLeaderboardAsync(Guid roomId, int top = 20, CancellationToken ct = default)
+    {
+        var db = await DbAsync().ConfigureAwait(false);
+
+        var entries = await db.SortedSetRangeByRankWithScoresAsync(
+            LeaderboardKey(roomId),
+            start: 0,
+            stop: top - 1,
+            order: Order.Descending
+        ).ConfigureAwait(false);
+
+        return [.. entries.Select(e => (userId: e.Element.ToString(), score: e.Score))];
     }
 
     // ----------------------------

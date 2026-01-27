@@ -9,7 +9,6 @@ namespace Misfitz_Games.Controllers;
 public class IngestController(
     IRoomStateStore store,
     RoomBroadcastService broadcaster,
-    ContextoEngine contexto,
     IConfiguration config
 ) : ControllerBase
 {
@@ -42,10 +41,18 @@ public class IngestController(
 
         RoomState next = state;
 
-        if (state.ActiveGame == GameType.Contexto && state.GameState is not null)
+        if (state.ActiveGame == GameType.Contexto
+            && state.GameState is ContextoState prev
+            && next.GameState is ContextoState cur)
         {
-            if (contexto.TryExtractGuess(evt.Message, out var guess))
-                next = contexto.ApplyGuess(state, evt.UserId, evt.Username, guess);
+            var wasEnded = prev.EndedAtUtc is not null;
+            var isEnded = cur.EndedAtUtc is not null;
+
+            if (!wasEnded && isEnded)
+            {
+                // Add the round's scores into the persistent room leaderboard
+                await store.AddToLeaderboardAsync(state.RoomId, cur.ScoresByUserId, ct);
+            }
         }
 
         if (!Equals(next, state))
