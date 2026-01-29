@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -7,6 +7,13 @@
     <RootNamespace>Misfitz_Games</RootNamespace>
     <UserSecretsId>78f07b00-a4f2-41ce-9761-dd926825731a</UserSecretsId>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="tiktok-connector\**" />
+    <Content Remove="tiktok-connector\**" />
+    <EmbeddedResource Remove="tiktok-connector\**" />
+    <None Remove="tiktok-connector\**" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.11" />
