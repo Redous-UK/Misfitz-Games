@@ -1,48 +1,24 @@
-﻿using Misfitz_Games.Models;
+﻿using System.Text.Json;
+using Misfitz_Games.Models;
 
 namespace Misfitz_Games.Services;
 
 public sealed class ContextoEngine
 {
-    // MVP parsing: accept either "!guess word" or a single word message
-    public bool TryExtractGuess(string? message, out string guess)
+    private static readonly JsonSerializerOptions JsonOpts = new()
     {
-        guess = "";
-        if (string.IsNullOrWhiteSpace(message)) return false;
-
-        var m = message.Trim();
-
-        // Command form: "!guess word"
-        if (m.StartsWith("!guess", StringComparison.OrdinalIgnoreCase))
-        {
-            var rest = m[5..].Trim(); // everything after "!guess"
-            if (string.IsNullOrWhiteSpace(rest)) return false;
-
-            guess = rest.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0].Trim();
-            return guess.Length > 0;
-        }
-
-        // Plain single-word form: "word"
-        if (!m.Contains(' '))
-        {
-            guess = m;
-            return true;
-        }
-
-        return false;
-    }
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
 
     public RoomState ApplyGuess(RoomState roomState, string userId, string username, string guess)
     {
-        if (roomState.GameState is not ContextoState s || !s.IsActive)
+        var s = GetState(roomState);
+        if (s is null || !s.IsActive)
             return roomState;
 
         var normalizedGuess = guess.Trim();
         if (normalizedGuess.Length == 0) return roomState;
 
-        // MVP scoring:
-        // - exact match wins
-        // - otherwise score 0 (we’ll replace with embeddings later)
         var isWinner = string.Equals(normalizedGuess, s.SecretWord, StringComparison.OrdinalIgnoreCase);
         var score = isWinner ? 1 : 0;
 
@@ -81,13 +57,26 @@ public sealed class ContextoEngine
         };
     }
 
-    public static ContextoState NewRound(string secretWord)
-        => new(
-            SecretWord: secretWord.Trim(),
-            IsActive: true,
-            StartedAtUtc: DateTimeOffset.UtcNow,
-            EndedAtUtc: null,
-            RecentGuesses: [],
-            ScoresByUserId: []
-        );
+    private static ContextoState? GetState(RoomState roomState)
+    {
+        if (roomState.GameState is null) return null;
+
+        // Works when state is still in-memory as the proper type
+        if (roomState.GameState is ContextoState cs) return cs;
+
+        // Works after Redis/JSON round-trip (GameState becomes JsonElement)
+        if (roomState.GameState is JsonElement je)
+        {
+            try
+            {
+                return je.Deserialize<ContextoState>(JsonOpts);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        return null;
+    }
 }
