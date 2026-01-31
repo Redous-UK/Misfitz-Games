@@ -727,28 +727,23 @@
                 const me = await api("/member/me");
                 el("authOut").textContent = pretty(me);
 
-                // Logged-in check should be isAuth, not name/isMember
-                const isLoggedIn = me?.isAuth === true || me?.ok === true;
+                const isLoggedIn = me?.isAuth === true;
 
-                // Try to find a friendly display name from claims if name is missing
-                const claimValue = (type) =>
-                    (me?.claims || []).find(c => (c.type || "").toLowerCase() === type)?.value;
+                const claim = (type) => (me?.claims || []).find(c => c.type === type)?.value;
 
+                // In your payload, this is the one that exists:
                 const displayName =
                     me?.name ||
-                    claimValue("name") ||
-                    claimValue("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name") ||
-                    claimValue("unique_name") ||
-                    claimValue("sub") ||
+                    claim("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name") ||
+                    claim("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier") ||
                     "Signed in";
 
-                el("meLabel").textContent = isLoggedIn ? `👤 ${displayName}` : "Not logged in";
+                // Optional: show role
+                const role = claim("http://schemas.microsoft.com/ws/2008/06/identity/claims/role");
 
-                // Optional: show a hint if they’re authenticated but not a “member”
-                // (depends on how you use isMember in your app)
-                if (isLoggedIn && me?.isMember === false) {
-                    el("meLabel").textContent += " (auth)";
-                }
+                el("meLabel").textContent = isLoggedIn
+                    ? `👤 ${displayName}${role ? ` (${role})` : ""}`
+                    : "Not logged in";
 
             } catch (e) {
                 el("authOut").textContent = String(e);
