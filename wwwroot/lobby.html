@@ -726,25 +726,7 @@
             try {
                 const me = await api("/member/me");
                 el("authOut").textContent = pretty(me);
-
-                const isLoggedIn = me?.isAuth === true;
-
-                const claim = (type) => (me?.claims || []).find(c => c.type === type)?.value;
-
-                // In your payload, this is the one that exists:
-                const displayName =
-                    me?.name ||
-                    claim("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name") ||
-                    claim("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier") ||
-                    "Signed in";
-
-                // Optional: show role
-                const role = claim("http://schemas.microsoft.com/ws/2008/06/identity/claims/role");
-
-                el("meLabel").textContent = isLoggedIn
-                    ? `👤 ${displayName}${role ? ` (${role})` : ""}`
-                    : "Not logged in";
-
+                el("meLabel").textContent = me.isAuth ? `👤 ${me.name} (${me.role})` : "Not logged in";
             } catch (e) {
                 el("authOut").textContent = String(e);
                 el("meLabel").textContent = "Not logged in";
@@ -800,6 +782,12 @@
         // Init
         loadGames().catch(() => { });
         el("btnMe").click();
+
+        async function requireAuth() {
+            const me = await api("/member/me");
+            if (!me.isAuth) location.href = "/user.html";
+        }
+        requireAuth().catch(() => location.href = "/user.html");
 
         // Optional: render a quick placeholder so you can see styling immediately.
         // Remove this once you're happy.

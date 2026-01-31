@@ -525,6 +525,14 @@
         syncRoomFromStorage();
         setSelectedGame("contexto");
         el("btnMe").click();
+
+        async function requireAdmin() {
+            const me = await api("/member/me");
+            if (!me.isAuth) return location.href = "/user.html";
+            if (me.role !== "admin") return location.href = "/lobby.html";
+        }
+        requireAdmin().catch(() => location.href = "/user.html");
+
     </script>
 </body>
 </html>
