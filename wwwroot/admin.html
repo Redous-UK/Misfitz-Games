@@ -420,8 +420,11 @@
         el("btnMe").onclick = async () => {
             try {
                 const me = await api("/member/me");
-                el("meLabel").textContent = me.name ? `👤 ${me.name}` : "Not logged in";
                 el("adminOut").textContent = pretty(me);
+
+                el("meLabel").textContent = me.isAuth
+                    ? `👤 ${me.name ?? "Signed in"} (${me.role ?? "user"})`
+                    : "Not logged in";
             } catch (e) {
                 el("meLabel").textContent = "Not logged in";
                 el("adminOut").textContent = String(e);

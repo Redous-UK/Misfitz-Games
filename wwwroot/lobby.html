@@ -726,7 +726,9 @@
             try {
                 const me = await api("/member/me");
                 el("authOut").textContent = pretty(me);
-                el("meLabel").textContent = me.isAuth ? `👤 ${me.name} (${me.role})` : "Not logged in";
+                el("meLabel").textContent = me.isAuth
+                    ? `👤 ${me.name ?? "Signed in"} (${me.role ?? "user"})`
+                    : "Not logged in";
             } catch (e) {
                 el("authOut").textContent = String(e);
                 el("meLabel").textContent = "Not logged in";
