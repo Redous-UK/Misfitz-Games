@@ -726,18 +726,33 @@
             try {
                 const me = await api("/member/me");
                 el("authOut").textContent = pretty(me);
-                el("meLabel").textContent = me.name ? `👤 ${me.name}` : "Not logged in";
 
-                // IMPORTANT: set userId if your API returns it.
-                // Try common fields: id, userId, memberId. Adjust if needed.
-                myUserId = me.userId ?? me.id ?? me.memberId ?? null;
+                // Logged-in check should be isAuth, not name/isMember
+                const isLoggedIn = me?.isAuth === true || me?.ok === true;
 
-                // If we already have state, re-render so YOU badge appears
-                if (currentRoomState) renderPlayers(currentRoomState, myUserId);
+                // Try to find a friendly display name from claims if name is missing
+                const claimValue = (type) =>
+                    (me?.claims || []).find(c => (c.type || "").toLowerCase() === type)?.value;
+
+                const displayName =
+                    me?.name ||
+                    claimValue("name") ||
+                    claimValue("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name") ||
+                    claimValue("unique_name") ||
+                    claimValue("sub") ||
+                    "Signed in";
+
+                el("meLabel").textContent = isLoggedIn ? `👤 ${displayName}` : "Not logged in";
+
+                // Optional: show a hint if they’re authenticated but not a “member”
+                // (depends on how you use isMember in your app)
+                if (isLoggedIn && me?.isMember === false) {
+                    el("meLabel").textContent += " (auth)";
+                }
+
             } catch (e) {
                 el("authOut").textContent = String(e);
                 el("meLabel").textContent = "Not logged in";
-                myUserId = null;
             }
         };
 
