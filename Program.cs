@@ -153,6 +153,19 @@ public static class Program
             });
         });
 
+        app.MapGet("/debug/env", (IConfiguration cfg) =>
+        {
+            var dbPath = cfg["DB_PATH"];
+            return Results.Ok(new
+            {
+                ok = true,
+                dbPath = dbPath ?? "(null)",
+                dataDirExists = Directory.Exists("/data"),
+                dataDirFiles = Directory.Exists("/data") ? Directory.GetFiles("/data") : Array.Empty<string>(),
+                cwd = Directory.GetCurrentDirectory()
+            });
+        });
+
         app.Run();
     }
 }
