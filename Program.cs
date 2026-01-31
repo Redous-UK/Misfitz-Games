@@ -66,12 +66,9 @@ public static class Program
                 o.AccessDeniedPath = "/user.html";
             });
 
-        builder.Services.AddAuthorization(options =>
-        {
-            // These policies match typical ClaimTypes.Role usage
-            options.AddPolicy("AdminOnly", p => p.RequireClaim(ClaimTypes.Role, "admin"));
-            options.AddPolicy("MemberOnly", p => p.RequireClaim(ClaimTypes.Role, "member"));
-        });
+        builder.Services.AddAuthorizationBuilder()
+            .AddPolicy("AdminOnly", p => p.RequireClaim(ClaimTypes.Role, "admin"))
+            .AddPolicy("MemberOnly", p => p.RequireClaim(ClaimTypes.Role, "member"));
 
         // Redis factory (lazy, async)
         builder.Services.AddSingleton<RedisMuxFactory>();
