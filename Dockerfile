@@ -4,7 +4,7 @@ WORKDIR /src
 
 COPY . .
 RUN dotnet restore
-dotnet publish Misfitz-Games.csproj -c Release -o /app /p:UseAppHost=false
+RUN dotnet publish Misfitz-Games.csproj -c Release -o /app /p:UseAppHost=false
 # RUN dotnet publish -c Release -o /app /p:UseAppHost=false
 
 # ---- runtime stage ----
