@@ -7,7 +7,7 @@ RUN dotnet restore
 RUN dotnet publish -c Release -o /app /p:UseAppHost=false
 
 # ---- runtime stage ----
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 
 # Install debugging tools for Render shell
