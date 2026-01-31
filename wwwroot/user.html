@@ -3,58 +3,66 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Misfitz Games – Member Login</title>
+    <title>Misfitz Games – Login</title>
     <style>
         :root {
             --bg: #070A12;
             --card: rgba(255,255,255,.06);
-            --card2: rgba(255,255,255,.10);
             --text: #EAF0FF;
-            --muted: rgba(234,240,255,.72);
+            --muted: rgba(234,240,255,.70);
             --accent: #7C3AED;
             --accent2: #06B6D4;
+            --danger: #ef4444;
+            --ok: #22c55e;
             --shadow: 0 10px 35px rgba(0,0,0,.55);
             --radius: 18px;
         }
 
         * {
-            box-sizing: border-box
+            box-sizing: border-box;
         }
 
         body {
             margin: 0;
             font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
             color: var(--text);
-            background: radial-gradient(1200px 700px at 20% 10%, rgba(124,58,237,.35), transparent 55%), radial-gradient(900px 700px at 80% 20%, rgba(6,182,212,.25), transparent 55%), var(--bg);
+            background: radial-gradient(1200px 700px at 20% 10%, rgba(124,58,237,.28), transparent 55%), radial-gradient(900px 700px at 80% 15%, rgba(6,182,212,.20), transparent 55%), var(--bg);
             min-height: 100vh;
         }
 
         .hero {
             position: relative;
-            padding: 44px 18px 28px;
+            padding: 26px 18px 18px;
             overflow: hidden;
+            border-bottom: 1px solid rgba(255,255,255,.08);
         }
 
             .hero::before {
                 content: "";
                 position: absolute;
                 inset: 0;
-                background: linear-gradient(180deg, rgba(7,10,18,.22), rgba(7,10,18,.92)), url("/assets/bg.png") center no-repeat;
-                opacity: .92;
+                background: linear-gradient(180deg, rgba(7,10,18,.18), rgba(7,10,18,.95)), url("/assets/bg.jpg") center/cover no-repeat;
+                opacity: .85;
                 transform: scale(1.03);
+                z-index: 0;
+            }
+
+            .hero .wrap {
+                position: relative;
+                z-index: 1;
             }
 
         .wrap {
-            position: relative;
             max-width: 980px;
             margin: 0 auto;
         }
 
         .topbar {
             display: flex;
+            gap: 14px;
             align-items: center;
             justify-content: space-between;
-            gap: 14px;
+            flex-wrap: wrap;
         }
 
         .brand {
@@ -64,8 +72,8 @@
         }
 
             .brand img {
-                width: 44px;
-                height: 44px;
+                width: 42px;
+                height: 42px;
                 border-radius: 12px;
                 object-fit: cover;
                 box-shadow: var(--shadow);
@@ -76,7 +84,6 @@
             .brand h1 {
                 margin: 0;
                 font-size: 18px;
-                letter-spacing: .2px;
             }
 
             .brand .tag {
@@ -98,16 +105,24 @@
             white-space: nowrap;
         }
 
-        .grid {
-            display: grid;
-            grid-template-columns: 1.2fr .8fr;
-            gap: 16px;
-            margin-top: 22px;
-            padding-bottom: 28px;
+        .content {
+            padding: 18px 18px 26px;
         }
 
-        @media(max-width:900px) {
-            .grid {
+        .grid {
+            display: grid;
+            gap: 16px;
+        }
+
+        .two {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            align-items: start;
+        }
+
+        @media(max-width:980px) {
+            .two {
                 grid-template-columns: 1fr;
             }
         }
@@ -117,19 +132,14 @@
             background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
             border-radius: var(--radius);
             box-shadow: var(--shadow);
-            padding: 18px;
+            padding: 16px;
             backdrop-filter: blur(10px);
         }
 
             .card h2 {
-                margin: 0 0 8px;
-                font-size: 18px;
-            }
-
-            .card p {
-                margin: 0 0 12px;
-                color: var(--muted);
-                line-height: 1.45;
+                margin: 0 0 10px;
+                font-size: 16px;
+                color: rgba(234,240,255,.92);
             }
 
         .row {
@@ -166,7 +176,7 @@
             font-weight: 650;
             border: none;
             transition: transform .08s ease, filter .15s ease;
-            box-shadow: 0 10px 25px rgba(124,58,237,.25);
+            box-shadow: 0 10px 25px rgba(124,58,237,.22);
         }
 
             button:hover {
@@ -177,71 +187,60 @@
                 transform: translateY(1px) scale(.99);
             }
 
+            button:disabled {
+                opacity: .55;
+                cursor: not-allowed;
+                box-shadow: none;
+            }
+
         .btn-secondary {
             background: rgba(255,255,255,.08);
-            box-shadow: none;
             border: 1px solid rgba(255,255,255,.14);
+            box-shadow: none;
             color: var(--text);
-            font-weight: 650;
         }
 
-        .btn-wide {
-            width: 100%;
-            justify-content: center;
+        .muted {
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .ok {
+            color: rgba(34,197,94,.95);
+        }
+
+        .err {
+            color: rgba(239,68,68,.95);
+        }
+
+        .check {
             display: flex;
             gap: 10px;
             align-items: center;
+            color: rgba(234,240,255,.85);
+            font-size: 13px;
+            user-select: none;
         }
 
+            .check input {
+                min-width: auto;
+                flex: 0 0 auto;
+            }
+
         pre {
-            margin-top: 12px;
+            margin: 10px 0 0;
             background: rgba(0,0,0,.45);
             border: 1px solid rgba(255,255,255,.10);
             border-radius: 14px;
             padding: 12px;
             overflow: auto;
             color: #cfe3ff;
-            max-height: 220px;
-        }
-
-        .feature {
-            display: flex;
-            gap: 12px;
-            align-items: flex-start;
-            padding: 12px;
-            border-radius: 16px;
-            background: rgba(255,255,255,.05);
-            border: 1px solid rgba(255,255,255,.10);
-            margin-top: 12px;
-        }
-
-            .feature b {
-                display: block;
-            }
-
-        .dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 999px;
-            background: linear-gradient(135deg, var(--accent), var(--accent2));
-            margin-top: 6px;
-            box-shadow: 0 0 18px rgba(124,58,237,.55);
-            flex: 0 0 auto;
-        }
-
-        .foot {
-            color: rgba(234,240,255,.5);
-            font-size: 12px;
-            margin-top: 10px;
-        }
-
-        .hint {
-            font-size: 12px;
-            color: rgba(234,240,255,.55);
-            margin-top: 8px;
+            max-height: 240px;
         }
     </style>
 </head>
+
 <body>
     <section class="hero">
         <div class="wrap">
@@ -250,47 +249,91 @@
                     <img src="/assets/logo.png" alt="Misfitz Games" />
                     <div>
                         <h1>Misfitz Games</h1>
-                        <div class="tag">Interactive games for Twitch / YouTube / TikTok / Discord</div>
+                        <div class="tag">Sign in or create an account</div>
                     </div>
                 </div>
-                <div class="pill">🔒 Member Portal</div>
-            </div>
 
-            <div class="grid">
-                <div class="card">
-                    <h2>Sign in</h2>
-                    <p>Login to access the lobby. From there you can pick a room and start a game.</p>
-
-                    <div class="row">
-                        <input id="username" placeholder="Username" />
-                        <input id="key" type="password" placeholder="Member key" />
-                    </div>
-
-                    <div class="row" style="margin-top:10px">
-                        <button id="btnLogin">Login →</button>
-                        <button id="btnMe" class="btn-secondary">Check</button>
-                        <button id="btnLogout" class="btn-secondary">Logout</button>
-                    </div>
-
-                    <div style="margin-top:10px">
-                        <button id="btnLobby" class="btn-secondary btn-wide">Continue to Lobby →</button>
-                        <div class="hint">If you’re already logged in, this takes you straight to the lobby.</div>
-                    </div>
-
-                    <pre id="out">{}</pre>
-
-                    <div class="foot">Tip: You can bookmark the lobby page once logged in.</div>
-                </div>
-
-                <div class="card">
-                    <h2>What you can do</h2>
-                    <div class="feature"><span class="dot"></span><div><b>Join a room</b><span class="muted">Use an 8-digit code or custom code.</span></div></div>
-                    <div class="feature"><span class="dot"></span><div><b>Choose a game</b><span class="muted">Contexto now — more games soon.</span></div></div>
-                    <div class="feature"><span class="dot"></span><div><b>Overlay ready</b><span class="muted">Open overlay and watch guesses update live.</span></div></div>
+                <div class="row">
+                    <span id="meLabel" class="pill">Checking…</span>
+                    <button id="btnMe" class="btn-secondary">Check login</button>
+                    <button id="btnGoLobby" class="btn-secondary">Go lobby</button>
                 </div>
             </div>
         </div>
     </section>
+
+    <div class="content">
+        <div class="wrap">
+            <div class="grid">
+
+                <div class="two">
+
+                    <!-- REGISTER -->
+                    <div class="card">
+                        <h2>Register</h2>
+                        <div class="muted">
+                            Create a new account. Username must be 3–32 characters. Password must be 6+ characters.
+                        </div>
+
+                        <div class="row" style="margin-top:12px">
+                            <input id="regName" placeholder="Username" autocomplete="username" />
+                        </div>
+                        <div class="row" style="margin-top:10px">
+                            <input id="regPass" type="password" placeholder="Password" autocomplete="new-password" />
+                        </div>
+
+                        <div class="row" style="margin-top:10px">
+                            <button id="btnRegister">Create account</button>
+                            <button id="btnRegFill" class="btn-secondary" type="button">Use above in login</button>
+                        </div>
+
+                        <pre id="regOut">{}</pre>
+                    </div>
+
+                    <!-- LOGIN -->
+                    <div class="card">
+                        <h2>Login</h2>
+                        <div class="muted">
+                            Sign in with your account. If “Remember me” is on, you’ll stay signed in.
+                        </div>
+
+                        <div class="row" style="margin-top:12px">
+                            <input id="loginName" placeholder="Username" autocomplete="username" />
+                        </div>
+                        <div class="row" style="margin-top:10px">
+                            <input id="loginPass" type="password" placeholder="Password" autocomplete="current-password" />
+                        </div>
+
+                        <div class="row" style="margin-top:10px; justify-content:space-between">
+                            <label class="check">
+                                <input id="rememberMe" type="checkbox" checked />
+                                Remember me
+                            </label>
+
+                            <div class="row">
+                                <button id="btnLogin">Login</button>
+                                <button id="btnLogout" class="btn-secondary" type="button">Logout</button>
+                            </div>
+                        </div>
+
+                        <pre id="loginOut">{}</pre>
+                    </div>
+
+                </div>
+
+                <!-- ACCOUNT STATUS -->
+                <div class="card">
+                    <h2>Account status</h2>
+                    <div class="row">
+                        <button id="btnMe2" class="btn-secondary">Refresh</button>
+                        <span class="muted">If you’re logged in, this will show your userId and role.</span>
+                    </div>
+                    <pre id="meOut">{}</pre>
+                </div>
+
+            </div>
+        </div>
+    </div>
 
     <script>
         const el = (id) => document.getElementById(id);
@@ -300,30 +343,110 @@
             const res = await fetch(path, { credentials: "include", ...opts });
             const text = await res.text();
             let json; try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
-            if (!res.ok) throw new Error(`HTTP ${res.status}: ${pretty(json)}`);
+
+            if (!res.ok) {
+                const msg = json?.error ? json.error : `HTTP ${res.status}`;
+                throw Object.assign(new Error(msg), { status: res.status, payload: json });
+            }
             return json;
         }
 
-        el("btnLobby").onclick = () => location.href = "/lobby.html";
+        function setMeLabel(me) {
+            if (me?.isAuth) {
+                el("meLabel").textContent = `👤 ${me.name ?? "Signed in"} (${me.role ?? "user"})`;
+            } else {
+                el("meLabel").textContent = "Not logged in";
+            }
+        }
 
+        async function refreshMe() {
+            try {
+                const me = await api("/member/me");
+                setMeLabel(me);
+                el("meOut").textContent = pretty(me);
+            } catch (e) {
+                el("meLabel").textContent = "Not logged in";
+                el("meOut").textContent = pretty({ ok: false, error: e.message, status: e.status, payload: e.payload });
+            }
+        }
+
+        // Register
+        el("btnRegister").onclick = async () => {
+            try {
+                const name = el("regName").value.trim();
+                const password = el("regPass").value;
+
+                const r = await api("/member/register", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name, password })
+                });
+
+                el("regOut").textContent = pretty({ ok: true, result: r, note: "Account created. Now login." });
+            } catch (e) {
+                el("regOut").textContent = pretty({ ok: false, error: e.message, status: e.status, payload: e.payload });
+            }
+        };
+
+        // Copy register fields into login
+        el("btnRegFill").onclick = () => {
+            el("loginName").value = el("regName").value.trim();
+            el("loginPass").value = el("regPass").value;
+            el("loginName").focus();
+        };
+
+        // Login
         el("btnLogin").onclick = async () => {
             try {
-                const body = { username: el("username").value.trim(), key: el("key").value };
-                const r = await api("/member/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-                el("out").textContent = pretty(r);
+                const name = el("loginName").value.trim();
+                const password = el("loginPass").value;
+                const rememberMe = el("rememberMe").checked;
+
+                const r = await api("/member/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name, password, rememberMe })
+                });
+
+                el("loginOut").textContent = pretty({ ok: true, result: r });
+
+                // Confirm session + update pill
+                await refreshMe();
+
+                // Go lobby
                 location.href = "/lobby.html";
-            } catch (e) { el("out").textContent = String(e); }
+            } catch (e) {
+                el("loginOut").textContent = pretty({ ok: false, error: e.message, status: e.status, payload: e.payload });
+            }
         };
 
-        el("btnMe").onclick = async () => {
-            try { el("out").textContent = pretty(await api("/member/me")); }
-            catch (e) { el("out").textContent = String(e); }
-        };
-
+        // Logout
         el("btnLogout").onclick = async () => {
-            try { el("out").textContent = pretty(await api("/member/logout", { method: "POST" })); }
-            catch (e) { el("out").textContent = String(e); }
+            try {
+                const r = await api("/member/logout", { method: "POST" });
+                el("loginOut").textContent = pretty({ ok: true, result: r });
+            } catch (e) {
+                el("loginOut").textContent = pretty({ ok: false, error: e.message, status: e.status, payload: e.payload });
+            }
+            await refreshMe();
         };
+
+        // Buttons
+        el("btnMe").onclick = refreshMe;
+        el("btnMe2").onclick = refreshMe;
+        el("btnGoLobby").onclick = () => location.href = "/lobby.html";
+
+        // Enter to submit on login password
+        el("loginPass").addEventListener("keydown", (ev) => {
+            if (ev.key === "Enter") el("btnLogin").click();
+        });
+        // Enter to submit on register password
+        el("regPass").addEventListener("keydown", (ev) => {
+            if (ev.key === "Enter") el("btnRegister").click();
+        });
+
+        // Init
+        refreshMe();
     </script>
 </body>
 </html>
