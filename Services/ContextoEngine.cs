@@ -7,17 +7,23 @@ public sealed class ContextoEngine
 {
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true
     };
 
     public RoomState ApplyGuess(RoomState roomState, string userId, string username, string guess)
     {
-        var s = GetState(roomState);
+        var s = GetContextoState(roomState);
+
+        // 🔎 Optional: quick debug breadcrumb (remove later)
+        // Console.WriteLine($"ApplyGuess: activeGame={roomState.ActiveGame} gameStateType={roomState.GameState?.GetType().Name} isActive={(s?.IsActive.ToString() ?? "null")}");
+
         if (s is null || !s.IsActive)
             return roomState;
 
         var normalizedGuess = guess.Trim();
-        if (normalizedGuess.Length == 0) return roomState;
+        if (normalizedGuess.Length == 0)
+            return roomState;
 
         var isWinner = string.Equals(normalizedGuess, s.SecretWord, StringComparison.OrdinalIgnoreCase);
         var score = isWinner ? 1 : 0;
@@ -57,6 +63,22 @@ public sealed class ContextoEngine
         };
     }
 
+    private static ContextoState? GetContextoState(RoomState roomState)
+    {
+        if (roomState.GameState is null) return null;
+
+        if (roomState.GameState is ContextoState cs) return cs;
+
+        if (roomState.GameState is JsonElement je)
+        {
+            try { return je.Deserialize<ContextoState>(JsonOpts); }
+            catch { return null; }
+        }
+
+        return null;
+    }
+
+    // Keep this if your controllers call ContextoEngine.NewRound(...)
     public static ContextoState NewRound(string secretWord)
     {
         var normalized = (secretWord ?? "").Trim();
@@ -71,28 +93,5 @@ public sealed class ContextoEngine
             RecentGuesses: new List<ContextoGuess>(),
             ScoresByUserId: new Dictionary<string, int>()
         );
-    }
-
-    private static ContextoState? GetState(RoomState roomState)
-    {
-        if (roomState.GameState is null) return null;
-
-        // Works when state is still in-memory as the proper type
-        if (roomState.GameState is ContextoState cs) return cs;
-
-        // Works after Redis/JSON round-trip (GameState becomes JsonElement)
-        if (roomState.GameState is JsonElement je)
-        {
-            try
-            {
-                return je.Deserialize<ContextoState>(JsonOpts);
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        return null;
     }
 }
