@@ -10,11 +10,9 @@
             --card: rgba(255,255,255,.06);
             --card2: rgba(255,255,255,.10);
             --text: #EAF0FF;
-            --muted: rgba(234,240,255,.7);
+            --muted: rgba(234,240,255,.72);
             --accent: #7C3AED;
             --accent2: #06B6D4;
-            --danger: #ef4444;
-            --ok: #22c55e;
             --shadow: 0 10px 35px rgba(0,0,0,.55);
             --radius: 18px;
         }
@@ -33,7 +31,7 @@
 
         .hero {
             position: relative;
-            padding: 44px 18px 24px;
+            padding: 44px 18px 28px;
             overflow: hidden;
         }
 
@@ -41,9 +39,8 @@
                 content: "";
                 position: absolute;
                 inset: 0;
-                background: linear-gradient(180deg, rgba(7,10,18,.25), rgba(7,10,18,.92)), url("/assets/bg.jpg") center/cover no-repeat;
-                filter: saturate(1.1);
-                opacity: .9;
+                background: linear-gradient(180deg, rgba(7,10,18,.22), rgba(7,10,18,.92)), url("/assets/bg.jpg") center/cover no-repeat;
+                opacity: .92;
                 transform: scale(1.03);
             }
 
@@ -67,11 +64,13 @@
         }
 
             .brand img {
-                width: 42px;
-                height: 42px;
+                width: 44px;
+                height: 44px;
                 border-radius: 12px;
                 object-fit: cover;
                 box-shadow: var(--shadow);
+                background: rgba(255,255,255,.06);
+                border: 1px solid rgba(255,255,255,.10);
             }
 
             .brand h1 {
@@ -96,6 +95,7 @@
             background: rgba(255,255,255,.05);
             color: var(--muted);
             font-size: 12px;
+            white-space: nowrap;
         }
 
         .grid {
@@ -103,7 +103,7 @@
             grid-template-columns: 1.2fr .8fr;
             gap: 16px;
             margin-top: 22px;
-            padding-bottom: 32px;
+            padding-bottom: 28px;
         }
 
         @media(max-width:900px) {
@@ -129,7 +129,7 @@
             .card p {
                 margin: 0 0 12px;
                 color: var(--muted);
-                line-height: 1.4;
+                line-height: 1.45;
             }
 
         .row {
@@ -170,7 +170,7 @@
         }
 
             button:hover {
-                filter: brightness(1.05);
+                filter: brightness(1.06);
             }
 
             button:active {
@@ -182,7 +182,15 @@
             box-shadow: none;
             border: 1px solid rgba(255,255,255,.14);
             color: var(--text);
-            font-weight: 600;
+            font-weight: 650;
+        }
+
+        .btn-wide {
+            width: 100%;
+            justify-content: center;
+            display: flex;
+            gap: 10px;
+            align-items: center;
         }
 
         pre {
@@ -226,6 +234,12 @@
             font-size: 12px;
             margin-top: 10px;
         }
+
+        .hint {
+            font-size: 12px;
+            color: rgba(234,240,255,.55);
+            margin-top: 8px;
+        }
     </style>
 </head>
 <body>
@@ -233,7 +247,7 @@
         <div class="wrap">
             <div class="topbar">
                 <div class="brand">
-                    <img src="/assets/logo.png" alt="Misfitz" />
+                    <img src="/assets/logo.png" alt="Misfitz Games" />
                     <div>
                         <h1>Misfitz Games</h1>
                         <div class="tag">Interactive games for Twitch / YouTube / TikTok / Discord</div>
@@ -245,7 +259,7 @@
             <div class="grid">
                 <div class="card">
                     <h2>Sign in</h2>
-                    <p>Enter your username and the member key to access the lobby and start a game in your room.</p>
+                    <p>Login to access the lobby. From there you can pick a room and start a game.</p>
 
                     <div class="row">
                         <input id="username" placeholder="Username" />
@@ -258,6 +272,11 @@
                         <button id="btnLogout" class="btn-secondary">Logout</button>
                     </div>
 
+                    <div style="margin-top:10px">
+                        <button id="btnLobby" class="btn-secondary btn-wide">Continue to Lobby →</button>
+                        <div class="hint">If you’re already logged in, this takes you straight to the lobby.</div>
+                    </div>
+
                     <pre id="out">{}</pre>
 
                     <div class="foot">Tip: You can bookmark the lobby page once logged in.</div>
@@ -266,8 +285,8 @@
                 <div class="card">
                     <h2>What you can do</h2>
                     <div class="feature"><span class="dot"></span><div><b>Join a room</b><span class="muted">Use an 8-digit code or custom code.</span></div></div>
-                    <div class="feature"><span class="dot"></span><div><b>Choose a game</b><span class="muted">Start Contexto now, more games soon.</span></div></div>
-                    <div class="feature"><span class="dot"></span><div><b>Live overlay</b><span class="muted">Open the overlay and watch guesses update.</span></div></div>
+                    <div class="feature"><span class="dot"></span><div><b>Choose a game</b><span class="muted">Contexto now — more games soon.</span></div></div>
+                    <div class="feature"><span class="dot"></span><div><b>Overlay ready</b><span class="muted">Open overlay and watch guesses update live.</span></div></div>
                 </div>
             </div>
         </div>
@@ -284,6 +303,8 @@
             if (!res.ok) throw new Error(`HTTP ${res.status}: ${pretty(json)}`);
             return json;
         }
+
+        el("btnLobby").onclick = () => location.href = "/lobby.html";
 
         el("btnLogin").onclick = async () => {
             try {
