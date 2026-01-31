@@ -340,14 +340,18 @@
         const pretty = (x) => JSON.stringify(x, null, 2);
 
         async function api(path, opts = {}) {
+            // helpful debug
+            console.log("API:", path, opts);
+
             const res = await fetch(path, { credentials: "include", ...opts });
             const text = await res.text();
             let json; try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
 
             if (!res.ok) {
-                const msg = json?.error ? json.error : `HTTP ${res.status}`;
-                throw Object.assign(new Error(msg), { status: res.status, payload: json });
+                console.error("API ERROR:", res.status, json);
+                throw Object.assign(new Error(json?.error || `HTTP ${res.status}`), { status: res.status, payload: json });
             }
+
             return json;
         }
 
@@ -362,31 +366,42 @@
         async function refreshMe() {
             try {
                 const me = await api("/member/me");
-                setMeLabel(me);
                 el("meOut").textContent = pretty(me);
+                el("meLabel").textContent = me.isAuth ? `👤 ${me.name} (${me.role})` : "Not logged in";
             } catch (e) {
-                el("meLabel").textContent = "Not logged in";
                 el("meOut").textContent = pretty({ ok: false, error: e.message, status: e.status, payload: e.payload });
+                el("meLabel").textContent = "Not logged in";
             }
         }
 
-        // Register
-        el("btnRegister").onclick = async () => {
-            try {
-                const name = el("regName").value.trim();
-                const password = el("regPass").value;
-
-                const r = await api("/member/register", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ name, password })
-                });
-
-                el("regOut").textContent = pretty({ ok: true, result: r, note: "Account created. Now login." });
-            } catch (e) {
-                el("regOut").textContent = pretty({ ok: false, error: e.message, status: e.status, payload: e.payload });
+        window.addEventListener("DOMContentLoaded", () => {
+            // HARD FAIL if IDs don’t match (so we see it immediately)
+            const mustExist = ["btnLogin", "btnRegister", "btnLogout", "btnMe", "btnMe2"];
+            const missing = mustExist.filter(id => !el(id));
+            if (missing.length) {
+                alert("user.html is missing elements: " + missing.join(", "));
+                console.error("Missing elements:", missing);
+                return;
             }
-        };
+
+
+        // Register
+            el("btnRegister").onclick = async () => {
+                try {
+                    const name = el("regName").value.trim();
+                    const password = el("regPass").value;
+
+                    const r = await api("/member/register", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ name, password })
+                    });
+
+                    el("regOut").textContent = pretty(r);
+                } catch (e) {
+                    el("regOut").textContent = pretty({ ok: false, error: e.message, status: e.status, payload: e.payload });
+                }
+            };
 
         // Copy register fields into login
         el("btnRegFill").onclick = () => {
@@ -396,40 +411,37 @@
         };
 
         // Login
-        el("btnLogin").onclick = async () => {
-            try {
-                const name = el("loginName").value.trim();
-                const password = el("loginPass").value;
-                const rememberMe = el("rememberMe").checked;
+            el("btnLogin").onclick = async () => {
+                try {
+                    const name = el("loginName").value.trim();
+                    const password = el("loginPass").value;
+                    const rememberMe = el("rememberMe").checked;
 
-                const r = await api("/member/login", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ name, password, rememberMe })
-                });
+                    const r = await api("/member/login", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ name, password, rememberMe })
+                    });
 
-                el("loginOut").textContent = pretty({ ok: true, result: r });
+                    el("loginOut").textContent = pretty(r);
+                    await refreshMe();
+                    location.href = "/lobby.html";
+                } catch (e) {
+                    el("loginOut").textContent = pretty({ ok: false, error: e.message, status: e.status, payload: e.payload });
+                }
+            };
 
-                // Confirm session + update pill
-                await refreshMe();
-
-                // Go lobby
-                location.href = "/lobby.html";
-            } catch (e) {
-                el("loginOut").textContent = pretty({ ok: false, error: e.message, status: e.status, payload: e.payload });
-            }
-        };
 
         // Logout
-        el("btnLogout").onclick = async () => {
-            try {
-                const r = await api("/member/logout", { method: "POST" });
-                el("loginOut").textContent = pretty({ ok: true, result: r });
-            } catch (e) {
-                el("loginOut").textContent = pretty({ ok: false, error: e.message, status: e.status, payload: e.payload });
-            }
-            await refreshMe();
-        };
+            el("btnLogout").onclick = async () => {
+                try {
+                    const r = await api("/member/logout", { method: "POST" });
+                    el("loginOut").textContent = pretty(r);
+                } catch (e) {
+                    el("loginOut").textContent = pretty({ ok: false, error: e.message, status: e.status, payload: e.payload });
+                }
+                await refreshMe();
+            };
 
         // Buttons
         el("btnMe").onclick = refreshMe;
