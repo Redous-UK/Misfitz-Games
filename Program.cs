@@ -1,10 +1,10 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.IdentityModel.Tokens;
+using Microsoft.EntityFrameworkCore;
+using Misfitz_Games.Data;
 using Misfitz_Games.Hubs;
 using Misfitz_Games.Services;
 using System.Security.Claims;
-using System.Text;
 
 namespace Misfitz_Games;
 
@@ -15,6 +15,7 @@ public static class Program
         var builder = WebApplication.CreateBuilder(args);
 
         builder.Services.AddControllers();
+
         builder.Services.AddSignalR(o =>
         {
             o.EnableDetailedErrors = true;
@@ -22,6 +23,8 @@ public static class Program
             o.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
         });
 
+        // CORS: if your frontend is served from the SAME origin as the API,
+        // you do NOT need AllowCredentials+CORS at all. But leaving this is fine.
         builder.Services.AddCors(options =>
         {
             options.AddPolicy("default", p =>
@@ -29,6 +32,45 @@ public static class Program
                  .AllowAnyMethod()
                  .AllowCredentials()
                  .SetIsOriginAllowed(_ => true));
+        });
+
+        // --- EF Core (SQLite) for user accounts ---
+        // Use Render disk path if you have one (recommended):
+        // set env var DB_PATH=/data/misfitz.db
+        var dbPath = builder.Configuration["DB_PATH"] ?? "Data/misfitz.db";
+        var dbDir = Path.GetDirectoryName(dbPath);
+        if (!string.IsNullOrWhiteSpace(dbDir))
+            Directory.CreateDirectory(dbDir);
+
+        builder.Services.AddDbContext<AppDbContext>(opt =>
+            opt.UseSqlite($"Data Source={dbPath}")
+        );
+
+        // --- Auth: Cookie auth (recommended for your HTML + JS pages) ---
+        builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+            .AddCookie(o =>
+            {
+                o.Cookie.Name = "misfitz_auth";
+                o.Cookie.HttpOnly = true;
+                o.SlidingExpiration = true;
+
+                // Render is HTTPS in production, force secure cookies
+                o.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+
+                // If everything is same-site (same domain), Lax is perfect.
+                // If you split frontend and API across domains, change this to None and ensure HTTPS.
+                o.Cookie.SameSite = SameSiteMode.Lax;
+
+                // Optional redirects (nice for normal browser navigation)
+                o.LoginPath = "/user.html";
+                o.AccessDeniedPath = "/user.html";
+            });
+
+        builder.Services.AddAuthorization(options =>
+        {
+            // These policies match typical ClaimTypes.Role usage
+            options.AddPolicy("AdminOnly", p => p.RequireClaim(ClaimTypes.Role, "admin"));
+            options.AddPolicy("MemberOnly", p => p.RequireClaim(ClaimTypes.Role, "member"));
         });
 
         // Redis factory (lazy, async)
@@ -40,73 +82,30 @@ public static class Program
         builder.Services.AddSingleton<RoomBroadcastService>();
         builder.Services.AddSingleton<ContextoWordProvider>();
 
-        var jwtSecret = builder.Configuration["JWT_SECRET"];
-        if (string.IsNullOrWhiteSpace(jwtSecret))
-            throw new InvalidOperationException("JWT_SECRET not set");
-        var keyBytes = Encoding.UTF8.GetBytes(jwtSecret);
-
-        builder.Services
-            .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer(options =>
-            {
-                options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
-                options.SaveToken = true;
-                options.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuer = false,
-                    ValidateAudience = false,
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
-                    ValidateLifetime = true,
-                    ClockSkew = TimeSpan.FromSeconds(30),
-                    RoleClaimType = "role",
-                };
-
-                // Read JWT from HttpOnly cookie: mf_admin
-                options.Events = new JwtBearerEvents
-                {
-                    OnMessageReceived = ctx =>
-                    {
-                        var adminToken = ctx.Request.Cookies["mf_admin"];
-                        if (!string.IsNullOrWhiteSpace(adminToken))
-                        {
-                            ctx.Token = adminToken;
-                            return Task.CompletedTask;
-                        }
-
-                        var memberToken = ctx.Request.Cookies["mf_member"];
-                        if (!string.IsNullOrWhiteSpace(memberToken))
-                            ctx.Token = memberToken;
-
-                        return Task.CompletedTask;
-                    }
-                };
-            });
-
-        builder.Services.AddAuthorizationBuilder()
-            .AddPolicy("AdminOnly", p => p.RequireClaim(ClaimTypes.Role, "admin"));
-
-        builder.Services.AddAuthorization(options =>
-        {
-            options.AddPolicy("AdminOnly", p => p.RequireClaim("role", "admin"));
-            options.AddPolicy("MemberOnly", p => p.RequireClaim("role", "member"));
-        });
-
-
         var app = builder.Build();
 
+        // Needed behind Render/proxies
         app.UseForwardedHeaders(new ForwardedHeadersOptions
         {
-            ForwardedHeaders =
-                ForwardedHeaders.XForwardedFor |
-                ForwardedHeaders.XForwardedProto
+            ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
         });
 
+        // Static files first is fine
+        app.UseStaticFiles();
+
         app.UseRouting();
+
         app.UseCors("default");
+
         app.UseAuthentication();
         app.UseAuthorization();
-        app.UseStaticFiles();
+
+        // Create/migrate DB on startup (simple and effective)
+        using (var scope = app.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.Database.Migrate();
+        }
 
         app.MapControllers();
         app.MapHub<RoomHub>("/hubs/room");
@@ -121,7 +120,6 @@ public static class Program
         app.MapGet("/debug/redis", (RedisMuxFactory factory) =>
         {
             var task = factory.Task;
-
             return Results.Ok(new
             {
                 status = task.Status.ToString(),
