@@ -11,10 +11,9 @@ using System.Security.Claims;
 namespace Misfitz_Games.Controllers;
 
 [ApiController]
-public class MemberController : ControllerBase
+public class MemberController(AppDbContext db) : ControllerBase
 {
-    private readonly AppDbContext _db;
-    public MemberController(AppDbContext db) => _db = db;
+    private readonly AppDbContext _db = db;
 
     public record RegisterReq(string Name, string Password);
     public record LoginReq(string Name, string Password);
@@ -26,7 +25,7 @@ public class MemberController : ControllerBase
         if (name.Length < 3 || name.Length > 32) return BadRequest(new { ok = false, error = "Name must be 3-32 chars." });
         if (string.IsNullOrWhiteSpace(req.Password) || req.Password.Length < 6) return BadRequest(new { ok = false, error = "Password must be 6+ chars." });
 
-        var exists = await _db.Users.AnyAsync(u => u.Username.ToLower() == name.ToLower());
+        var exists = await _db.Users.AnyAsync(u => u.Username.Equals(name, StringComparison.CurrentCultureIgnoreCase));
         if (exists) return Conflict(new { ok = false, error = "Username already exists." });
 
         var (hash, salt) = PasswordHasher.HashPassword(req.Password);
@@ -49,7 +48,7 @@ public class MemberController : ControllerBase
     public async Task<IActionResult> Login([FromBody] LoginReq req)
     {
         var name = (req.Name ?? "").Trim();
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == name.ToLower());
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Username.Equals(name, StringComparison.CurrentCultureIgnoreCase));
         if (user == null) return Unauthorized(new { ok = false, error = "Invalid credentials." });
 
         if (!PasswordHasher.Verify(req.Password ?? "", user.PasswordHash, user.PasswordSalt))
@@ -60,9 +59,9 @@ public class MemberController : ControllerBase
 
         var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim(ClaimTypes.Name, user.Username),
-            new Claim(ClaimTypes.Role, user.Role),
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Name, user.Username),
+            new(ClaimTypes.Role, user.Role),
         };
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);

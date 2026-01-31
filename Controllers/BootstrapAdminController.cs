@@ -5,18 +5,11 @@ using Misfitz_Games.Data;
 namespace Misfitz_Games.Controllers;
 
 [ApiController]
-public class BootstrapAdminController : ControllerBase
+public class BootstrapAdminController(AppDbContext db, IConfiguration cfg, IWebHostEnvironment env) : ControllerBase
 {
-    private readonly AppDbContext _db;
-    private readonly IConfiguration _cfg;
-    private readonly IWebHostEnvironment _env;
-
-    public BootstrapAdminController(AppDbContext db, IConfiguration cfg, IWebHostEnvironment env)
-    {
-        _db = db;
-        _cfg = cfg;
-        _env = env;
-    }
+    private readonly AppDbContext _db = db;
+    private readonly IConfiguration _cfg = cfg;
+    private readonly IWebHostEnvironment _env = env;
 
     // Set this in Render:
     // ADMIN_BOOTSTRAP_KEY = "some-long-random-string"
