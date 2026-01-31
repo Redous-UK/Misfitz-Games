@@ -145,6 +145,17 @@ public static class Program
             claims = ctx.User?.Claims?.Select(c => new { c.Type, c.Value }).ToArray() ?? Array.Empty<object>()
         }));
 
+        app.MapGet("/debug/db", async (AppDbContext db) =>
+        {
+            var canConnect = await db.Database.CanConnectAsync();
+            return Results.Ok(new
+            {
+                ok = true,
+                canConnect,
+                provider = db.Database.ProviderName
+            });
+        });
+
         app.Run();
     }
 }
