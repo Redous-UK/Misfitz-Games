@@ -5,7 +5,7 @@ namespace Misfitz_Games.Controllers;
 [ApiController]
 public class DebugController(IConfiguration config) : ControllerBase
 {
-    [HttpGet("/debug/env")]
+    [HttpGet("/debug/env2")]
     public IActionResult Env()
     {
         var redis = config["REDIS_URL"];
