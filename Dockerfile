@@ -4,7 +4,8 @@ WORKDIR /src
 
 COPY . .
 RUN dotnet restore
-RUN dotnet publish -c Release -o /app /p:UseAppHost=false
+dotnet publish Misfitz-Games.csproj -c Release -o /app /p:UseAppHost=false
+# RUN dotnet publish -c Release -o /app /p:UseAppHost=false
 
 # ---- runtime stage ----
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
