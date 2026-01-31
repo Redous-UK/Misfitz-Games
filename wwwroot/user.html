@@ -344,6 +344,9 @@
             console.log("API:", path, opts);
 
             const res = await fetch(path, { credentials: "include", ...opts });
+
+            console.log("FETCH RES", res.status, res.statusText);
+
             const text = await res.text();
             let json; try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
 
@@ -383,6 +386,7 @@
                 console.error("Missing elements:", missing);
                 return;
             }
+        });
 
 
         // Register
@@ -431,6 +435,7 @@
                 }
             };
 
+            console.log("btnLogin wired:", !!el("btnLogin"));
 
         // Logout
             el("btnLogout").onclick = async () => {
