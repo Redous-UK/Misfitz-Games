@@ -1,0 +1,94 @@
+﻿<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Misfitz Games – Member Login</title>
+    <style>
+        body {
+            font-family: system-ui, Arial;
+            margin: 24px;
+            max-width: 720px;
+        }
+
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 14px;
+            padding: 16px;
+            margin: 12px 0;
+        }
+
+        input, button {
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            cursor: pointer;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        pre {
+            background: #0b1020;
+            color: #e6edf3;
+            padding: 12px;
+            border-radius: 12px;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Member Login</h1>
+
+    <div class="card">
+        <div class="row">
+            <input id="username" placeholder="Username" />
+            <input id="key" type="password" placeholder="Member key" />
+            <button id="btnLogin">Login</button>
+            <button id="btnMe">Me</button>
+            <button id="btnLogout">Logout</button>
+        </div>
+        <pre id="out">{}</pre>
+    </div>
+
+    <script>
+    const el = (id) => document.getElementById(id);
+    const pretty = (x) => JSON.stringify(x, null, 2);
+
+    async function api(path, opts = {}) {
+      const res = await fetch(path, { credentials: "include", ...opts });
+      const text = await res.text();
+      let json; try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${pretty(json)}`);
+      return json;
+    }
+
+    el("btnLogin").onclick = async () => {
+      try {
+        const body = { username: el("username").value.trim(), key: el("key").value };
+        const r = await api("/member/login", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) });
+        el("out").textContent = pretty(r);
+        // go to lobby
+        location.href = "/lobby.html";
+      } catch (e) { el("out").textContent = String(e); }
+    };
+
+    el("btnMe").onclick = async () => {
+      try { el("out").textContent = pretty(await api("/member/me")); }
+      catch (e) { el("out").textContent = String(e); }
+    };
+
+    el("btnLogout").onclick = async () => {
+      try { el("out").textContent = pretty(await api("/member/logout", { method:"POST" })); }
+      catch (e) { el("out").textContent = String(e); }
+    };
+    </script>
+</body>
+</html>

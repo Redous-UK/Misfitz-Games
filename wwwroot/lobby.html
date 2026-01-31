@@ -1,0 +1,177 @@
+﻿<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Misfitz Games – Lobby</title>
+    <style>
+        body {
+            font-family: system-ui, Arial;
+            margin: 24px;
+            max-width: 900px;
+        }
+
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 14px;
+            padding: 16px;
+            margin: 12px 0;
+        }
+
+        input, select, button {
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            cursor: pointer;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        pre {
+            background: #0b1020;
+            color: #e6edf3;
+            padding: 12px;
+            border-radius: 12px;
+            overflow: auto;
+        }
+
+        .grow {
+            flex: 1;
+            min-width: 240px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Lobby</h1>
+
+    <div class="card">
+        <div class="row">
+            <button id="btnMe">Check login</button>
+            <button id="btnLogout">Logout</button>
+            <span id="meLabel"></span>
+        </div>
+        <pre id="authOut">{}</pre>
+    </div>
+
+    <div class="card">
+        <h2>Room</h2>
+        <div class="row">
+            <input id="roomCode" class="grow" placeholder="Room code (8 digits or custom)" />
+            <button id="btnGetState">Get state</button>
+            <button id="btnOpenOverlay">Open overlay</button>
+        </div>
+        <pre id="stateOut">{}</pre>
+    </div>
+
+    <div class="card">
+        <h2>Game select</h2>
+        <div class="row">
+            <select id="game"></select>
+            <input id="secretWord" class="grow" placeholder="Contexto secret word (optional; for manual start)" />
+            <button id="btnStart">Start</button>
+            <button id="btnStop">Stop</button>
+        </div>
+        <pre id="gameOut">{}</pre>
+    </div>
+
+    <script>
+    const el = (id) => document.getElementById(id);
+    const pretty = (x) => JSON.stringify(x, null, 2);
+
+    async function api(path, opts = {}) {
+      const res = await fetch(path, { credentials: "include", ...opts });
+      const text = await res.text();
+      let json; try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${pretty(json)}`);
+      return json;
+    }
+
+    async function loadGames() {
+      const g = await api("/catalog/games");
+      const sel = el("game");
+      sel.innerHTML = "";
+      for (const item of g.games) {
+        const opt = document.createElement("option");
+        opt.value = item.id;
+        opt.textContent = item.enabled ? item.name : `${item.name} (soon)`;
+        opt.disabled = !item.enabled;
+        sel.appendChild(opt);
+      }
+    }
+
+    function roomId() {
+      return el("roomCode").value.trim();
+    }
+
+    el("btnMe").onclick = async () => {
+      try {
+        const me = await api("/member/me");
+        el("authOut").textContent = pretty(me);
+        el("meLabel").textContent = me.name ? `Logged in as ${me.name}` : "";
+      } catch (e) { el("authOut").textContent = String(e); }
+    };
+
+    el("btnLogout").onclick = async () => {
+      try { el("authOut").textContent = pretty(await api("/member/logout", { method:"POST" })); location.href="/user.html"; }
+      catch (e) { el("authOut").textContent = String(e); }
+    };
+
+    el("btnGetState").onclick = async () => {
+      try { el("stateOut").textContent = pretty(await api(`/rooms/${encodeURIComponent(roomId())}/state`)); }
+      catch (e) { el("stateOut").textContent = String(e); }
+    };
+
+    el("btnOpenOverlay").onclick = () => {
+      const code = roomId();
+      if (!code) return alert("Enter a room code first.");
+      window.open(`/overlay.html?roomId=${encodeURIComponent(code)}`, "_blank");
+    };
+
+    el("btnStart").onclick = async () => {
+      try {
+        const code = roomId();
+        const game = el("game").value;
+
+        if (game === "contexto") {
+          const secretWord = el("secretWord").value.trim();
+          const path = secretWord
+            ? `/rooms/${encodeURIComponent(code)}/games/contexto/start`
+            : `/rooms/${encodeURIComponent(code)}/games/contexto/next`;
+
+          const opts = secretWord
+            ? { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ secretWord }) }
+            : { method:"POST" };
+
+          const r = await api(path, opts);
+          el("gameOut").textContent = pretty(r);
+          el("stateOut").textContent = pretty(await api(`/rooms/${encodeURIComponent(code)}/state`));
+          return;
+        }
+
+        el("gameOut").textContent = pretty({ ok:false, error:"Game not enabled yet" });
+      } catch (e) { el("gameOut").textContent = String(e); }
+    };
+
+    el("btnStop").onclick = async () => {
+      try {
+        const code = roomId();
+        const r = await api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method:"POST" });
+        el("gameOut").textContent = pretty(r);
+        el("stateOut").textContent = pretty(await api(`/rooms/${encodeURIComponent(code)}/state`));
+      } catch (e) { el("gameOut").textContent = String(e); }
+    };
+
+    // init
+    loadGames().catch(() => {});
+    el("btnMe").click();
+    </script>
+</body>
+</html>

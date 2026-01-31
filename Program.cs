@@ -67,9 +67,17 @@ public static class Program
                 {
                     OnMessageReceived = ctx =>
                     {
-                        var token = ctx.Request.Cookies["mf_admin"];
-                        if (!string.IsNullOrWhiteSpace(token))
-                            ctx.Token = token;
+                        var adminToken = ctx.Request.Cookies["mf_admin"];
+                        if (!string.IsNullOrWhiteSpace(adminToken))
+                        {
+                            ctx.Token = adminToken;
+                            return Task.CompletedTask;
+                        }
+
+                        var memberToken = ctx.Request.Cookies["mf_member"];
+                        if (!string.IsNullOrWhiteSpace(memberToken))
+                            ctx.Token = memberToken;
+
                         return Task.CompletedTask;
                     }
                 };
@@ -77,6 +85,12 @@ public static class Program
 
         builder.Services.AddAuthorizationBuilder()
             .AddPolicy("AdminOnly", p => p.RequireClaim(ClaimTypes.Role, "admin"));
+
+        builder.Services.AddAuthorization(options =>
+        {
+            options.AddPolicy("AdminOnly", p => p.RequireClaim("role", "admin"));
+            options.AddPolicy("MemberOnly", p => p.RequireClaim("role", "member"));
+        });
 
 
         var app = builder.Build();
