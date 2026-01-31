@@ -161,7 +161,7 @@ public static class Program
                 ok = true,
                 dbPath = dbPath ?? "(null)",
                 dataDirExists = Directory.Exists("/data"),
-                dataDirFiles = Directory.Exists("/data") ? Directory.GetFiles("/data") : Array.Empty<string>(),
+                dataDirFiles = Directory.Exists("/data") ? Directory.GetFiles("/data") : [],
                 cwd = Directory.GetCurrentDirectory()
             });
         });
