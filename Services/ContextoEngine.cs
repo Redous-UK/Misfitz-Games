@@ -57,6 +57,22 @@ public sealed class ContextoEngine
         };
     }
 
+    public static ContextoState NewRound(string secretWord)
+    {
+        var normalized = (secretWord ?? "").Trim();
+        if (normalized.Length == 0)
+            throw new ArgumentException("Secret word is required", nameof(secretWord));
+
+        return new ContextoState(
+            SecretWord: normalized,
+            IsActive: true,
+            StartedAtUtc: DateTimeOffset.UtcNow,
+            EndedAtUtc: null,
+            RecentGuesses: new List<ContextoGuess>(),
+            ScoresByUserId: new Dictionary<string, int>()
+        );
+    }
+
     private static ContextoState? GetState(RoomState roomState)
     {
         if (roomState.GameState is null) return null;
