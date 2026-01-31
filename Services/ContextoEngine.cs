@@ -94,4 +94,40 @@ public sealed class ContextoEngine
             ScoresByUserId: new Dictionary<string, int>()
         );
     }
+
+    public bool TryExtractGuess(string message, out string guess)
+    {
+        guess = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(message))
+            return false;
+
+        var text = message.Trim();
+
+        // Accept "!guess apple"
+        if (text.StartsWith("!guess ", StringComparison.OrdinalIgnoreCase))
+        {
+            guess = text[7..].Trim();
+            return guess.Length > 0;
+        }
+
+        // Accept single-word guesses like "apple"
+        // (TikTok connector already normalizes these, but admin UI might not)
+        if (IsSingleWord(text))
+        {
+            guess = text;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsSingleWord(string text)
+    {
+        if (text.Length < 2 || text.Length > 32)
+            return false;
+
+        // letters/numbers only (unicode safe)
+        return text.All(char.IsLetterOrDigit);
+    }
 }
