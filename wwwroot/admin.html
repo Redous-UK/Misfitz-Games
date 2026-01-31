@@ -3,523 +3,528 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Misfitz-Games Admin</title>
+    <title>Misfitz Games – Admin</title>
     <style>
+        :root {
+            --bg: #070A12;
+            --card: rgba(255,255,255,.06);
+            --text: #EAF0FF;
+            --muted: rgba(234,240,255,.70);
+            --accent: #7C3AED;
+            --accent2: #06B6D4;
+            --danger: #ef4444;
+            --ok: #22c55e;
+            --shadow: 0 10px 35px rgba(0,0,0,.55);
+            --radius: 18px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: system-ui, Arial;
-            margin: 20px;
+            margin: 0;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+            color: var(--text);
+            background: radial-gradient(1200px 700px at 20% 10%, rgba(124,58,237,.28), transparent 55%), radial-gradient(900px 700px at 80% 15%, rgba(6,182,212,.20), transparent 55%), var(--bg);
+            min-height: 100vh;
+        }
+
+        .hero {
+            position: relative;
+            padding: 26px 18px 18px;
+            overflow: hidden;
+            border-bottom: 1px solid rgba(255,255,255,.08);
+        }
+
+            .hero::before {
+                content: "";
+                position: absolute;
+                inset: 0;
+                background: linear-gradient(180deg, rgba(7,10,18,.18), rgba(7,10,18,.95)), url("/assets/bg.jpg") center/cover no-repeat;
+                opacity: .85;
+                transform: scale(1.03);
+                z-index: 0;
+            }
+
+            .hero .wrap {
+                position: relative;
+                z-index: 1;
+            }
+
+        .wrap {
+            max-width: 1240px;
+            margin: 0 auto;
+        }
+
+        .topbar {
+            display: flex;
+            gap: 14px;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+            .brand img {
+                width: 42px;
+                height: 42px;
+                border-radius: 12px;
+                object-fit: cover;
+                box-shadow: var(--shadow);
+                background: rgba(255,255,255,.06);
+                border: 1px solid rgba(255,255,255,.10);
+            }
+
+            .brand h1 {
+                margin: 0;
+                font-size: 18px;
+            }
+
+            .brand .tag {
+                font-size: 12px;
+                color: var(--muted);
+                margin-top: 2px;
+            }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border: 1px solid rgba(255,255,255,.12);
+            border-radius: 999px;
+            background: rgba(255,255,255,.05);
+            color: var(--muted);
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .content {
+            padding: 18px 18px 26px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
         }
 
         .row {
             display: flex;
-            gap: 12px;
+            gap: 10px;
             flex-wrap: wrap;
             align-items: center;
         }
 
-        .card {
-            border: 1px solid #ddd;
-            border-radius: 12px;
-            padding: 14px;
-            margin: 12px 0;
+        input, select, button {
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,.14);
+            padding: 12px 12px;
+            font-size: 14px;
+            outline: none;
         }
 
-        input, select, button, textarea {
-            padding: 10px;
-            border-radius: 10px;
-            border: 1px solid #ccc;
+        input, select {
+            background: rgba(0,0,0,.25);
+            color: var(--text);
+            min-width: 200px;
         }
 
-        button {
-            cursor: pointer;
-        }
-
-            button:disabled {
-                opacity: 0.5;
-                cursor: not-allowed;
+            input::placeholder {
+                color: rgba(234,240,255,.45);
             }
 
+        button {
+            background: linear-gradient(135deg, rgba(124,58,237,.95), rgba(6,182,212,.75));
+            color: white;
+            cursor: pointer;
+            padding: 12px 14px;
+            font-weight: 650;
+            border: none;
+            transition: transform .08s ease, filter .15s ease;
+            box-shadow: 0 10px 25px rgba(124,58,237,.22);
+        }
+
+            button:hover {
+                filter: brightness(1.06);
+            }
+
+            button:active {
+                transform: translateY(1px) scale(.99);
+            }
+
+            button:disabled {
+                opacity: .55;
+                cursor: not-allowed;
+                box-shadow: none;
+            }
+
+        .btn-secondary {
+            background: rgba(255,255,255,.08);
+            border: 1px solid rgba(255,255,255,.14);
+            box-shadow: none;
+            color: var(--text);
+        }
+
+        .btn-danger {
+            background: rgba(239,68,68,.18);
+            border: 1px solid rgba(239,68,68,.30);
+            box-shadow: none;
+            color: #ffd7d7;
+        }
+
+        .card {
+            border: 1px solid rgba(255,255,255,.12);
+            background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 16px;
+            backdrop-filter: blur(10px);
+        }
+
+            .card h2 {
+                margin: 0 0 10px;
+                font-size: 16px;
+                color: rgba(234,240,255,.92);
+            }
+
+        .two {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            align-items: start;
+        }
+
+        @media(max-width:980px) {
+            .two {
+                grid-template-columns: 1fr;
+            }
+        }
+
         pre {
-            background: #0b1020;
-            color: #e6edf3;
+            margin: 10px 0 0;
+            background: rgba(0,0,0,.45);
+            border: 1px solid rgba(255,255,255,.10);
+            border-radius: 14px;
             padding: 12px;
-            border-radius: 12px;
             overflow: auto;
+            color: #cfe3ff;
+            max-height: 320px;
         }
 
         .muted {
-            color: #666;
-            font-size: 12px;
+            color: var(--muted);
         }
 
-        .badge {
-            display: inline-block;
-            padding: 6px 10px;
+        .kbd {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 12px;
+            padding: 2px 7px;
             border-radius: 999px;
-            border: 1px solid #ddd;
-            font-size: 12px;
-        }
-
-        .ok {
-            border-color: #6ee7b7;
-        }
-
-        .warn {
-            border-color: #fcd34d;
-        }
-
-        .bad {
-            border-color: #fca5a5;
-        }
-
-        .grow {
-            flex: 1;
-            min-width: 280px;
-        }
-
-        .mini {
-            padding: 8px 10px;
-            font-size: 12px;
+            border: 1px solid rgba(255,255,255,.14);
+            background: rgba(255,255,255,.06);
+            color: rgba(234,240,255,.85);
         }
     </style>
 </head>
+
 <body>
-    <h1>Misfitz-Games Admin</h1>
-    <div class="muted">Base URL: <span id="baseUrl"></span></div>
+    <section class="hero">
+        <div class="wrap">
+            <div class="topbar">
+                <div class="brand">
+                    <img src="/assets/logo.png" alt="Misfitz Games" />
+                    <div>
+                        <h1>Misfitz Games</h1>
+                        <div class="tag">Admin • rooms • state • game controls</div>
+                    </div>
+                </div>
 
-    <div class="card">
-        <h2>Admin Login</h2>
-        <div class="row">
-            <input id="adminPassword" type="password" placeholder="Admin password" />
-            <button id="btnLogin">Login</button>
-            <button id="btnLogout">Logout</button>
-            <button id="btnMe">Check /admin/me</button>
-            <span id="authBadge" class="badge warn">Not checked</span>
+                <div class="row">
+                    <span id="meLabel" class="pill">Checking login…</span>
+                    <button id="btnMe" class="btn-secondary">Check login</button>
+                    <button id="btnLobby" class="btn-secondary">Go to Lobby</button>
+                    <button id="btnLogout" class="btn-danger">Logout</button>
+                </div>
+            </div>
         </div>
-        <pre id="authOut">{}</pre>
-    </div>
+    </section>
 
-    <div class="card">
-        <h2>Rooms</h2>
-        <div class="row">
-            <input id="roomName" class="grow" placeholder="Room name" />
-            <button id="btnCreateRoom">Create room</button>
-            <button id="btnListRooms">List rooms</button>
+    <div class="content">
+        <div class="wrap">
+            <div class="grid">
 
-            <input id="cleanupHours" placeholder="olderThanHours" value="24" style="width:140px;" />
-            <input id="cleanupMax" placeholder="max" value="200" style="width:120px;" />
-            <button id="btnPreviewCleanup" class="mini">Preview cleanup</button>
-            <button id="btnCleanupRooms" class="mini">Run cleanup</button>
+                <div class="card">
+                    <h2>Room</h2>
+                    <div class="row">
+                        <input id="roomCode" style="flex:1; min-width:260px" placeholder="Room code (8 digits or custom)" />
+                        <button id="btnGetState" class="btn-secondary">Get state</button>
+                        <button id="btnCreateRoom">Create room</button>
+                        <button id="btnOpenOverlay" class="btn-secondary">Open overlay</button>
+                    </div>
+                    <div class="muted" style="margin-top:10px; font-size:12px;">
+                        Tip: <span class="kbd">Create room</span> should call your room-create endpoint. If yours differs, update <span class="kbd">createRoom()</span>.
+                    </div>
+                    <pre id="stateOut">{}</pre>
+                </div>
+
+                <div class="two">
+
+                    <div class="card">
+                        <h2>Game selection</h2>
+                        <div class="row">
+                            <select id="gameSelect" style="flex:1; min-width:260px">
+                                <option value="contexto">Contexto</option>
+                                <option value="deal">Deal or No Deal</option>
+                            </select>
+                            <span class="pill" id="selectedGamePill">Selected: contexto</span>
+                        </div>
+
+                        <div class="row" style="margin-top:10px">
+                            <input id="secretWord" style="flex:1; min-width:260px" placeholder="Contexto secret word (optional)" />
+                        </div>
+
+                        <div class="row" style="margin-top:10px">
+                            <button id="btnStart">Start</button>
+                            <button id="btnStop" class="btn-secondary">Stop</button>
+                            <button id="btnNewGame" class="btn-secondary">New Game</button>
+                            <button id="btnLeaderboard" class="btn-secondary">Leaderboard</button>
+                        </div>
+
+                        <div class="muted" style="margin-top:10px; font-size:12px;">
+                            Start/Stop/New Game are wired like your lobby:
+                            <span class="kbd">/rooms/{id}/games/contexto/start</span>,
+                            <span class="kbd">.../next</span>,
+                            <span class="kbd">.../games/stop</span>.
+                        </div>
+
+                        <pre id="gameOut">{}</pre>
+                    </div>
+
+                    <div class="card">
+                        <h2>Admin tools</h2>
+                        <div class="row">
+                            <button id="btnPing" class="btn-secondary">Ping API</button>
+                            <button id="btnClearRoomLocal" class="btn-secondary">Clear saved roomId</button>
+                        </div>
+                        <div class="muted" style="margin-top:10px; font-size:12px;">
+                            If you store the current room in <span class="kbd">localStorage.roomId</span>, this page can keep it in sync.
+                        </div>
+                        <pre id="adminOut">{}</pre>
+                    </div>
+
+                </div>
+
+            </div>
         </div>
-        <pre id="roomsOut">{}</pre>
-    </div>
-
-    <div class="card">
-        <h2>Selected room</h2>
-        <div class="row">
-            <input id="roomId" class="grow" placeholder="Room code or GUID (e.g. 48392017 or MISFITZ1)" />
-            <button id="btnCopyRoomId" class="mini">Copy RoomId</button>
-            <button id="btnOpenOverlay" class="mini">Open Overlay</button>
-
-            <button id="btnGetState">Get state</button>
-            <button id="btnJoinLive">Start auto refresh</button>
-            <button id="btnLeaveLive" disabled>Stop auto refresh</button>
-
-            <span id="roomBadge" class="badge warn">No room selected</span>
-            <span class="muted">Auto refresh every <span id="pollSeconds">2</span>s</span>
-        </div>
-        <pre id="stateOut">{}</pre>
-    </div>
-
-    <div class="card">
-        <h2>Contexto controls</h2>
-        <div class="row">
-            <input id="secretWord" class="grow" placeholder="Secret word (manual start)" />
-            <button id="btnStartContexto">Start (manual secret)</button>
-            <button id="btnNextContexto">Next round (server secret)</button>
-            <button id="btnStopGame">Stop game</button>
-            <button id="btnLeaderboard">Leaderboard</button>
-        </div>
-        <pre id="gameOut">{}</pre>
-    </div>
-
-    <div class="card">
-        <h2>Room stats</h2>
-        <div class="row">
-            <button id="btnStats">Get stats</button>
-            <button id="btnResetStats" class="mini">Reset stats (admin)</button>
-        </div>
-        <pre id="statsOut">{}</pre>
-    </div>
-
-    <div class="card">
-        <h2>Ingest tester</h2>
-        <div class="row">
-            <select id="platform">
-                <option value="discord">discord</option>
-                <option value="twitch">twitch</option>
-                <option value="youtube">youtube</option>
-                <option value="tiktok">tiktok</option>
-            </select>
-            <input id="userId" placeholder="userId" value="u1" />
-            <input id="username" placeholder="username" value="Tester" />
-            <input id="message" class="grow" placeholder="message (e.g. apple or !guess apple)" />
-            <input id="connectorKey" placeholder="X-Connector-Key (optional)" style="min-width: 260px;" />
-            <button id="btnSendIngest">Send</button>
-        </div>
-        <pre id="ingestOut">{}</pre>
     </div>
 
     <script>
-        const baseUrl = location.origin;
-        document.getElementById("baseUrl").textContent = baseUrl;
-
         const el = (id) => document.getElementById(id);
-        const pretty = (obj) => JSON.stringify(obj, null, 2);
+        const pretty = (x) => JSON.stringify(x, null, 2);
 
-        const POLL_MS = 2000;
-        el("pollSeconds").textContent = String(POLL_MS / 1000);
+        let selectedGameId = "contexto";
 
         async function api(path, opts = {}) {
-            const res = await fetch(baseUrl + path, { credentials: "include", ...opts });
+            const res = await fetch(path, { credentials: "include", ...opts });
             const text = await res.text();
-            let json;
-            try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
+            let json; try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
             if (!res.ok) throw new Error(`HTTP ${res.status}: ${pretty(json)}`);
             return json;
         }
 
-        function isRoomRef(s) {
-            s = (s || "").trim();
-            if (!s) return false;
-
-            // GUID
-            if (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(s))
-                return true;
-
-            // 8-digit numeric
-            if (/^\d{8}$/.test(s))
-                return true;
-
-            // custom: 4-12 A-Z0-9
-            if (/^[A-Za-z0-9]{4,12}$/.test(s))
-                return true;
-
-            return false;
+        function roomId() {
+            return el("roomCode").value.trim();
         }
 
-        function setBadge(id, text, cls) {
-            const b = el(id);
-            b.textContent = text;
-            b.className = "badge " + (cls || "warn");
+        function setSelectedGame(id) {
+            selectedGameId = id;
+            el("selectedGamePill").textContent = `Selected: ${id}`;
+            el("secretWord").style.display = (id === "contexto") ? "block" : "none";
         }
 
-        function setButtonsEnabled() {
-            const roomId = el("roomId").value.trim();
-            const ok = isRoomRef(roomId);
-
-            el("btnGetState").disabled = !ok;
-            el("btnJoinLive").disabled = !ok;
-            el("btnCopyRoomId").disabled = !ok;
-            el("btnOpenOverlay").disabled = !ok;
-
-            el("btnStartContexto").disabled = !ok;
-            el("btnNextContexto").disabled = !ok;
-            el("btnStopGame").disabled = !ok;
-            el("btnLeaderboard").disabled = !ok;
-
-            el("btnSendIngest").disabled = !ok;
-
-            if (!ok) setBadge("roomBadge", "No room selected", "warn");
+        function syncRoomFromStorage() {
+            const stored = localStorage.getItem("roomId");
+            if (stored && !el("roomCode").value.trim()) el("roomCode").value = stored;
         }
 
-        // Room status hint from state
-        function updateRoomBadgeFromState(state) {
-            if (!state) return;
-            const game = state.activeGame || state.ActiveGame || "None";
-            const gs = state.gameState || state.GameState || null;
-
-            if (!game || game === "None" || game === 0) {
-                setBadge("roomBadge", "No active game", "warn");
-                return;
-            }
-
-            // Contexto heuristics
-            if (typeof gs === "object" && gs) {
-                const isActive = gs.isActive ?? gs.IsActive;
-                const endedAt = gs.endedAtUtc ?? gs.EndedAtUtc;
-                if (endedAt) setBadge("roomBadge", `Contexto complete`, "ok");
-                else if (isActive === false) setBadge("roomBadge", `Contexto not active`, "warn");
-                else setBadge("roomBadge", `Contexto running`, "ok");
-            } else {
-                setBadge("roomBadge", `Active game: ${game}`, "ok");
-            }
+        function saveRoomToStorage(code) {
+            if (code) localStorage.setItem("roomId", code);
         }
 
         async function refreshState() {
-            const roomId = el("roomId").value.trim();
-            if (!isRoomRef(roomId)) return;
-
             try {
-                const state = await api(`/rooms/${roomId}/state`);
+                const code = roomId();
+                if (!code) return;
+                const state = await api(`/rooms/${encodeURIComponent(code)}/state`);
                 el("stateOut").textContent = pretty(state);
-                updateRoomBadgeFromState(state);
+                saveRoomToStorage(code);
             } catch (e) {
                 el("stateOut").textContent = String(e);
-                setBadge("roomBadge", "State fetch failed", "bad");
             }
         }
 
         async function refreshLeaderboard() {
-            const roomId = el("roomId").value.trim();
-            if (!isRoomRef(roomId)) return;
-
             try {
-                const lb = await api(`/rooms/${roomId}/leaderboard`);
-                el("gameOut").textContent = pretty(lb);
+                const code = roomId();
+                if (!code) return;
+                el("gameOut").textContent = pretty(await api(`/rooms/${encodeURIComponent(code)}/leaderboard`));
             } catch (e) {
                 el("gameOut").textContent = String(e);
             }
         }
 
-        async function refreshStats() {
-            const roomId = el("roomId").value.trim();
-            if (!isRoomRef(roomId)) return;
-
+        // IMPORTANT: update this if your create-room endpoint differs
+        async function createRoom() {
+            // Try a couple of common options:
+            // 1) POST /rooms/create
+            // 2) POST /rooms
+            // If neither exists, tell me your actual route and I’ll patch it.
             try {
-                const stats = await api(`/rooms/${encodeURIComponent(roomId)}/stats`);
-                el("statsOut").textContent = pretty(stats);
+                let r;
+                try {
+                    r = await api("/rooms/create", { method: "POST" });
+                } catch {
+                    r = await api("/rooms", { method: "POST" });
+                }
+
+                const code = r.roomId || r.code || r.id;
+                if (!code) throw new Error("Create room worked but did not return roomId/code/id.");
+                el("roomCode").value = code;
+                saveRoomToStorage(code);
+                el("adminOut").textContent = pretty({ ok: true, createdRoom: code, raw: r });
+                await refreshState();
             } catch (e) {
-                el("statsOut").textContent = String(e);
+                el("adminOut").textContent = String(e);
             }
         }
 
-        async function afterActionRefresh() {
-            await refreshState();
-            await refreshLeaderboard();
-            await refreshStats();
-        }
-
-        // ----- Admin auth -----
-        el("btnLogin").onclick = async () => {
-            try {
-                const password = el("adminPassword").value;
-                const resp = await api("/admin/login", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ password })
-                });
-                el("authOut").textContent = pretty(resp);
-                await checkMe();
-            } catch (e) {
-                el("authOut").textContent = String(e);
-                setBadge("authBadge", "Login failed", "bad");
-            }
-        };
+        // Auth / nav
+        el("btnLobby").onclick = () => location.href = "/lobby.html";
 
         el("btnLogout").onclick = async () => {
             try {
-                const resp = await api("/admin/logout", { method: "POST" });
-                el("authOut").textContent = pretty(resp);
-                setBadge("authBadge", "Logged out", "warn");
+                el("adminOut").textContent = pretty(await api("/member/logout", { method: "POST" }));
             } catch (e) {
-                el("authOut").textContent = String(e);
+                el("adminOut").textContent = String(e);
+            }
+            location.href = "/user.html";
+        };
+
+        el("btnMe").onclick = async () => {
+            try {
+                const me = await api("/member/me");
+                el("meLabel").textContent = me.name ? `👤 ${me.name}` : "Not logged in";
+                el("adminOut").textContent = pretty(me);
+            } catch (e) {
+                el("meLabel").textContent = "Not logged in";
+                el("adminOut").textContent = String(e);
             }
         };
 
-        async function checkMe() {
-            try {
-                const resp = await api("/admin/me");
-                el("authOut").textContent = pretty(resp);
-                setBadge("authBadge", "Admin OK", "ok");
-            } catch (e) {
-                el("authOut").textContent = String(e);
-                setBadge("authBadge", "Not admin", "warn");
-            }
-        }
-
-        el("btnMe").onclick = checkMe;
-
-        // ----- Rooms -----
-        el("btnCreateRoom").onclick = async () => {
-            try {
-                const name = el("roomName").value.trim();
-                const room = await api("/rooms", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ name })
-                });
-                el("roomsOut").textContent = pretty(room);
-                el("roomId").value = room.roomCode || room.RoomCode || room.roomId || room.RoomId;
-                setButtonsEnabled();
-                await afterActionRefresh();
-            } catch (e) {
-                el("roomsOut").textContent = String(e);
-            }
-        };
-
-        el("btnListRooms").onclick = async () => {
-            try {
-                const rooms = await api("/rooms");
-                el("roomsOut").textContent = pretty(rooms);
-            } catch (e) {
-                el("roomsOut").textContent = String(e);
-            }
-        };
-
-        el("btnPreviewCleanup").onclick = async () => {
-            try {
-                const olderThanHours = parseInt(el("cleanupHours").value || "24", 10);
-                const max = parseInt(el("cleanupMax").value || "200", 10);
-                const resp = await api(`/admin/rooms/cleanup/preview?olderThanHours=${olderThanHours}&max=${max}`);
-                el("roomsOut").textContent = pretty(resp);
-            } catch (e) { el("roomsOut").textContent = String(e); }
-        };
-
-        el("btnCleanupRooms").onclick = async () => {
-            try {
-                const olderThanHours = parseInt(el("cleanupHours").value || "24", 10);
-                const max = parseInt(el("cleanupMax").value || "200", 10);
-                const resp = await api(`/admin/rooms/cleanup?olderThanHours=${olderThanHours}&max=${max}`, { method: "POST" });
-                el("roomsOut").textContent = pretty(resp);
-            } catch (e) { el("roomsOut").textContent = String(e); }
-        };
-
-        // ----- Selected room helpers -----
-        el("roomId").addEventListener("input", () => setButtonsEnabled());
-
-        el("btnCopyRoomId").onclick = async () => {
-            const roomId = el("roomId").value.trim();
-            if (!isRoomRef(roomId)) return;
-            await navigator.clipboard.writeText(roomId);
-            setBadge("roomBadge", "Copied RoomId", "ok");
-            setTimeout(() => refreshState(), 500);
-        };
-
-        // Update this if your overlay url differs
-        el("btnOpenOverlay").onclick = () => {
-            const roomId = el("roomId").value.trim();
-            if (!isRoomRef(roomId)) return;
-            const url = `${baseUrl}/overlay.html?roomId=${encodeURIComponent(roomId)}`;
-            window.open(url, "_blank");
-        };
-
+        // Room actions
         el("btnGetState").onclick = refreshState;
+        el("btnCreateRoom").onclick = createRoom;
 
-        // ----- Contexto controls -----
-        el("btnStartContexto").onclick = async () => {
-            try {
-                const roomId = el("roomId").value.trim();
-                const secretWord = el("secretWord").value.trim();
-                const resp = await api(`/rooms/${roomId}/games/contexto/start`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ secretWord })
-                });
-                el("gameOut").textContent = pretty(resp);
-                await afterActionRefresh();
-            } catch (e) { el("gameOut").textContent = String(e); }
+        el("btnOpenOverlay").onclick = () => {
+            const code = roomId();
+            if (!code) return alert("Enter a room code first.");
+            window.open(`/overlay.html?roomId=${encodeURIComponent(code)}`, "_blank");
         };
 
-        el("btnNextContexto").onclick = async () => {
+        // Game controls
+        el("gameSelect").onchange = (e) => setSelectedGame(e.target.value);
+
+        el("btnStart").onclick = async () => {
             try {
-                const roomId = el("roomId").value.trim();
-                const resp = await api(`/rooms/${roomId}/games/contexto/next`, { method: "POST" });
-                el("gameOut").textContent = pretty(resp);
-                await afterActionRefresh();
-            } catch (e) { el("gameOut").textContent = String(e); }
+                const code = roomId();
+                if (!code) return alert("Enter a room code first.");
+
+                if (selectedGameId === "contexto") {
+                    const secretWord = el("secretWord").value.trim();
+                    const path = secretWord
+                        ? `/rooms/${encodeURIComponent(code)}/games/contexto/start`
+                        : `/rooms/${encodeURIComponent(code)}/games/contexto/next`;
+
+                    const opts = secretWord
+                        ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ secretWord }) }
+                        : { method: "POST" };
+
+                    const r = await api(path, opts);
+                    el("gameOut").textContent = pretty(r);
+                    await refreshState();
+                    await refreshLeaderboard();
+                    return;
+                }
+
+                // placeholder for deal
+                el("gameOut").textContent = pretty({ ok: false, error: "Deal or No Deal start not wired yet." });
+            } catch (e) {
+                el("gameOut").textContent = String(e);
+            }
         };
 
-        el("btnStopGame").onclick = async () => {
+        el("btnStop").onclick = async () => {
             try {
-                const roomId = el("roomId").value.trim();
-                const resp = await api(`/rooms/${roomId}/games/stop`, { method: "POST" });
-                el("gameOut").textContent = pretty(resp);
-                await afterActionRefresh();
-            } catch (e) { el("gameOut").textContent = String(e); }
+                const code = roomId();
+                if (!code) return alert("Enter a room code first.");
+                const r = await api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" });
+                el("gameOut").textContent = pretty(r);
+                await refreshState();
+            } catch (e) {
+                el("gameOut").textContent = String(e);
+            }
+        };
+
+        el("btnNewGame").onclick = async () => {
+            try {
+                const code = roomId();
+                if (!code) return alert("Enter a room code first.");
+
+                if (selectedGameId === "contexto") {
+                    // New Game = next round
+                    el("secretWord").value = "";
+                    const r = await api(`/rooms/${encodeURIComponent(code)}/games/contexto/next`, { method: "POST" });
+                    el("gameOut").textContent = pretty(r);
+                    await refreshState();
+                    await refreshLeaderboard();
+                    return;
+                }
+
+                el("gameOut").textContent = pretty({ ok: false, error: "New Game not implemented for this game yet." });
+            } catch (e) {
+                el("gameOut").textContent = String(e);
+            }
         };
 
         el("btnLeaderboard").onclick = refreshLeaderboard;
 
-        el("btnStats").onclick = refreshStats;
-
-        el("btnResetStats").onclick = async () => {
+        // Admin tools
+        el("btnPing").onclick = async () => {
             try {
-                const roomId = el("roomId").value.trim();
-                if (!isRoomRef(roomId)) return alert("Enter a valid room code or GUID first.");
-
-                const resp = await api(`/rooms/${encodeURIComponent(roomId)}/stats/reset`, { method: "POST" });
-                el("statsOut").textContent = pretty(resp);
-                await refreshStats();
+                // Change to any lightweight endpoint you know exists
+                const me = await api("/member/me");
+                el("adminOut").textContent = pretty({ ok: true, ping: "ok", me });
             } catch (e) {
-                el("statsOut").textContent = String(e);
+                el("adminOut").textContent = String(e);
             }
         };
 
-        // ----- Ingest tester -----
-        el("btnSendIngest").onclick = async () => {
-            try {
-                const roomId = el("roomId").value.trim();
-                const platform = el("platform").value;
-                const userId = el("userId").value.trim();
-                const username = el("username").value.trim();
-                const message = el("message").value;
-                const key = el("connectorKey").value.trim();
-
-                const headers = { "Content-Type": "application/json" };
-                if (key) headers["X-Connector-Key"] = key;
-
-                const payload = {
-                    roomId,
-                    platform,
-                    channelId: "admin-ui",
-                    userId,
-                    username,
-                    type: "chat",
-                    message,
-                    tsUtc: new Date().toISOString()
-                };
-
-                const resp = await api("/ingest/event", {
-                    method: "POST",
-                    headers,
-                    body: JSON.stringify(payload)
-                });
-
-                el("ingestOut").textContent = pretty({ ok: true, response: resp, payload });
-
-                // UX: auto-refresh after ingest
-                await afterActionRefresh();
-            } catch (e) { el("ingestOut").textContent = String(e); }
+        el("btnClearRoomLocal").onclick = () => {
+            localStorage.removeItem("roomId");
+            el("adminOut").textContent = pretty({ ok: true, cleared: "localStorage.roomId" });
         };
 
-        // ----- Auto refresh (polling) -----
-        let pollTimer = null;
-
-        el("btnJoinLive").onclick = async () => {
-            const roomId = el("roomId").value.trim();
-            if (!isGuid(roomId)) return alert("Enter a valid roomId first.");
-
-            el("btnLeaveLive").disabled = false;
-            el("btnJoinLive").disabled = true;
-
-            await afterActionRefresh();
-
-            pollTimer = setInterval(async () => {
-                await refreshState();
-            }, POLL_MS);
-        };
-
-        el("btnLeaveLive").onclick = () => {
-            if (pollTimer) clearInterval(pollTimer);
-            pollTimer = null;
-            el("btnLeaveLive").disabled = true;
-            el("btnJoinLive").disabled = false;
-        };
-
-        // init
-        setButtonsEnabled();
-        checkMe();
+        // Init
+        syncRoomFromStorage();
+        setSelectedGame("contexto");
+        el("btnMe").click();
     </script>
 </body>
 </html>
