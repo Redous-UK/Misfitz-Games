@@ -25,7 +25,8 @@ public class MemberController(AppDbContext db) : ControllerBase
         if (name.Length < 3 || name.Length > 32) return BadRequest(new { ok = false, error = "Name must be 3-32 chars." });
         if (string.IsNullOrWhiteSpace(req.Password) || req.Password.Length < 6) return BadRequest(new { ok = false, error = "Password must be 6+ chars." });
 
-        var exists = await _db.Users.AnyAsync(u => u.Username.Equals(name, StringComparison.CurrentCultureIgnoreCase));
+        var nameUpper = name.ToUpperInvariant();
+        var exists = await _db.Users.AnyAsync(u => u.Username.ToUpper() == nameUpper);
         if (exists) return Conflict(new { ok = false, error = "Username already exists." });
 
         var (hash, salt) = PasswordHasher.HashPassword(req.Password);
@@ -48,7 +49,8 @@ public class MemberController(AppDbContext db) : ControllerBase
     public async Task<IActionResult> Login([FromBody] LoginReq req)
     {
         var name = (req.Name ?? "").Trim();
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Username.Equals(name, StringComparison.CurrentCultureIgnoreCase));
+        var nameUpper = name.ToUpperInvariant();
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Username.ToUpper() == nameUpper);
         if (user == null) return Unauthorized(new { ok = false, error = "Invalid credentials." });
 
         if (!PasswordHasher.Verify(req.Password ?? "", user.PasswordHash, user.PasswordSalt))
