@@ -3,141 +3,281 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Misfitz Games – User Admin</title>
-
+    <title>Misfitz Games – Bootstrap Users</title>
     <style>
+        :root {
+            --bg: #070A12;
+            --text: #EAF0FF;
+            --muted: rgba(234,240,255,.70);
+            --shadow: 0 10px 35px rgba(0,0,0,.55);
+            --radius: 18px;
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
         body {
-            font-family: system-ui, sans-serif;
-            background: #0b1020;
-            color: #eaf0ff;
-            padding: 20px;
+            margin: 0;
+            font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
+            color: var(--text);
+            background: radial-gradient(1200px 700px at 20% 10%, rgba(124,58,237,.28), transparent 55%), radial-gradient(900px 700px at 80% 15%, rgba(6,182,212,.20), transparent 55%), var(--bg);
+            min-height: 100vh;
+        }
+
+        .wrap {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 18px
+        }
+
+        .card {
+            border: 1px solid rgba(255,255,255,.12);
+            background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 16px;
+            backdrop-filter: blur(10px);
         }
 
         h1 {
-            margin-bottom: 12px;
+            margin: 0 0 6px;
+            font-size: 18px
+        }
+
+        .muted {
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.35
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-top: 12px
+        }
+
+        input, button, select {
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,.14);
+            padding: 12px 12px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        input {
+            background: rgba(0,0,0,.25);
+            color: var(--text);
+            min-width: 240px;
+            flex: 1;
+        }
+
+        button {
+            background: linear-gradient(135deg, rgba(124,58,237,.95), rgba(6,182,212,.75));
+            color: white;
+            cursor: pointer;
+            padding: 12px 14px;
+            font-weight: 650;
+            border: none;
+            box-shadow: 0 10px 25px rgba(124,58,237,.22);
+        }
+
+            button:disabled {
+                opacity: .55;
+                cursor: not-allowed;
+                box-shadow: none
+            }
+
+        .btn-secondary {
+            background: rgba(255,255,255,.08);
+            border: 1px solid rgba(255,255,255,.14);
+            box-shadow: none;
+            color: var(--text);
         }
 
         table {
             width: 100%;
-            border-collapse: collapse;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 14px;
+            overflow: hidden;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,.12);
         }
 
         th, td {
-            padding: 10px;
-            border-bottom: 1px solid rgba(255,255,255,.15);
+            padding: 10px 10px;
+            border-bottom: 1px solid rgba(255,255,255,.08);
+            font-size: 13px;
+            text-align: left;
+            vertical-align: middle;
         }
 
-        select, button {
-            padding: 6px 10px;
+        th {
+            color: rgba(234,240,255,.85);
+            font-size: 12px;
+            letter-spacing: .3px
         }
 
-        .role-guest {
-            color: #9ca3af;
+        tr:last-child td {
+            border-bottom: none
         }
 
-        .role-member {
-            color: #22c55e;
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,.16);
+            background: rgba(255,255,255,.06);
+            font-size: 12px;
         }
 
-        .role-admin {
-            color: #facc15;
-            font-weight: 700;
+            .pill.admin {
+                border-color: rgba(239,68,68,.35)
+            }
+
+            .pill.member {
+                border-color: rgba(34,197,94,.35)
+            }
+
+        .right {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap
         }
 
         pre {
-            background: rgba(0,0,0,.4);
-            padding: 10px;
-            margin-top: 12px;
+            margin: 12px 0 0;
+            background: rgba(0,0,0,.45);
+            border: 1px solid rgba(255,255,255,.10);
+            border-radius: 14px;
+            padding: 12px;
+            overflow: auto;
+            color: #cfe3ff;
+            max-height: 240px;
         }
     </style>
 </head>
-
 <body>
+    <div class="wrap">
+        <div class="card">
+            <h1>Bootstrap User Roles</h1>
+            <div class="muted">
+                This page does not use normal auth. It requires a <b>bootstrap key</b> and the server must have <b>ENABLE_BOOTSTRAP_ADMIN=true</b> (or be in Development).
+                After you promote your admin user, disable the bootstrap endpoint.
+            </div>
 
-    <h1>Misfitz Games – User Admin</h1>
-    <p>This page is intentionally unsecured (bootstrap only).</p>
+            <div class="row">
+                <input id="key" placeholder="Bootstrap key (ADMIN_BOOTSTRAP_KEY)" />
+                <button id="btnLoad">Load users</button>
+                <button id="btnCopyLink" class="btn-secondary">Copy link with key</button>
+            </div>
 
-    <table id="userTable">
-        <thead>
-            <tr>
-                <th>Username</th>
-                <th>Role</th>
-                <th>Change role</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+            <table id="tbl" style="display:none">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Role</th>
+                        <th>Created</th>
+                        <th>Last login</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody"></tbody>
+            </table>
 
-<pre id="out">{}</pre>
+            <pre id="out">{}</pre>
+        </div>
+    </div>
 
     <script>
-        const out = document.getElementById("out");
-        const tbody = document.querySelector("#userTable tbody");
+        const el = (id) => document.getElementById(id);
+        const pretty = (x) => JSON.stringify(x, null, 2);
+
+        // Allow key in URL: /admin-users.html?key=...
+        const urlKey = new URLSearchParams(location.search).get("key");
+        if (urlKey) el("key").value = urlKey;
 
         async function api(path, opts = {}) {
-            const res = await fetch(path, {
-                credentials: "include",
-                ...opts
-            });
+            const res = await fetch(path, opts);
             const text = await res.text();
-            const json = text ? JSON.parse(text) : null;
-            if (!res.ok) throw json;
+            let json; try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
+            if (!res.ok) throw new Error(`HTTP ${res.status}: ${pretty(json)}`);
             return json;
         }
 
-        function roleClass(role) {
-            return role === "admin" ? "role-admin"
-                : role === "member" ? "role-member"
-                    : "role-guest";
+        function fmt(d) {
+            if (!d) return "";
+            try { return new Date(d).toLocaleString(); } catch { return String(d); }
+        }
+
+        function rolePill(role) {
+            const r = String(role || "").toLowerCase();
+            const cls = r === "admin" ? "pill admin" : "pill member";
+            return `<span class="${cls}">${r || "member"}</span>`;
         }
 
         async function loadUsers() {
-            const r = await api("/admin/users");
-            tbody.innerHTML = "";
+            const key = el("key").value.trim();
+            if (!key) return alert("Enter the bootstrap key first.");
 
-            for (const u of r.users) {
-                const tr = document.createElement("tr");
+            const data = await api(`/bootstrap/users?key=${encodeURIComponent(key)}`);
+            el("out").textContent = pretty(data);
 
-                tr.innerHTML = `
-          <td>${u.username}</td>
-          <td class="${roleClass(u.role)}">${u.role}</td>
-          <td>
-            <select>
-              <option value="guest">guest</option>
-              <option value="member">member</option>
-              <option value="admin">admin</option>
-            </select>
-          </td>
-          <td>
-            <button>Save</button>
-          </td>
-        `;
+            const users = data.users || [];
+            el("tbl").style.display = "";
+            const tbody = el("tbody");
+            tbody.innerHTML = users.map(u => `
+            <tr>
+              <td>${u.username}</td>
+              <td>${rolePill(u.role)}</td>
+              <td>${fmt(u.createdUtc)}</td>
+              <td>${fmt(u.lastLoginUtc)}</td>
+              <td>
+                <div class="right">
+                  <button data-act="makeAdmin" data-id="${u.id}">Make admin</button>
+                  <button data-act="makeMember" class="btn-secondary" data-id="${u.id}">Make member</button>
+                  <button data-act="makeGuest" class="btn-secondary" data-id="${u.id}">Make guest</button>
+                </div>
+              </td>
+            </tr>
+          `).join("");
 
-                const select = tr.querySelector("select");
-                select.value = u.role;
-
-                tr.querySelector("button").onclick = async () => {
+            tbody.querySelectorAll("button[data-act]").forEach(btn => {
+                btn.onclick = async () => {
+                    const act = btn.getAttribute("data-act");
+                    const id = btn.getAttribute("data-id");
+                    const role = act === "makeAdmin" ? "admin" : "member";
+                    btn.disabled = true;
                     try {
-                        const role = select.value;
-                        const res = await api(`/admin/users/${u.id}/role`, {
+                        const r = await api(`/bootstrap/users/${encodeURIComponent(id)}/role?key=${encodeURIComponent(key)}`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ role })
                         });
-                        out.textContent = JSON.stringify(res, null, 2);
+                        el("out").textContent = pretty(r);
                         await loadUsers();
                     } catch (e) {
-                        out.textContent = JSON.stringify(e, null, 2);
+                        el("out").textContent = String(e);
+                    } finally {
+                        btn.disabled = false;
                     }
                 };
-
-                tbody.appendChild(tr);
-            }
+            });
         }
 
-        loadUsers().catch(e => out.textContent = JSON.stringify(e, null, 2));
-    </script>
+        el("btnLoad").onclick = () => loadUsers().catch(e => el("out").textContent = String(e));
 
+        el("btnCopyLink").onclick = async () => {
+            const key = el("key").value.trim();
+            if (!key) return alert("Enter the bootstrap key first.");
+            const url = `${location.origin}${location.pathname}?key=${encodeURIComponent(key)}`;
+            await navigator.clipboard.writeText(url);
+            alert("Link copied.");
+        };
+    </script>
 </body>
 </html>
