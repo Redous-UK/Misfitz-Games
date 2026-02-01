@@ -452,6 +452,7 @@
 
                 <div class="row">
                     <span id="meLabel" class="pill">Checking login…</span>
+                    <button id="btnAdmin" class="btn-secondary" style="display:none">Admin</button>
                     <button id="btnLogout" class="btn-secondary">Logout</button>
                     <button id="btnBack" class="btn-secondary">Back to Login</button>
                 </div>
@@ -768,13 +769,25 @@
                 // IMPORTANT: keep myUserId for player cards ("YOU" badge)
                 myUserId = me.userId || null;
 
+                // ✅ SHOW / HIDE ADMIN BUTTON
+                if (me.role === "admin") {
+                    el("btnAdmin").style.display = "";
+                } else {
+                    el("btnAdmin").style.display = "none";
+                }
+
                 // If we already have state, re-render players with correct YOU badge
                 if (currentRoomState) renderPlayers(currentRoomState, myUserId);
             } catch (e) {
                 el("authOut").textContent = String(e);
                 el("meLabel").textContent = "Not logged in";
+                el("btnAdmin").style.display = "none";
                 myUserId = null;
             }
+        };
+
+        el("btnAdmin").onclick = () => {
+            location.href = "/admin.html";
         };
 
         el("btnPlay").onclick = () => {
