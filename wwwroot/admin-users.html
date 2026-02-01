@@ -268,10 +268,11 @@
                     const id = btn.getAttribute("data-id");
 
                     // Map the button action -> role
-                    const role =
-                        act === "makeAdmin" ? "admin" :
-                            act === "makeMember" ? "member" :
-                                "guest";
+                    const role;
+                    if (act === "makeAdmin") role = "admin";
+                    else if (act === "makeMember") role = "member";
+                    else if (act === "makeGuest") role = "guest";
+                    else return;
 
                     btn.disabled = true;
 
