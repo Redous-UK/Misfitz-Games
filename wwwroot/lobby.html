@@ -550,6 +550,7 @@
                 const code = roomId();
                 if (!code) return;
                 refreshState(); // refreshState already re-renders players
+                refreshLeaderboard(); // uncomment if you want it live too
             }, 2000); // 2s is a good start
         }
 
