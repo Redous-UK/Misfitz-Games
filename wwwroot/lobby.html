@@ -527,6 +527,24 @@
         const el = (id) => document.getElementById(id);
         const pretty = (x) => JSON.stringify(x, null, 2);
 
+        const ROLE_CAPS = {
+            admin: {
+                admin: true,
+                start: true,
+                stop: true
+            },
+            member: {
+                admin: false,
+                start: true,
+                stop: true
+            },
+            guest: {
+                admin: false,
+                start: false,
+                stop: false
+            }
+        };
+
         let selectedGameId = "contexto"; // default
 
         // Keep these globally so we can render whenever state/me changes
@@ -732,6 +750,14 @@
             } catch (e) { el("gameOut").textContent = String(e); }
         }
 
+        function applyRoleUI(role) {
+            const caps = ROLE_CAPS[role] ?? ROLE_CAPS.guest;
+
+            el("btnAdmin").style.display = caps.admin ? "" : "none";
+            el("btnStart").style.display = caps.start ? "" : "none";
+            el("btnStop").style.display = caps.stop ? "" : "none";
+        }
+
         function autoLoadRoomFromStorage() {
             const saved = localStorage.getItem("roomId");
             if (!saved) return false;
@@ -769,12 +795,8 @@
                 // IMPORTANT: keep myUserId for player cards ("YOU" badge)
                 myUserId = me.userId || null;
 
-                // ✅ SHOW / HIDE ADMIN BUTTON
-                if (me.role === "admin") {
-                    el("btnAdmin").style.display = "";
-                } else {
-                    el("btnAdmin").style.display = "none";
-                }
+                // ✅ Apply Role Buttons
+                applyRoleUI(me.role);
 
                 // If we already have state, re-render players with correct YOU badge
                 if (currentRoomState) renderPlayers(currentRoomState, myUserId);
