@@ -92,7 +92,7 @@ public class MemberController(AppDbContext db, IRoomStateStore store) : Controll
             Username = name,
             PasswordHash = hash,
             PasswordSalt = salt,
-            Role = "member",
+            Role = "guest",
             CreatedUtc = DateTimeOffset.UtcNow
         };
 
@@ -161,9 +161,19 @@ public class MemberController(AppDbContext db, IRoomStateStore store) : Controll
             return Ok(new { ok = true, isAuth = false });
 
         var name = User.FindFirstValue(ClaimTypes.Name);
-        var role = User.FindFirstValue(ClaimTypes.Role);
+        var role = User.FindFirstValue(ClaimTypes.Role) ?? "guest";
         var id = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-        return Ok(new { ok = true, isAuth = true, name, role, userId = id, isMember = (role == "member") });
+        return Ok(new
+        {
+            ok = true,
+            isAuth = true,
+            name,
+            role,
+            userId = id,
+            isGuest = role == "guest",
+            isMember = role == "member",
+            isAdmin = role == "admin"
+        });
     }
 }

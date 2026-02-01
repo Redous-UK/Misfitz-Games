@@ -69,8 +69,11 @@ public static class Program
             });
 
         builder.Services.AddAuthorizationBuilder()
-            .AddPolicy("AdminOnly", p => p.RequireClaim(ClaimTypes.Role, "admin"))
-            .AddPolicy("MemberOnly", p => p.RequireClaim(ClaimTypes.Role, "member"));
+            .AddPolicy("MemberOrAdmin", p =>
+                p.RequireAssertion(ctx =>
+                    ctx.User.HasClaim(ClaimTypes.Role, "member") ||
+                    ctx.User.HasClaim(ClaimTypes.Role, "admin")))
+            .AddPolicy("AdminOnly", p => p.RequireClaim(ClaimTypes.Role, "admin"));
 
         // Redis factory (lazy, async)
         builder.Services.AddSingleton<RedisMuxFactory>();
