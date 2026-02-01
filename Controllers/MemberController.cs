@@ -109,32 +109,52 @@ public class MemberController(AppDbContext db, IRoomStateStore store) : Controll
         var nameUpper = name.ToUpperInvariant();
 
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Username.ToUpper() == nameUpper, ct);
-        if (user == null)
-            return Unauthorized(new { ok = false, error = "Invalid credentials." });
+        if (user == null) return Unauthorized(new { ok = false, error = "Invalid credentials." });
 
         if (!PasswordHasher.Verify(req.Password ?? "", user.PasswordHash, user.PasswordSalt))
             return Unauthorized(new { ok = false, error = "Invalid credentials." });
 
         user.LastLoginUtc = DateTimeOffset.UtcNow;
+
+        // ✅ Reuse existing room if we have one AND it still exists
+        Guid? roomId = null;
+        string? roomCode = null;
+
+        if (!string.IsNullOrWhiteSpace(user.HomeRoomCode))
+        {
+            roomCode = user.HomeRoomCode;
+            roomId = await _store.ResolveRoomIdAsync(roomCode, ct); // your store already supports this
+            if (roomId == null)
+            {
+                // room vanished / cleared -> recreate
+                roomCode = null;
+            }
+        }
+
+        if (roomCode == null)
+        {
+            var created = await CreateRoomForUserAsync(user.Username, ct);
+            roomId = created.roomId;
+            roomCode = created.roomCode;
+
+            user.HomeRoomCode = roomCode;
+        }
+
         await _db.SaveChangesAsync(ct);
 
         var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new(ClaimTypes.Name, user.Username),
-            new(ClaimTypes.Role, user.Role),
-        };
+    {
+        new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+        new(ClaimTypes.Name, user.Username),
+        new(ClaimTypes.Role, user.Role),
+    };
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-
         await HttpContext.SignInAsync(
             CookieAuthenticationDefaults.AuthenticationScheme,
             new ClaimsPrincipal(identity),
             new AuthenticationProperties { IsPersistent = true }
         );
-
-        // Auto-create a room for this user
-        var (newRoomId, newRoomCode) = await CreateRoomForUserAsync(user.Username, ct);
 
         return Ok(new
         {
@@ -142,8 +162,8 @@ public class MemberController(AppDbContext db, IRoomStateStore store) : Controll
             userId = user.Id,
             name = user.Username,
             role = user.Role,
-            roomId = newRoomId,
-            roomCode = newRoomCode
+            roomId,
+            roomCode
         });
     }
 
