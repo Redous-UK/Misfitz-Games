@@ -435,6 +435,69 @@
             opacity: .55;
             filter: grayscale(.2);
         }
+
+        .rooms-grid {
+            display: grid;
+            grid-template-columns: repeat(3,minmax(0,1fr));
+            gap: 12px;
+        }
+
+        @media(max-width:980px) {
+            .rooms-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .room-tile {
+            border: 1px solid rgba(255,255,255,.12);
+            background: rgba(255,255,255,.06);
+            border-radius: 16px;
+            padding: 12px;
+            cursor: pointer;
+            box-shadow: var(--shadow);
+            transition: transform .12s ease, border-color .2s ease, filter .15s ease;
+        }
+
+            .room-tile:hover {
+                transform: translateY(-2px);
+                filter: brightness(1.03);
+                border-color: rgba(124,58,237,.35);
+            }
+
+        .room-title {
+            font-weight: 800;
+            margin: 0;
+            font-size: 14px;
+        }
+
+        .room-sub {
+            margin-top: 6px;
+            color: rgba(234,240,255,.72);
+            font-size: 12px;
+            line-height: 1.35;
+        }
+
+        .room-meta {
+            margin-top: 10px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .room-chip {
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,.14);
+            background: rgba(255,255,255,.05);
+            color: rgba(234,240,255,.85);
+        }
+
+            .room-chip.active {
+                border-color: rgba(34,197,94,.35);
+                background: rgba(34,197,94,.10);
+            }
+
     </style>
 </head>
 <body>
@@ -467,10 +530,13 @@
                 <div class="card">
                     <h2>Room</h2>
                     <div class="row">
-                        <input id="roomCode" style="flex:1; min-width:260px" placeholder="Room code (8 digits or custom)" />
-                        <button id="btnGetState" class="btn-secondary">Get state</button>
-                        <button id="btnOpenOverlay">Open overlay</button>
+                        <button id="btnRefreshRooms" class="btn-secondary">Refresh rooms</button>
+                        <button id="btnOpenOverlay" class="btn-secondary" disabled>Open overlay</button>
+                        <span class="pill" id="activeRoomPill">Room: (none)</span>
                     </div>
+
+                    <div id="roomsGrid" class="rooms-grid" style="margin-top:12px"></div>
+
                     <pre id="stateOut">{}</pre>
                 </div>
 
@@ -552,19 +618,65 @@
         let currentRoomState = null;
 
         let activeRoomCode = null;
+        let roomsPollHandle = null;
 
         function setActiveRoom(code) {
             const c = (code || "").trim();
             activeRoomCode = c || null;
 
-            if (activeRoomCode) {
-                el("roomCode").value = activeRoomCode;
-                localStorage.setItem("activeRoomCode", activeRoomCode);
-            }
+            el("activeRoomPill").textContent = activeRoomCode ? `Room: ${activeRoomCode}` : "Room: (none)";
+            el("btnOpenOverlay").disabled = !activeRoomCode;
 
-            // refresh immediately when switching rooms
+            if (activeRoomCode) localStorage.setItem("activeRoomCode", activeRoomCode);
+
             refreshState();
             refreshLeaderboard();
+        }
+
+        async function loadRooms() {
+            const grid = el("roomsGrid");
+            grid.innerHTML = `<div class="muted">Loading rooms…</div>`;
+
+            try {
+                const rooms = await api("/rooms");
+                // rooms is expected to be an array of RoomDto
+                if (!Array.isArray(rooms) || rooms.length === 0) {
+                    grid.innerHTML = `<div class="muted">No rooms yet. Create one by logging in, or wait for someone else.</div>`;
+                    return;
+                }
+
+                // Sort newest first (optional)
+                rooms.sort((a, b) => String(b.createdAtUtc || "").localeCompare(String(a.createdAtUtc || "")));
+
+                grid.innerHTML = rooms.map(r => {
+                    const code = r.roomCode ?? "";
+                    const name = r.name ?? "Room";
+                    const created = r.createdAtUtc ? new Date(r.createdAtUtc).toLocaleString() : "";
+                    const isActive = activeRoomCode && activeRoomCode === code;
+
+                    return `
+        <div class="room-tile" data-code="${esc(code)}">
+          <div class="room-title">${esc(name)}</div>
+          <div class="room-sub">Code: <b>${esc(code)}</b>${created ? ` • Created: ${esc(created)}` : ""}</div>
+          <div class="room-meta">
+            <span class="room-chip ${isActive ? "active" : ""}">${isActive ? "ACTIVE" : "JOIN"}</span>
+          </div>
+        </div>
+      `;
+                }).join("");
+
+                grid.querySelectorAll(".room-tile[data-code]").forEach(tile => {
+                    tile.onclick = () => {
+                        const code = tile.getAttribute("data-code");
+                        if (!code) return;
+                        setActiveRoom(code);
+                        startPolling(); // ensure player cards keep updating
+                    };
+                });
+
+            } catch (e) {
+                grid.innerHTML = `<div class="muted">Failed to load rooms: ${esc(String(e))}</div>`;
+            }
         }
 
         async function api(path, opts = {}) {
