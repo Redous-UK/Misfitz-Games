@@ -842,33 +842,22 @@
                 return;
             }
 
-            // Auto-load the room created at login
-            if (autoLoadRoomFromStorage()) {
-                // autoLoadRoomFromStorage already calls refreshState + refreshLeaderboard
-                return;
-            }
+            // Auto-load the room created at login (if any)
+            autoLoadRoomFromStorage(); // <-- DO NOT return here
 
+            // ✅ Always poll so player cards update
             startPolling();
 
-            async function requireAuth() {
+            // Optional: also enforce auth
+            try {
                 const me = await api("/member/me");
                 if (!me.isAuth) location.href = "/user.html";
+            } catch {
+                location.href = "/user.html";
             }
-            requireAuth().catch(() => location.href = "/user.html");
         }
 
         init().catch(() => location.href = "/user.html");
-
-        /** Optional: render a quick placeholder so you can see styling immediately.
-        // Remove this once you're happy.
-        renderPlayers({
-            hostUserId: "demo-host",
-            players: [
-                { userId: "demo-host", name: "Host Player", isReady: true, isConnected: true },
-                { userId: "demo-2", name: "Second Player", isReady: false, isConnected: true },
-                { userId: "demo-3", name: "Disconnected", isReady: false, isConnected: false }
-            ]
-        }, myUserId);*/
     </script>
 </body>
 </html>
