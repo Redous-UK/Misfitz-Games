@@ -942,15 +942,11 @@
             location.href = `/play.html?roomId=${encodeURIComponent(code)}&game=${encodeURIComponent(game)}`;
         };
 
-        el("btnGetState").onclick = () => {
-            const typed = el("roomCode").value.trim();
-            if (!typed) return alert("Enter a room code first.");
-            setActiveRoom(typed);
-        };
+        el("btnRefreshRooms").onclick = () => loadRooms();
 
         el("btnOpenOverlay").onclick = () => {
             const code = roomId();
-            if (!code) return alert("Enter a room code first.");
+            if (!code) return alert("Pick a room first.");
             window.open(`/overlay.html?roomId=${encodeURIComponent(code)}`, "_blank");
         };
 
@@ -1007,7 +1003,7 @@
 
             // Auto-load the room created at login (if any)
             autoLoadRoomFromStorage(); // <-- DO NOT return here
-
+            await loadRooms();              // show rooms list
             // ✅ Always poll so player cards update
             startPolling();
 
