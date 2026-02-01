@@ -186,6 +186,18 @@ public static class Program
             });
         });
 
+        app.MapGet("/debug/users", async (AppDbContext db) =>
+        {
+            var count = await db.Users.CountAsync();
+            var last = await db.Users
+                .OrderByDescending(u => u.Id)
+                .Take(10)
+                .Select(u => new { u.Id, u.Username, u.Role, u.CreatedUtc, u.LastLoginUtc })
+                .ToListAsync();
+
+            return Results.Ok(new { ok = true, count, last });
+        });
+
         app.Run();
     }
 }
