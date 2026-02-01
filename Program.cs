@@ -37,7 +37,9 @@ public static class Program
         // --- EF Core (SQLite) for user accounts ---
         // Use Render disk path if you have one (recommended):
         // set env var DB_PATH=/data/misfitz.db
-        var dbPath = builder.Configuration["DB_PATH"] ?? "Data/misfitz.db";
+        var dbPath =
+            builder.Configuration["DB_PATH"]
+            ?? (builder.Environment.IsProduction() ? "/data/misfitz.db" : "Data/misfitz.db");
         var dbDir = Path.GetDirectoryName(dbPath);
         if (!string.IsNullOrWhiteSpace(dbDir))
             Directory.CreateDirectory(dbDir);
@@ -163,6 +165,24 @@ public static class Program
                 dataDirExists = Directory.Exists("/data"),
                 dataDirFiles = Directory.Exists("/data") ? Directory.GetFiles("/data") : [],
                 cwd = Directory.GetCurrentDirectory()
+            });
+        });
+
+        app.MapGet("/debug/dbpath", (IConfiguration cfg, IWebHostEnvironment env) =>
+        {
+            var dbPath =
+                cfg["DB_PATH"]
+                ?? (env.IsProduction() ? "/data/misfitz.db" : "Data/misfitz.db");
+
+            return Results.Ok(new
+            {
+                env = env.EnvironmentName,
+                dbPath,
+                exists = System.IO.File.Exists(dbPath),
+                dirExists = System.IO.Directory.Exists(System.IO.Path.GetDirectoryName(dbPath)!),
+                filesInDir = System.IO.Directory.Exists(System.IO.Path.GetDirectoryName(dbPath)!)
+                    ? System.IO.Directory.GetFiles(System.IO.Path.GetDirectoryName(dbPath)!).Select(Path.GetFileName).ToArray()
+                    : []
             });
         });
 
