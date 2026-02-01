@@ -416,9 +416,6 @@
 
                     el("loginOut").textContent = pretty(r);
 
-                    const roomRef = r.roomCode || r.roomId; // prefer 8-digit code, fallback to guid
-                    if (roomRef) localStorage.setItem("roomId", roomRef);
-
                     // ✅ IMPORTANT: persist auto-created room code for lobby auto-load
                     if (r.roomCode) localStorage.setItem("roomId", r.roomCode);
 

@@ -551,6 +551,22 @@
         let myUserId = null;
         let currentRoomState = null;
 
+        let activeRoomCode = null;
+
+        function setActiveRoom(code) {
+            const c = (code || "").trim();
+            activeRoomCode = c || null;
+
+            if (activeRoomCode) {
+                el("roomCode").value = activeRoomCode;
+                localStorage.setItem("activeRoomCode", activeRoomCode);
+            }
+
+            // refresh immediately when switching rooms
+            refreshState();
+            refreshLeaderboard();
+        }
+
         async function api(path, opts = {}) {
             const res = await fetch(path, { credentials: "include", ...opts });
             const text = await res.text();
@@ -574,7 +590,7 @@
         }
 
         function roomId() {
-            return el("roomCode").value.trim();
+            return activeRoomCode || el("roomCode").value.trim();
         }
 
         function setSelectedGame(id) {
@@ -729,13 +745,8 @@
                 const code = roomId();
                 if (!code) return;
 
-                // persist the room code so future reloads work
-                saveRoomToStorage(code);
-
-                currentRoomState = await api(`/rooms/${encodeURIComponent(code)}/state`);
+                currentRoomState = await api(`/rooms/${encodeURIComponent(code)}/state?t=${Date.now()}`);
                 el("stateOut").textContent = pretty(currentRoomState);
-
-                // Render player cards whenever we get state
                 renderPlayers(currentRoomState, myUserId);
             } catch (e) {
                 el("stateOut").textContent = String(e);
@@ -759,10 +770,10 @@
         }
 
         function autoLoadRoomFromStorage() {
-            const saved = localStorage.getItem("roomId");
+            const saved = localStorage.getItem("activeRoomCode");
             if (!saved) return false;
 
-            el("roomCode").value = saved;
+            setActiveRoom(saved);
 
             // Load state + leaderboard immediately
             refreshState();
@@ -819,7 +830,11 @@
             location.href = `/play.html?roomId=${encodeURIComponent(code)}&game=${encodeURIComponent(game)}`;
         };
 
-        el("btnGetState").onclick = refreshState;
+        el("btnGetState").onclick = () => {
+            const typed = el("roomCode").value.trim();
+            if (!typed) return alert("Enter a room code first.");
+            setActiveRoom(typed);
+        };
 
         el("btnOpenOverlay").onclick = () => {
             const code = roomId();
