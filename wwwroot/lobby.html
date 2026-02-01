@@ -695,6 +695,9 @@
                 const code = roomId();
                 if (!code) return;
 
+                // persist the room code so future reloads work
+                saveRoomToStorage(code);
+
                 currentRoomState = await api(`/rooms/${encodeURIComponent(code)}/state`);
                 el("stateOut").textContent = pretty(currentRoomState);
 
@@ -713,6 +716,22 @@
             } catch (e) { el("gameOut").textContent = String(e); }
         }
 
+        function autoLoadRoomFromStorage() {
+            const saved = localStorage.getItem("roomId");
+            if (!saved) return false;
+
+            el("roomCode").value = saved;
+
+            // Load state + leaderboard immediately
+            refreshState();
+            refreshLeaderboard();
+            return true;
+        }
+
+        function saveRoomToStorage(code) {
+            if (code) localStorage.setItem("roomId", code);
+        }
+
         // Buttons
         el("btnBack").onclick = () => location.href = "/user.html";
 
@@ -726,12 +745,20 @@
             try {
                 const me = await api("/member/me");
                 el("authOut").textContent = pretty(me);
+
                 el("meLabel").textContent = me.isAuth
                     ? `👤 ${me.name ?? "Signed in"} (${me.role ?? "user"})`
                     : "Not logged in";
+
+                // IMPORTANT: keep myUserId for player cards ("YOU" badge)
+                myUserId = me.userId || null;
+
+                // If we already have state, re-render players with correct YOU badge
+                if (currentRoomState) renderPlayers(currentRoomState, myUserId);
             } catch (e) {
                 el("authOut").textContent = String(e);
                 el("meLabel").textContent = "Not logged in";
+                myUserId = null;
             }
         };
 
@@ -782,16 +809,31 @@
         el("btnLeaderboard").onclick = refreshLeaderboard;
 
         // Init
-        loadGames().catch(() => { });
-        el("btnMe").click();
+        async function init() {
+            // Load tiles (does not depend on auth)
+            loadGames().catch(() => { });
 
-        async function requireAuth() {
-            const me = await api("/member/me");
-            if (!me.isAuth) location.href = "/user.html";
+            // Run auth first so we get myUserId for YOU badge
+            await el("btnMe").onclick();
+
+            if (!myUserId) {
+                location.href = "/user.html";
+                return;
+            }
+
+            // Auto-load the room created at login
+            if (autoLoadRoomFromStorage()) {
+                // autoLoadRoomFromStorage already calls refreshState + refreshLeaderboard
+                return;
+            }
+
+            // If no room saved, show an empty players list message
+            renderPlayers({ players: [] }, myUserId);
         }
-        requireAuth().catch(() => location.href = "/user.html");
 
-        // Optional: render a quick placeholder so you can see styling immediately.
+        init().catch(() => location.href = "/user.html");
+
+        /** Optional: render a quick placeholder so you can see styling immediately.
         // Remove this once you're happy.
         renderPlayers({
             hostUserId: "demo-host",
@@ -800,7 +842,7 @@
                 { userId: "demo-2", name: "Second Player", isReady: false, isConnected: true },
                 { userId: "demo-3", name: "Disconnected", isReady: false, isConnected: false }
             ]
-        }, myUserId);
+        }, myUserId);*/
     </script>
 </body>
 </html>
