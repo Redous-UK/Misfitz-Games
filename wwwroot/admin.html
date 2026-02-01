@@ -321,6 +321,15 @@
 
                 </div>
 
+                <div class="card">
+                    <h2>Admin Tools</h2>
+                    <div class="row" style="margin-top:12px">
+                        <button id="btnClearRooms" class="btn-secondary">Clear open rooms</button>
+                    </div>
+
+                    <pre id="roomsOut">{}</pre>
+                </div>
+
             </div>
         </div>
     </div>
@@ -329,8 +338,8 @@
         const el = (id) => document.getElementById(id);
         const pretty = (x) => JSON.stringify(x, null, 2);
 
-        let selectedGameId = "contexto";
-
+        // Use your existing api() if you already have one.
+        // If not, keep this:
         async function api(path, opts = {}) {
             const res = await fetch(path, { credentials: "include", ...opts });
             const text = await res.text();
@@ -338,6 +347,46 @@
             if (!res.ok) throw new Error(`HTTP ${res.status}: ${pretty(json)}`);
             return json;
         }
+
+        async function tryClearRooms() {
+            // Update this list once you confirm the real one
+            const candidates = [
+                { method: "POST", path: "/admin/rooms/clear" },
+                { method: "POST", path: "/rooms/clear" },
+                { method: "POST", path: "/rooms/admin/clear" },
+                { method: "DELETE", path: "/rooms" }
+            ];
+
+            let lastErr = null;
+
+            for (const c of candidates) {
+                try {
+                    const r = await api(c.path, { method: c.method });
+                    return { ok: true, used: `${c.method} ${c.path}`, result: r };
+                } catch (e) {
+                    lastErr = String(e);
+                }
+            }
+
+            return { ok: false, error: "No clear-rooms endpoint matched.", lastErr, tried: candidates };
+        }
+
+        el("btnClearRooms").onclick = async () => {
+            const yes = confirm(
+                "Clear ALL open rooms?\n\nThis will remove room codes + room state. Players will be kicked out."
+            );
+            if (!yes) return;
+
+            el("btnClearRooms").disabled = true;
+            try {
+                const r = await tryClearRooms();
+                el("roomsOut").textContent = pretty(r);
+            } catch (e) {
+                el("roomsOut").textContent = pretty({ ok: false, error: String(e) });
+            } finally {
+                el("btnClearRooms").disabled = false;
+            }
+        };
 
         function roomId() {
             return el("roomCode").value.trim();
@@ -391,10 +440,14 @@
                 try {
                     r = await api("/rooms/create", { method: "POST" });
                 } catch {
-                    r = await api("/rooms", { method: "POST" });
+                    r = await api("/rooms", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ name: "Admin Room" })
+                    });
                 }
 
-                const code = r.roomId || r.code || r.id;
+                const code = r.roomCode || r.RoomCode || r.roomId || r.RoomId || r.id;
                 if (!code) throw new Error("Create room worked but did not return roomId/code/id.");
                 el("roomCode").value = code;
                 saveRoomToStorage(code);

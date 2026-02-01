@@ -593,6 +593,8 @@
         const el = (id) => document.getElementById(id);
         const pretty = (x) => JSON.stringify(x, null, 2);
 
+        let selectedGameId = "contexto"; // default
+
         const ROLE_CAPS = {
             admin: {
                 admin: true,
@@ -610,8 +612,6 @@
                 stop: false
             }
         };
-
-        let selectedGameId = "contexto"; // default
 
         // Keep these globally so we can render whenever state/me changes
         let myUserId = null;
