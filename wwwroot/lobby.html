@@ -857,9 +857,16 @@
                 const code = roomId();
                 if (!code) return;
 
-                currentRoomState = await api(`/rooms/${encodeURIComponent(code)}/state?t=${Date.now()}`);
-                el("stateOut").textContent = pretty(currentRoomState);
-                renderPlayers(currentRoomState, myUserId);
+                saveRoomToStorage(code);
+
+                const raw = await api(`/rooms/${encodeURIComponent(code)}/state`);
+                // ✅ support both shapes: state is either raw or raw.state
+                const state = raw?.state ?? raw;
+
+                currentRoomState = state;
+                el("stateOut").textContent = pretty(raw); // keep showing raw for debugging
+
+                renderPlayers(state, myUserId);
             } catch (e) {
                 el("stateOut").textContent = String(e);
             }
@@ -871,6 +878,32 @@
                 if (!code) return;
                 el("gameOut").textContent = pretty(await api(`/rooms/${encodeURIComponent(code)}/leaderboard`));
             } catch (e) { el("gameOut").textContent = String(e); }
+        }
+
+        function renderPlayers(roomState, currentUserId) {
+
+            // 🔍 DEBUG — PUT IT RIGHT HERE
+            console.log("renderPlayers", {
+                hostUserId: roomState?.hostUserId,
+                playersType: typeof roomState?.players,
+                playersCount: Array.isArray(roomState?.players)
+                    ? roomState.players.length
+                    : null,
+                roomState
+            });
+
+            const container = document.getElementById("playerList");
+            if (!container) return;
+
+            const hostId = roomState?.hostUserId;
+            const players = Array.isArray(roomState?.players) ? roomState.players : [];
+
+            if (!players.length) {
+                container.innerHTML = `<div class="muted">No players yet — join the room to appear here.</div>`;
+                return;
+            }
+
+            // existing rendering logic continues…
         }
 
         function applyRoleUI(role) {
