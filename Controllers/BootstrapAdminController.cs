@@ -67,8 +67,15 @@ public class BootstrapAdminController(AppDbContext db, IConfiguration cfg, IWebH
         if (!IsKeyValid(key)) return Unauthorized(new { ok = false, error = "Invalid bootstrap key." });
 
         var role = (req.Role ?? "").Trim().ToLowerInvariant();
-        if (role != "admin" && role != "member")
-            return BadRequest(new { ok = false, error = "Role must be 'admin' or 'member'." });
+
+        if (role != "admin" && role != "member" && role != "guest")
+        {
+            return BadRequest(new
+            {
+                ok = false,
+                error = "Role must be 'admin', 'member', or 'guest'."
+            });
+        }
 
         // Optional stricter rule:
         // if (!await NoAdminsExist(ct)) return Forbid();
