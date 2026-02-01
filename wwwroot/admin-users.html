@@ -194,90 +194,89 @@
     </div>
 
     <script>
-        const el = (id) => document.getElementById(id);
-        const pretty = (x) => JSON.stringify(x, null, 2);
+    const el = (id) => document.getElementById(id);
+    const pretty = (x) => JSON.stringify(x, null, 2);
 
-        // Allow key in URL: /admin-users.html?key=...
-        const urlKey = new URLSearchParams(location.search).get("key");
-        if (urlKey) el("key").value = urlKey;
+    // Allow key in URL: /admin-users.html?key=...
+    const urlKey = new URLSearchParams(location.search).get("key");
+    if (urlKey) el("key").value = urlKey;
 
-        async function api(path, opts = {}) {
-            const res = await fetch(path, opts);
-            const text = await res.text();
-            let json; try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
-            if (!res.ok) throw new Error(`HTTP ${res.status}: ${pretty(json)}`);
-            return json;
-        }
+    async function api(path, opts = {}) {
+      const res = await fetch(path, opts);
+      const text = await res.text();
+      let json; try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${pretty(json)}`);
+      return json;
+    }
 
-        function fmt(d) {
-            if (!d) return "";
-            try { return new Date(d).toLocaleString(); } catch { return String(d); }
-        }
+    function fmt(d) {
+      if (!d) return "";
+      try { return new Date(d).toLocaleString(); } catch { return String(d); }
+    }
 
-        function rolePill(role) {
-            const r = String(role || "").toLowerCase();
-            const cls = r === "admin" ? "pill admin" : "pill member";
-            return `<span class="${cls}">${r || "member"}</span>`;
-        }
+    function rolePill(role) {
+      const r = String(role || "").toLowerCase();
+      const cls = r === "admin" ? "pill admin" : "pill member";
+      return `<span class="${cls}">${r || "member"}</span>`;
+    }
 
-        async function loadUsers() {
-            const key = el("key").value.trim();
-            if (!key) return alert("Enter the bootstrap key first.");
+    async function loadUsers() {
+      const key = el("key").value.trim();
+      if (!key) return alert("Enter the bootstrap key first.");
 
-            const data = await api(`/bootstrap/users?key=${encodeURIComponent(key)}`);
-            el("out").textContent = pretty(data);
+      const data = await api(`/bootstrap/users?key=${encodeURIComponent(key)}`);
+      el("out").textContent = pretty(data);
 
-            const users = data.users || [];
-            el("tbl").style.display = "";
-            const tbody = el("tbody");
-            tbody.innerHTML = users.map(u => `
-            <tr>
-              <td>${u.username}</td>
-              <td>${rolePill(u.role)}</td>
-              <td>${fmt(u.createdUtc)}</td>
-              <td>${fmt(u.lastLoginUtc)}</td>
-              <td>
-                <div class="right">
-                  <button data-act="makeAdmin" data-id="${u.id}">Make admin</button>
-                  <button data-act="makeMember" class="btn-secondary" data-id="${u.id}">Make member</button>
-                  <button data-act="makeGuest" class="btn-secondary" data-id="${u.id}">Make guest</button>
-                </div>
-              </td>
-            </tr>
-          `).join("");
+      const users = data.users || [];
+      el("tbl").style.display = "";
+      const tbody = el("tbody");
+      tbody.innerHTML = users.map(u => `
+        <tr>
+          <td>${u.username}</td>
+          <td>${rolePill(u.role)}</td>
+          <td>${fmt(u.createdUtc)}</td>
+          <td>${fmt(u.lastLoginUtc)}</td>
+          <td>
+            <div class="right">
+              <button data-act="makeAdmin" data-id="${u.id}">Make admin</button>
+              <button data-act="makeMember" class="btn-secondary" data-id="${u.id}">Make member</button>
+            </div>
+          </td>
+        </tr>
+      `).join("");
 
-            tbody.querySelectorAll("button[data-act]").forEach(btn => {
-                btn.onclick = async () => {
-                    const act = btn.getAttribute("data-act");
-                    const id = btn.getAttribute("data-id");
-                    const role = act === "makeAdmin" ? "admin" : "member";
-                    btn.disabled = true;
-                    try {
-                        const r = await api(`/bootstrap/users/${encodeURIComponent(id)}/role?key=${encodeURIComponent(key)}`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ role })
-                        });
-                        el("out").textContent = pretty(r);
-                        await loadUsers();
-                    } catch (e) {
-                        el("out").textContent = String(e);
-                    } finally {
-                        btn.disabled = false;
-                    }
-                };
+      tbody.querySelectorAll("button[data-act]").forEach(btn => {
+        btn.onclick = async () => {
+          const act = btn.getAttribute("data-act");
+          const id = btn.getAttribute("data-id");
+          const role = act === "makeAdmin" ? "admin" : "member";
+          btn.disabled = true;
+          try {
+            const r = await api(`/bootstrap/users/${encodeURIComponent(id)}/role?key=${encodeURIComponent(key)}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ role })
             });
-        }
-
-        el("btnLoad").onclick = () => loadUsers().catch(e => el("out").textContent = String(e));
-
-        el("btnCopyLink").onclick = async () => {
-            const key = el("key").value.trim();
-            if (!key) return alert("Enter the bootstrap key first.");
-            const url = `${location.origin}${location.pathname}?key=${encodeURIComponent(key)}`;
-            await navigator.clipboard.writeText(url);
-            alert("Link copied.");
+            el("out").textContent = pretty(r);
+            await loadUsers();
+          } catch (e) {
+            el("out").textContent = String(e);
+          } finally {
+            btn.disabled = false;
+          }
         };
+      });
+    }
+
+    el("btnLoad").onclick = () => loadUsers().catch(e => el("out").textContent = String(e));
+
+    el("btnCopyLink").onclick = async () => {
+      const key = el("key").value.trim();
+      if (!key) return alert("Enter the bootstrap key first.");
+      const url = `${location.origin}${location.pathname}?key=${encodeURIComponent(key)}`;
+      await navigator.clipboard.writeText(url);
+      alert("Link copied.");
+    };
     </script>
 </body>
 </html>
