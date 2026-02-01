@@ -84,6 +84,15 @@ public static class Program
         builder.Services.AddSingleton<RoomBroadcastService>();
         builder.Services.AddSingleton<ContextoWordProvider>();
 
+        builder.Logging.ClearProviders();
+        builder.Logging.AddConsole();
+
+        // Suppress EF Core SQL command logs
+        builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
+
+        // Optional: quiet general EF noise too
+        builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);
+
         var app = builder.Build();
 
         // Needed behind Render/proxies
