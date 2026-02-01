@@ -540,6 +540,19 @@
             return json;
         }
 
+        let pollHandle = null;
+
+        function startPolling() {
+            if (pollHandle) return;
+            pollHandle = setInterval(() => {
+                // don’t spam when tab is hidden
+                if (document.hidden) return;
+                const code = roomId();
+                if (!code) return;
+                refreshState(); // refreshState already re-renders players
+            }, 2000); // 2s is a good start
+        }
+
         function roomId() {
             return el("roomCode").value.trim();
         }
@@ -835,8 +848,13 @@
                 return;
             }
 
-            // If no room saved, show an empty players list message
-            renderPlayers({ players: [] }, myUserId);
+            startPolling();
+
+            async function requireAuth() {
+                const me = await api("/member/me");
+                if (!me.isAuth) location.href = "/user.html";
+            }
+            requireAuth().catch(() => location.href = "/user.html");
         }
 
         init().catch(() => location.href = "/user.html");
