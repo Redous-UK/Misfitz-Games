@@ -275,12 +275,27 @@
                 </div>
 
                 <div class="card">
-                    <h2>Admin Tools</h2>
-                    <div class="row" style="margin-top:12px">
-                        <button id="btnClearRooms" class="btn-secondary">Clear open rooms</button>
+                    <h2>Room cleanup</h2>
+
+                    <div class="row">
+                        <label class="muted">Older than (hours)</label>
+                        <input id="cleanupHours" type="number" min="1" value="24" style="width:140px" />
+
+                        <label class="muted">Max</label>
+                        <input id="cleanupMax" type="number" min="1" max="2000" value="200" style="width:140px" />
+
+                        <button id="btnPreviewCleanup" class="btn-secondary">Preview</button>
+                        <button id="btnRunCleanup" class="btn-danger">Cleanup</button>
                     </div>
 
-                    <pre id="roomsOut">{}</pre>
+                    <div class="row" style="margin-top:10px">
+                        <button class="btn-secondary" id="btnPreset1h">1h</button>
+                        <button class="btn-secondary" id="btnPreset6h">6h</button>
+                        <button class="btn-secondary" id="btnPreset24h">24h</button>
+                        <button class="btn-secondary" id="btnPreset72h">72h</button>
+                    </div>
+
+                    <pre id="cleanupOut">{}</pre>
                 </div>
 
                 <div class="two">
@@ -347,7 +362,7 @@
             return json;
         }
 
-        async function tryClearRooms() {
+       /* async function tryClearRooms() {
             // Update this list once you confirm the real one
             const candidates = [
                 { method: "POST", path: "/admin/rooms/clear" },
@@ -368,9 +383,66 @@
             }
 
             return { ok: false, error: "No clear-rooms endpoint matched.", lastErr, tried: candidates };
+        }*/
+
+        function getCleanupParams() {
+            const olderThanHours = Math.max(1, parseInt(el("cleanupHours").value || "24", 10));
+            let max = parseInt(el("cleanupMax").value || "200", 10);
+            if (Number.isNaN(max) || max < 1) max = 1;
+            if (max > 2000) max = 2000;
+            return { olderThanHours, max };
         }
 
-        el("btnClearRooms").onclick = async () => {
+        async function previewCleanup() {
+            const { olderThanHours, max } = getCleanupParams();
+            const q = `?olderThanHours=${encodeURIComponent(olderThanHours)}&max=${encodeURIComponent(max)}`;
+
+            const r = await api(`/admin/rooms/cleanup/preview${q}`, { method: "GET" });
+            el("cleanupOut").textContent = pretty(r);
+            return r;
+        }
+
+        async function runCleanup() {
+            const { olderThanHours, max } = getCleanupParams();
+            const q = `?olderThanHours=${encodeURIComponent(olderThanHours)}&max=${encodeURIComponent(max)}`;
+
+            // Optional: force a preview first so you always see what would be removed
+            const prev = await previewCleanup();
+
+            const yes = confirm(
+                `Delete ${prev?.count ?? "these"} rooms older than ${olderThanHours}h?\n\n` +
+                `This cannot be undone.`
+            );
+            if (!yes) return;
+
+            const r = await api(`/admin/rooms/cleanup${q}`, { method: "POST" });
+            el("cleanupOut").textContent = pretty(r);
+            return r;
+        }
+
+        // Wire buttons
+        el("btnPreviewCleanup").onclick = async () => {
+            el("btnPreviewCleanup").disabled = true;
+            try { await previewCleanup(); }
+            catch (e) { el("cleanupOut").textContent = pretty({ ok: false, error: String(e) }); }
+            finally { el("btnPreviewCleanup").disabled = false; }
+        };
+
+        el("btnRunCleanup").onclick = async () => {
+            el("btnRunCleanup").disabled = true;
+            try { await runCleanup(); }
+            catch (e) { el("cleanupOut").textContent = pretty({ ok: false, error: String(e) }); }
+            finally { el("btnRunCleanup").disabled = false; }
+        };
+
+        // Presets
+        function setHours(h) { el("cleanupHours").value = String(h); }
+        el("btnPreset1h").onclick = () => setHours(1);
+        el("btnPreset6h").onclick = () => setHours(6);
+        el("btnPreset24h").onclick = () => setHours(24);
+        el("btnPreset72h").onclick = () => setHours(72);
+
+        /*el("btnClearRooms").onclick = async () => {
             const yes = confirm(
                 "Clear ALL open rooms?\n\nThis will remove room codes + room state. Players will be kicked out."
             );
@@ -385,7 +457,7 @@
             } finally {
                 el("btnClearRooms").disabled = false;
             }
-        };
+        };*/
 
         function roomId() {
             return el("roomCode").value.trim();
