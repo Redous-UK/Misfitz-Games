@@ -1,13 +1,10 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Misfitz_Games.Data;
 using Misfitz_Games.Hubs;
 using Misfitz_Games.Services;
-using System.Runtime.ConstrainedExecution;
 using System.Security.Claims;
-using System.Security.Cryptography.X509Certificates;
 
 namespace Misfitz_Games;
 
@@ -16,18 +13,8 @@ public static class Program
     public static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
-        var pfxPath = builder.Configuration["DP_PFX_PATH"];     // e.g. /etc/secrets/dp.pfx
-        var pfxPass = builder.Configuration["DP_PFX_PASSWORD"]; // secret
 
-        var cert = new X509Certificate2(pfxPath, pfxPass);
         builder.Services.AddControllers();
-
-        builder.Services
-            .AddDataProtection()
-            .SetApplicationName("misfitz-games-app")
-            .PersistKeysToFileSystem(new DirectoryInfo(
-                builder.Environment.IsProduction() ? "/data/" : "Data/"))
-            .ProtectKeysWithCertificate(cert);
 
         builder.Services.AddSignalR(o =>
         {
