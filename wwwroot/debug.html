@@ -1,0 +1,221 @@
+﻿<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Misfitz Debug</title>
+    <style>
+        :root {
+            --bg: #0b1020;
+            --card: #111a33;
+            --text: #e8ecff;
+            --muted: #a7b0d6;
+            --line: #22305b;
+            --pill: #1a2652;
+        }
+
+        body {
+            margin: 0;
+            font-family: system-ui,Segoe UI,Roboto,Arial;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .wrap {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        h1 {
+            font-size: 22px;
+            margin: 0;
+        }
+
+        .pill {
+            background: var(--pill);
+            border: 1px solid var(--line);
+            color: var(--muted);
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        @media (max-width: 900px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+            .card h2 {
+                margin: 0;
+                padding: 14px 16px;
+                font-size: 14px;
+                letter-spacing: .2px;
+                color: var(--muted);
+                border-bottom: 1px solid var(--line);
+                display: flex;
+                justify-content: space-between;
+                gap: 8px;
+            }
+
+        .actions a {
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 12px;
+            padding: 6px 8px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+        }
+
+            .actions a:hover {
+                filter: brightness(1.1);
+            }
+
+        pre {
+            margin: 0;
+            padding: 14px 16px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+            font-size: 12.5px;
+        }
+
+        .err {
+            color: #ffb4b4;
+        }
+
+        .ok {
+            color: #b6ffcf;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin: 10px 0 18px;
+        }
+
+        button {
+            background: transparent;
+            color: var(--muted);
+            border: 1px solid var(--line);
+            padding: 8px 10px;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+
+            button:hover {
+                filter: brightness(1.1);
+            }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="topbar">
+            <h1>Debug Dashboard</h1>
+            <div class="pill">/debug</div>
+        </div>
+
+        <div class="row">
+            <button onclick="loadAll()">Refresh</button>
+            <span id="status" class="pill">idle</span>
+        </div>
+
+        <div class="grid" id="grid"></div>
+    </div>
+
+    <script>
+    const endpoints = [
+      { title: "DB", path: "/debug/db" },
+      { title: "DB Path", path: "/debug/dbpath" },
+      { title: "Users", path: "/debug/users" },
+      { title: "Environment", path: "/debug/env" },
+      { title: "Who Am I", path: "/debug/whoami" },
+      { title: "Redis", path: "/debug/redis" },
+      { title: "Redis Details", path: "/debug/redis/details" },
+    ];
+
+    const grid = document.getElementById("grid");
+    const statusEl = document.getElementById("status");
+
+    function cardTemplate(title, path) {
+      const div = document.createElement("div");
+      div.className = "card";
+      div.innerHTML = `
+        <h2>
+          <span>${title}</span>
+          <span class="actions">
+            <a href="${path}" target="_blank" rel="noreferrer">Open JSON</a>
+          </span>
+        </h2>
+        <pre id="pre-${cssSafeId(path)}">Loading…</pre>
+      `;
+      return div;
+    }
+
+    function cssSafeId(s) {
+      return s.replace(/[^a-z0-9]/gi, "_");
+    }
+
+    async function fetchPretty(path) {
+      const res = await fetch(path, { headers: { "Accept": "application/json" } });
+      const text = await res.text();
+
+      // Try to pretty-print JSON; if not JSON, just show text
+      try {
+        const obj = JSON.parse(text);
+        return JSON.stringify(obj, null, 2);
+      } catch {
+        return text;
+      }
+    }
+
+    async function loadOne(title, path) {
+      const pre = document.getElementById(`pre-${cssSafeId(path)}`);
+      try {
+        const out = await fetchPretty(path);
+        pre.textContent = out;
+        pre.classList.remove("err");
+      } catch (e) {
+        pre.textContent = `ERROR fetching ${path}\n\n${e?.message ?? e}`;
+        pre.classList.add("err");
+      }
+    }
+
+    async function loadAll() {
+      statusEl.textContent = "loading…";
+      statusEl.classList.remove("ok");
+      const tasks = endpoints.map(e => loadOne(e.title, e.path));
+      await Promise.allSettled(tasks);
+      statusEl.textContent = "loaded";
+      statusEl.classList.add("ok");
+    }
+
+    // Build UI
+    endpoints.forEach(e => grid.appendChild(cardTemplate(e.title, e.path)));
+    loadAll();
+    </script>
+</body>
+</html>

@@ -123,6 +123,18 @@ public static class Program
             db.Database.Migrate();
         }
 
+        app.MapGet("/", context =>
+        {
+            context.Response.Redirect("/user.html");
+            return Task.CompletedTask;
+        });
+
+        app.MapGet("/debug", ctx =>
+        {
+            ctx.Response.Redirect("/debug.html");
+            return Task.CompletedTask;
+        });
+
         app.MapControllers();
         app.MapHub<RoomHub>("/hubs/room");
 
