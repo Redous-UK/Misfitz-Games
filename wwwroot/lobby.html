@@ -234,6 +234,17 @@
         }
 
         function renderPlayers(roomState, currentUserId) {
+
+            // 🔍 DEBUG — PUT IT RIGHT HERE
+            console.log("renderPlayers", {
+                hostUserId: roomState?.hostUserId,
+                playersType: typeof roomState?.players,
+                playersCount: Array.isArray(roomState?.players)
+                    ? roomState.players.length
+                    : null,
+                roomState
+            });
+
             const container = document.getElementById("playerList");
             if (!container) return;
 
@@ -395,32 +406,6 @@
                 if (!code) return;
                 el("gameOut").textContent = pretty(await api(`/rooms/${encodeURIComponent(code)}/leaderboard`));
             } catch (e) { el("gameOut").textContent = String(e); }
-        }
-
-        function renderPlayers(roomState, currentUserId) {
-
-            // 🔍 DEBUG — PUT IT RIGHT HERE
-            console.log("renderPlayers", {
-                hostUserId: roomState?.hostUserId,
-                playersType: typeof roomState?.players,
-                playersCount: Array.isArray(roomState?.players)
-                    ? roomState.players.length
-                    : null,
-                roomState
-            });
-
-            const container = document.getElementById("playerList");
-            if (!container) return;
-
-            const hostId = roomState?.hostUserId;
-            const players = Array.isArray(roomState?.players) ? roomState.players : [];
-
-            if (!players.length) {
-                container.innerHTML = `<div class="muted">No players yet — join the room to appear here.</div>`;
-                return;
-            }
-
-            // existing rendering logic continues…
         }
 
         function applyRoleUI(role) {
