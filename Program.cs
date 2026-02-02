@@ -26,7 +26,7 @@ public static class Program
             .AddDataProtection()
             .SetApplicationName("misfitz-games-app")
             .PersistKeysToFileSystem(new DirectoryInfo(
-                builder.Environment.IsProduction() ? "/data/keys/" : "Data/keys/"))
+                builder.Environment.IsProduction() ? "/data/" : "Data/"))
             .ProtectKeysWithCertificate(cert);
 
         builder.Services.AddSignalR(o =>
