@@ -370,6 +370,17 @@
                 const state = raw?.state ?? raw;
 
                 currentRoomState = state;
+
+                currentRoomState = await api(`/rooms/${encodeURIComponent(code)}/state`);
+
+                console.log("STATE FETCH", {
+                    code,
+                    keys: Object.keys(currentRoomState || {}),
+                    playersIsArray: Array.isArray(currentRoomState?.players),
+                    playersCount: Array.isArray(currentRoomState?.players) ? currentRoomState.players.length : null,
+                    currentRoomState
+                });
+
                 el("stateOut").textContent = pretty(raw); // keep showing raw for debugging
 
                 renderPlayers(state, myUserId);
