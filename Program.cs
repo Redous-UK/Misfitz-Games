@@ -69,6 +69,11 @@ public static class Program
             });
 
         builder.Services.AddAuthorizationBuilder()
+            .AddPolicy("Player", p =>
+                p.RequireAssertion(ctx =>
+                    ctx.User.HasClaim(ClaimTypes.Role, "guest") ||
+                    ctx.User.HasClaim(ClaimTypes.Role, "member") ||
+                    ctx.User.HasClaim(ClaimTypes.Role, "admin")))
             .AddPolicy("MemberOrAdmin", p =>
                 p.RequireAssertion(ctx =>
                     ctx.User.HasClaim(ClaimTypes.Role, "member") ||
