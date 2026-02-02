@@ -267,8 +267,11 @@
             myRole = me.role || "guest";
 
             // show it in the UI
-            const label = el("username");
-            if (label) label.textContent = `${myName}`;
+            const input = el("username");
+            if (input && me.name) {
+                input.value = me.name;
+                input.readOnly = true; // optional but recommended
+            }
 
             // optional: store for other pages / reloads
             localStorage.setItem("myName", myName);
@@ -423,7 +426,6 @@
         const gs = state.gameState ?? state.GameState ?? null;
 
           el("roomLine").textContent = `${roomName} (${joinedRef})`;
-          el("username").value = me.name;
 
         if (!activeGame || activeGame === "None" || activeGame === 0) {
           setGame("No game", "warn");
@@ -458,7 +460,7 @@
 
       el("btnJoin").disabled = true;
       el("btnLeave").disabled = false;
-        el("btnGuess").disabled = false;
+      el("btnGuess").disabled = false;
 
 
       // overlay link
