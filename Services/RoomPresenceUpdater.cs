@@ -6,11 +6,13 @@ public static class RoomPresenceUpdater
 {
     public static RoomState TouchPlayer(RoomState state, string userId, string username, bool isConnected = true)
     {
-        var players = state.Players ?? new List<PlayerPresence>();
-
         var now = DateTimeOffset.UtcNow;
 
-        // find existing
+        // ✅ clone list so we don't mutate the existing record's list instance
+        var players = state.Players is null
+            ? new List<PlayerPresence>()
+            : new List<PlayerPresence>(state.Players);
+
         var idx = players.FindIndex(p => p.UserId == userId);
 
         if (idx >= 0)
@@ -35,10 +37,7 @@ public static class RoomPresenceUpdater
             ));
         }
 
-        // set host if none
-        var host = state.HostUserId;
-        if (string.IsNullOrWhiteSpace(host))
-            host = userId;
+        var host = string.IsNullOrWhiteSpace(state.HostUserId) ? userId : state.HostUserId;
 
         return state with
         {
