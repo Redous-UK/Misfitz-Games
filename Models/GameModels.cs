@@ -12,7 +12,9 @@ public sealed record RoomState(
     string RoomName,
     GameType ActiveGame,
     object? GameState,
-    DateTimeOffset UpdatedAtUtc
+    DateTimeOffset UpdatedAtUtc,
+    List<PlayerPresence>? Players = null,
+    string? HostUserId = null
 );
 
 public sealed record ContextoStartRequest(string SecretWord);

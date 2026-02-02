@@ -27,13 +27,3 @@ public sealed record PlayerPresence(
     bool IsReady = false,
     string? AvatarUrl = null
 );
-
-public sealed record RoomState(
-    Guid RoomId,
-    string RoomName,
-    GameType ActiveGame,
-    object? GameState,
-    DateTimeOffset UpdatedAtUtc,
-    List<PlayerPresence>? Players = null,
-    string? HostUserId = null
-);
