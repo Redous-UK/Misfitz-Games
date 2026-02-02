@@ -71,11 +71,11 @@ public class IngestController(
         next = RoomPresenceUpdater.TouchPlayer(next, evt.UserId, evt.Username, isConnected: true);
 
         // ---- Route to active game ----
-        if (state.ActiveGame == GameType.Contexto)
+        if (next.ActiveGame == GameType.Contexto) // use next, not state
         {
             if (contexto.TryExtractGuess(evt.Message, out var guess))
             {
-                next = contexto.ApplyGuess(state, evt.UserId, evt.Username, guess);
+                next = contexto.ApplyGuess(next, evt.UserId, evt.Username, guess); // ✅ use next, not state
             }
         }
 
