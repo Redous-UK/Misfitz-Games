@@ -129,10 +129,16 @@ public static class Program
             return Task.CompletedTask;
         });
 
-        app.MapGet("/debug", ctx =>
+        app.MapGet("/debug", (HttpContext ctx) =>
         {
-            ctx.Response.Redirect("/debug.html");
-            return Task.CompletedTask;
+            var user = ctx.User;
+            var isAdmin =
+                user?.IsInRole("admin") == true ||
+                user?.Claims?.Any(c => (c.Type == "role" || c.Type.EndsWith("/role")) && c.Value == "admin") == true;
+
+            if (!isAdmin) return Results.NotFound();
+
+            return Results.Redirect("/debug.html");
         });
 
         app.MapControllers();
