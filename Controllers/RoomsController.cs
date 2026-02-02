@@ -102,9 +102,10 @@ public class RoomsController(IRoomStateStore store) : ControllerBase
         if (roomId is null) return NotFound(new { ok = false, error = "Room not found" });
 
         var state = await store.GetStateAsync(roomId.Value, ct);
-        return state is null
-            ? NotFound(new { ok = false, error = "State not found" })
-            : Ok(state);
+        if (state is null) return NotFound(new { ok = false, error = "State not found" });
+
+        // ✅ Return the same shape your broadcaster uses
+        return Ok(RoomStateProjector.ToPublic(state));
     }
 
     private static string NormalizeCustomCode(string code)
