@@ -241,9 +241,6 @@
 
     const POLL_MS = 1200;
 
-    const el = (id) => document.getElementById(id);
-    const pretty = (x) => JSON.stringify(x, null, 2);
-
     async function api(path, opts = {}) {
         const res = await fetch(path, { credentials: "include", ...opts });
         const text = await res.text();
