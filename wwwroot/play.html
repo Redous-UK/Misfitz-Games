@@ -493,7 +493,7 @@
     async function sendGuess() {
       if (!joinedRef) return;
 
-      const username = (el("username").value = me.name).trim();
+      const username = (el("username").value).trim();
       const message = (el("guess").value || "").trim();
       if (!message) return;
 
