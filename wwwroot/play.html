@@ -173,6 +173,7 @@
     <div class="wrap">
         <div class="titleRow">
             <h1>Misfitz Games</h1>
+            <span id="meLabel">Checking login…</span>
             <span id="statusBadge" class="badge warn">Not connected</span>
         </div>
         <div class="muted">Join a room using an 8-digit code or a custom code like <b>MISFITZ1</b>.</div>
@@ -240,8 +241,52 @@
 
     const POLL_MS = 1200;
 
+    const el = (id) => document.getElementById(id);
+    const pretty = (x) => JSON.stringify(x, null, 2);
+
+    async function api(path, opts = {}) {
+        const res = await fetch(path, { credentials: "include", ...opts });
+        const text = await res.text();
+        let json; try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${pretty(json)}`);
+        return json;
+    }
+
+        let myUserId = null;
+        let myName = null;
+        let myRole = null;
+
+        async function refreshMe() {
+            const me = await api("/member/me");
+
+            if (!me.isAuth) {
+                // Not logged in / cookie missing
+                location.href = "/user.html";
+                return;
+            }
+
+            myUserId = me.userId || null;
+            myName = me.name || "Player";
+            myRole = me.role || "guest";
+
+            // show it in the UI
+            const label = el("meLabel");
+            if (label) label.textContent = `👤 ${myName} (${myRole})`;
+
+            // optional: store for other pages / reloads
+            localStorage.setItem("myName", myName);
+            localStorage.setItem("myUserId", myUserId);
+            localStorage.setItem("myRole", myRole);
+
+            return me;
+        }
+
+        window.addEventListener("DOMContentLoaded", () => {
+            refreshMe().catch(() => location.href = "/user.html");
+        });
+
     let joinedRef = "";
-    let pollTimer = null;
+        let pollTimer = null;
 
     function setStatus(text, kind="warn") {
       const b = el("statusBadge");
