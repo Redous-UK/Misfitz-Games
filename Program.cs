@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Misfitz_Games.Data;
@@ -15,6 +16,12 @@ public static class Program
         var builder = WebApplication.CreateBuilder(args);
 
         builder.Services.AddControllers();
+
+        builder.Services
+            .AddDataProtection()
+            .SetApplicationName("misfitz-games-app")
+            .PersistKeysToFileSystem(new DirectoryInfo(
+                builder.Environment.IsProduction() ? "/data/keys/" : "Data/keys/"));
 
         builder.Services.AddSignalR(o =>
         {
