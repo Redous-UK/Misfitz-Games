@@ -14,7 +14,7 @@ public static class RoomStateProjector
     public static object ToPublic(RoomState state)
     {
         // --- Ensure players key always exists (never null) ---
-        var players = state.Players ?? new List<PlayerPresence>();
+        var players = state.Players ?? [];
 
         // --- Normalize contexto state regardless of storage type (ContextoState or JsonElement) ---
         ContextoState? cs = null;
