@@ -67,6 +67,9 @@ public class IngestController(
         var prevState = state;
         RoomState next = state;
 
+        // ✅ Update presence for ANY event (web or tiktok)
+        next = RoomPresenceUpdater.TouchPlayer(next, evt.UserId, evt.Username, isConnected: true);
+
         // ---- Route to active game ----
         if (state.ActiveGame == GameType.Contexto)
         {
