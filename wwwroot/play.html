@@ -422,7 +422,8 @@
         const activeGame = state.activeGame ?? state.ActiveGame ?? "None";
         const gs = state.gameState ?? state.GameState ?? null;
 
-        el("roomLine").textContent = `${roomName} (${joinedRef})`;
+          el("roomLine").textContent = `${roomName} (${joinedRef})`;
+          el("username").value = me.name;
 
         if (!activeGame || activeGame === "None" || activeGame === 0) {
           setGame("No game", "warn");
