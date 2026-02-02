@@ -181,7 +181,7 @@
         <div class="card" style="margin-top:12px;">
             <div class="row">
                 <input id="roomRef" class="grow" placeholder="Room code (e.g. 48392017 or MISFITZ1)" />
-                <input id="username" placeholder="Your name" value="Viewer" />
+                <input id="username" placeholder="Your name" />
                 <button id="btnJoin">Join</button>
                 <button id="btnLeave" disabled>Leave</button>
             </div>
@@ -457,7 +457,8 @@
 
       el("btnJoin").disabled = true;
       el("btnLeave").disabled = false;
-      el("btnGuess").disabled = false;
+        el("btnGuess").disabled = false;
+
 
       // overlay link
       el("overlayLink").href = `/overlay.html?roomId=${encodeURIComponent(joinedRef)}`;
@@ -489,7 +490,7 @@
     async function sendGuess() {
       if (!joinedRef) return;
 
-      const username = (el("username").value || "Viewer").trim();
+      const username = (el("username").value = me.name).trim();
       const message = (el("guess").value || "").trim();
       if (!message) return;
 
