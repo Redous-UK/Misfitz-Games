@@ -270,8 +270,8 @@
             myRole = me.role || "guest";
 
             // show it in the UI
-            const label = el("meLabel");
-            if (label) label.textContent = `👤 ${myName} (${myRole})`;
+            const label = el("username");
+            if (label) label.textContent = `${myName}`;
 
             // optional: store for other pages / reloads
             localStorage.setItem("myName", myName);
