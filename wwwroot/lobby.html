@@ -50,6 +50,7 @@
                     <div class="card">
                         <h2>Games</h2>
                         <div class="games" id="gamesGrid"></div>
+                        <div class="selectedGamePill"></div>
                         <div class="muted" style="margin-top:10px; font-size:12px;">
                             Tip: Click a game tile to select it. “Start” uses the selected game.
                         </div>
@@ -332,69 +333,60 @@
         // Ensure these exist somewhere globally
         let selectedGameId = window.selectedGameId || "contexto";
 
-        const gameImages = {
-            contexto: "/assets/Games/contexto.png",
-            deal_or_no_deal: "/assets/Games/deal.png",
-            hangman: "/assets/Games/hangman.png",
-            trivia: "/assets/Games/trivia.png",
-            twenty_one: "/assets/Games/21.png",
-            higher_or_lower: "/assets/Games/higher_or_lower.png",
-        };
-
-        function gameImageUrl(gameId) {
-            return gameImages[gameId] || "/assets/Games/placeholder.png";
-        }
-
         async function loadGames() {
-            let g;
-
-            try {
-                g = await api("/catalog/games");
-            } catch (err) {
-                console.error("Failed to load /catalog/games", err);
-                const grid = el("gamesGrid");
-                if (grid) grid.innerHTML = "<div class='error'>Failed to load games.</div>";
-                return;
-            }
-
-            if (!g || g.ok !== true || !Array.isArray(g.games)) {
-                console.error("Unexpected games payload", g);
-                const grid = el("gamesGrid");
-                if (grid) grid.innerHTML = "<div class='error'>Invalid games payload.</div>";
-                return;
-            }
+            console.log("Loading games...");
 
             const grid = el("gamesGrid");
+            const pill = el("selectedGamePill");
+
             if (!grid) {
-                console.error("Missing element #gamesGrid");
+                console.error("Missing #gamesGrid element");
                 return;
             }
 
             grid.innerHTML = "";
 
-            for (const item of g.games) {
+            let payload;
+            try {
+                payload = await api("/catalog/games");
+            } catch (err) {
+                console.error("Failed to fetch /catalog/games", err);
+                grid.innerHTML = "<div class='error'>Failed to load games.</div>";
+                return;
+            }
+
+            console.log("Games payload:", payload);
+
+            const games = payload?.games;
+            if (!Array.isArray(games)) {
+                console.error("Payload does not contain games[]", payload);
+                grid.innerHTML = "<div class='error'>Invalid games payload.</div>";
+                return;
+            }
+
+            for (const item of games) {
                 const tile = document.createElement("div");
                 tile.className = "game-tile";
-                tile.setAttribute("data-game", item.id);
-
+                tile.dataset.game = item.id;
 
                 if (!item.enabled) {
                     tile.setAttribute("aria-disabled", "true");
                     tile.classList.add("is-disabled");
                 }
 
-
                 const bg = document.createElement("div");
                 bg.className = "game-bg";
-                bg.style.backgroundImage = `url('${gameImageUrl(item.id)}')`;
+                const imageUrl = item.image || "/assets/Games/placeholder.png";
+                bg.style.backgroundImage = `url('${imageUrl}')`;
 
                 const inner = document.createElement("div");
                 inner.className = "game-inner";
+
                 const left = document.createElement("div");
 
                 const title = document.createElement("div");
                 title.className = "game-title";
-                title.textContent = item.name;
+                title.textContent = item.name || item.id;
 
                 const desc = document.createElement("div");
                 desc.className = "game-desc";
@@ -413,25 +405,27 @@
                 tile.appendChild(bg);
                 tile.appendChild(inner);
 
-                tile.onclick = () => {
+                tile.addEventListener("click", () => {
                     if (!item.enabled) return;
+
                     selectedGameId = item.id;
-                    const pill = el("selectedGamePill");
-                    if (pill) pill.textContent = `Selected: ${item.id}`;
 
-
-                    // Optional: highlight selected tile
-                    document.querySelectorAll(".game-tile.is-selected").forEach(x => x.classList.remove("is-selected"));
+                    // Visual selected state
+                    document.querySelectorAll(".game-tile.is-selected")
+                        .forEach(x => x.classList.remove("is-selected"));
                     tile.classList.add("is-selected");
-                };
+
+                    if (pill) pill.textContent = `Selected: ${item.name}`;
+                });
 
                 grid.appendChild(tile);
             }
 
-
-            const pill = el("selectedGamePill");
             if (pill) pill.textContent = `Selected: ${selectedGameId}`;
         }
+
+        // Important: run AFTER DOM is loaded
+        document.addEventListener("DOMContentLoaded", loadGames);
 
         // Buttons
         el("btnBack").onclick = () => location.href = "/user.html";
