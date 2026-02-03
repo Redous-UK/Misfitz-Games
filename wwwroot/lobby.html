@@ -331,27 +331,69 @@
             }).join("");
         }
 
+        // Ensure these exist somewhere globally
+        let selectedGameId = window.selectedGameId || "contexto";
+
+        const gameImages = {
+            contexto: "/assets/Games/contexto.png",
+            deal_or_no_deal: "/assets/Games/deal.png",
+            hangman: "/assets/Games/hangman.png",
+            trivia: "/assets/Games/trivia.png",
+            twenty_one: "/assets/Games/21.png",
+            higher_or_lower: "/assets/Games/higher_or_lower.png",
+        };
+
+        function gameImageUrl(gameId) {
+            return gameImages[gameId] || "/assets/Games/placeholder.png";
+        }
+
         async function loadGames() {
-            const g = await api("/catalog/games");
+            let g;
+
+            try {
+                g = await api("/catalog/games");
+            } catch (err) {
+                console.error("Failed to load /catalog/games", err);
+                const grid = el("gamesGrid");
+                if (grid) grid.innerHTML = "<div class='error'>Failed to load games.</div>";
+                return;
+            }
+
+            if (!g || g.ok !== true || !Array.isArray(g.games)) {
+                console.error("Unexpected games payload", g);
+                const grid = el("gamesGrid");
+                if (grid) grid.innerHTML = "<div class='error'>Invalid games payload.</div>";
+                return;
+            }
+
             const grid = el("gamesGrid");
+            if (!grid) {
+                console.error("Missing element #gamesGrid");
+                return;
+            }
+
             grid.innerHTML = "";
 
             for (const item of g.games) {
                 const tile = document.createElement("div");
                 tile.className = "game-tile";
                 tile.setAttribute("data-game", item.id);
-                if (!item.enabled) tile.setAttribute("aria-disabled", "true");
+
+
+                if (!item.enabled) {
+                    tile.setAttribute("aria-disabled", "true");
+                    tile.classList.add("is-disabled");
+                }
+
 
                 const bg = document.createElement("div");
                 bg.className = "game-bg";
-                bg.style.backgroundImage = item.id === "contexto"
-                    ? "url('/assets/Games/contexto.png')"
-                    : "url('/assets/Games/deal.png')";
+                bg.style.backgroundImage = `url('${gameImageUrl(item.id)}')`;
 
                 const inner = document.createElement("div");
                 inner.className = "game-inner";
-
                 const left = document.createElement("div");
+
                 const title = document.createElement("div");
                 title.className = "game-title";
                 title.textContent = item.name;
@@ -376,13 +418,21 @@
                 tile.onclick = () => {
                     if (!item.enabled) return;
                     selectedGameId = item.id;
-                    el("selectedGamePill").textContent = `Selected: ${item.id}`;
+                    const pill = el("selectedGamePill");
+                    if (pill) pill.textContent = `Selected: ${item.id}`;
+
+
+                    // Optional: highlight selected tile
+                    document.querySelectorAll(".game-tile.is-selected").forEach(x => x.classList.remove("is-selected"));
+                    tile.classList.add("is-selected");
                 };
 
                 grid.appendChild(tile);
             }
 
-            el("selectedGamePill").textContent = `Selected: ${selectedGameId}`;
+
+            const pill = el("selectedGamePill");
+            if (pill) pill.textContent = `Selected: ${selectedGameId}`;
         }
 
         // Buttons

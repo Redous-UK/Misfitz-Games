@@ -11,7 +11,7 @@ public static class RoomPresenceUpdater
         // ✅ clone list so we don't mutate the existing record's list instance
         var players = state.Players is null
             ? new List<PlayerPresence>()
-            : new List<PlayerPresence>(state.Players);
+            : [];
 
         var idx = players.FindIndex(p => p.UserId == userId);
 
