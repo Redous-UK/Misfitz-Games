@@ -575,7 +575,7 @@
         init().catch(() => location.href = "/user.html");
     </script>
     <script>
-        function sidebar() {
+        (function () {
             const btn = document.getElementById("settingsBtn");
             const overlay = document.getElementById("settingsOverlay");
             const panel = document.getElementById("settingsPanel");
@@ -614,7 +614,7 @@
             document.addEventListener("keydown", (e) => {
                 if (e.key === "Escape" && panel.classList.contains("open")) closePanel();
             });
-        };
+        })();
     </script>
 </body>
 </html>
