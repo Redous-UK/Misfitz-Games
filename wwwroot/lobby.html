@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="/site.css" />
 </head>
 <body>
-
     <section class="hero">
         <div class="wrap">
             <div class="topbar">
@@ -50,7 +49,6 @@
                     <div class="card">
                         <h2>Games</h2>
                         <div class="games" id="gamesGrid"></div>
-                        <div class="selectedGamePill"></div>
                         <div class="muted" style="margin-top:10px; font-size:12px;">
                             Tip: Click a game tile to select it. “Start” uses the selected game.
                         </div>
@@ -522,7 +520,6 @@
 
         // Init
         async function init() {
-            loadGames().catch(() => { });
             await el("btnMe").onclick();
 
             if (!myUserId) {
