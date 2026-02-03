@@ -93,6 +93,44 @@
         </div>
     </div>
 
+    <!-- Floating settings button -->
+    <button id="settingsBtn"
+            class="settings-btn"
+            aria-label="Open settings"
+            aria-controls="settingsPanel"
+            aria-expanded="false">
+        ⚙️
+    </button>
+
+    <!-- Overlay (click to close) -->
+    <div id="settingsOverlay" class="settings-overlay" hidden></div>
+
+    <!-- Side panel -->
+    <aside id="settingsPanel" class="settings-panel" aria-hidden="true" role="dialog" aria-label="Lobby settings">
+        <div class="settings-header">
+            <h2>Controls</h2>
+            <button id="settingsCloseBtn" class="settings-close" aria-label="Close settings">✕</button>
+        </div>
+
+        <div class="settings-content">
+            <!-- Move your existing lobby controls into here -->
+            <!-- Example placeholders: -->
+            <div class="control-block">
+                <label class="control-label" for="roomSelect">Room</label>
+                <select id="roomSelect" class="control-input"></select>
+            </div>
+
+            <div class="control-block">
+                <label class="control-label" for="nameInput">Display name</label>
+                <input id="nameInput" class="control-input" placeholder="Craig" />
+            </div>
+
+            <div class="control-block">
+                <button id="saveBtn" class="control-button">Save</button>
+            </div>
+        </div>
+    </aside>
+
     <script>
         const el = (id) => document.getElementById(id);
         const pretty = (x) => JSON.stringify(x, null, 2);
@@ -198,14 +236,14 @@
                     const isActive = activeRoomCode && activeRoomCode === code;
 
                     return `
-                <div class="room-tile" data-code="${esc(code)}">
-                  <div class="room-title">${esc(name)}</div>
-                  <div class="room-sub">Code: <b>${esc(code)}</b>${created ? ` • Created: ${esc(created)}` : ""}</div>
-                  <div class="room-meta">
-                    <span class="room-chip ${isActive ? "active" : ""}">${isActive ? "ACTIVE" : "JOIN"}</span>
-                  </div>
-                </div>
-              `;
+                        <div class="room-tile" data-code="${esc(code)}">
+                          <div class="room-title">${esc(name)}</div>
+                          <div class="room-sub">Code: <b>${esc(code)}</b>${created ? ` • Created: ${esc(created)}` : ""}</div>
+                          <div class="room-meta">
+                            <span class="room-chip ${isActive ? "active" : ""}">${isActive ? "ACTIVE" : "JOIN"}</span>
+                          </div>
+                        </div>
+                      `;
                 }).join("");
 
                 grid.querySelectorAll(".room-tile[data-code]").forEach(tile => {
@@ -311,20 +349,20 @@
                 const rightSub = p.pingMs != null ? `Ping: ${p.pingMs}ms` : (p.score != null ? `Score: ${p.score}` : "");
 
                 return `
-              <div class="${cardClasses}">
-                <div class="avatar">${avatar}</div>
-                <div class="meta">
-                  <div class="top">
-                    <div class="name">${esc(name)}</div>
-                    <div class="badges">${badges}</div>
-                  </div>
-                  <div class="bottom">
-                    <span class="${pillClass}">${esc(pillText)}</span>
-                    <span class="sub">${esc(rightSub)}</span>
-                  </div>
-                </div>
-              </div>
-            `;
+                      <div class="${cardClasses}">
+                        <div class="avatar">${avatar}</div>
+                        <div class="meta">
+                          <div class="top">
+                            <div class="name">${esc(name)}</div>
+                            <div class="badges">${badges}</div>
+                          </div>
+                          <div class="bottom">
+                            <span class="${pillClass}">${esc(pillText)}</span>
+                            <span class="sub">${esc(rightSub)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    `;
             }).join("");
         }
 
@@ -533,6 +571,48 @@
         }
 
         init().catch(() => location.href = "/user.html");
+    </script>
+    <script>
+        (function () {
+            const btn = document.getElementById("settingsBtn");
+            const overlay = document.getElementById("settingsOverlay");
+            const panel = document.getElementById("settingsPanel");
+            const closeBtn = document.getElementById("settingsCloseBtn");
+
+            function openPanel() {
+                panel.classList.add("open");
+                overlay.hidden = false;
+                panel.setAttribute("aria-hidden", "false");
+                btn.setAttribute("aria-expanded", "true");
+                // optional: focus first control
+                const focusable = panel.querySelector("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])");
+                if (focusable) focusable.focus();
+                // optional: prevent background scroll
+                document.documentElement.style.overflow = "hidden";
+            }
+
+            function closePanel() {
+                panel.classList.remove("open");
+                overlay.hidden = true;
+                panel.setAttribute("aria-hidden", "true");
+                btn.setAttribute("aria-expanded", "false");
+                document.documentElement.style.overflow = "";
+                btn.focus();
+            }
+
+            btn?.addEventListener("click", () => {
+                const isOpen = panel.classList.contains("open");
+                if (isOpen) closePanel();
+                else openPanel();
+            });
+
+            overlay?.addEventListener("click", closePanel);
+            closeBtn?.addEventListener("click", closePanel);
+
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape" && panel.classList.contains("open")) closePanel();
+            });
+        })();
     </script>
 </body>
 </html>

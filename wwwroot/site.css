@@ -529,3 +529,98 @@ pre {
         border-color: rgba(34,197,94,.35);
         background: rgba(34,197,94,.10);
     }
+
+/* Floating cog button */
+.settings-btn {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 2000;
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    border: 0;
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+}
+
+/* Overlay behind drawer */
+.settings-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 1900;
+}
+
+/* Drawer panel */
+.settings-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    height: 100vh;
+    width: min(420px, 92vw);
+    z-index: 2001;
+    background: #111; /* adjust to your theme */
+    color: #fff;
+    box-shadow: -12px 0 32px rgba(0,0,0,0.35);
+    transform: translateX(100%);
+    transition: transform 180ms ease;
+    display: flex;
+    flex-direction: column;
+}
+
+    /* Open state */
+    .settings-panel.open {
+        transform: translateX(0);
+    }
+
+.settings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.settings-close {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.settings-content {
+    padding: 16px;
+    overflow: auto;
+}
+
+/* Basic control styling */
+.control-block {
+    margin-bottom: 14px;
+}
+
+.control-label {
+    display: block;
+    opacity: 0.85;
+    margin-bottom: 6px;
+}
+
+.control-input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+}
+
+.control-button {
+    width: 100%;
+    padding: 12px;
+    border-radius: 12px;
+    border: 0;
+    cursor: pointer;
+}
