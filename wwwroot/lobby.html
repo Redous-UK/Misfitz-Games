@@ -98,8 +98,6 @@
         const el = (id) => document.getElementById(id);
         const pretty = (x) => JSON.stringify(x, null, 2);
 
-        let selectedGameId = "contexto";
-
         const ROLE_CAPS = {
             admin: { admin: true, start: true, stop: true },
             member: { admin: false, start: true, stop: true },
