@@ -54,6 +54,8 @@
                         </div>
                     </div>
 
+                    <div class="card">
+                    </div>
                 </div>
 
                 <div class="card">
@@ -96,38 +98,14 @@
         <div class="settings-content">
             <!-- Move your existing lobby controls into here -->
             <!-- Example placeholders: -->
-            <div class="control-block">
-                <label class="control-label" for="roomSelect">Room</label>
-                <select id="roomSelect" class="control-input"></select>
-            </div>
+            <h2>Controls</h2>
 
             <div class="control-block">
                 <label class="control-label" for="nameInput">Display name</label>
-                <input id="nameInput" class="control-input" placeholder="Craig" />
+                <input id="username" class="control-input" />
             </div>
 
-            <h2>Controls</h2>
-            <div class="row">
-                <span class="pill" id="selectedGamePill">Selected: (none)</span>
-            </div>
-
-            <div class="row" style="margin-top:10px">
-                <input id="secretWord" style="flex:1; min-width:260px" placeholder="Contexto secret word (optional)" />
-            </div>
-
-            <div class="row" style="margin-top:10px">
-                <button id="btnStart">Start</button>
-                <button id="btnStop" class="btn-secondary">Stop</button>
-                <button id="btnPlay" class="btn-secondary">Play</button>
-                <button id="btnLeaderboard" class="btn-secondary">Leaderboard</button>
-            </div>
-
-            <pre id="gameOut">{}</pre>
-        </div>
-
-            <div class="control-block">
-                <button id="saveBtn" class="control-button">Save</button>
-            </div>
+            <div id="controlPanelHost" class="settings-content"></div>
         </div>
     </aside>
 
@@ -146,6 +124,176 @@
 
         let activeRoomCode = null;
         let pollHandle = null;
+
+        let selectedGameId = null;
+        const gameSettings = {}; // { [gameId]: { key: value } }
+
+        function ensureDefaults(gameId) {
+            const schema = GAME_CONTROL_SCHEMAS[gameId];
+            if (!schema) return;
+
+            gameSettings[gameId] ??= {};
+            for (const c of schema.controls) {
+                if (gameSettings[gameId][c.key] === undefined && c.default !== undefined) {
+                    gameSettings[gameId][c.key] = c.default;
+                }
+            }
+        }
+
+        function renderControlPanel(gameId) {
+            const host = document.getElementById("controlPanelHost");
+            if (!host) return;
+
+            host.innerHTML = ""; // ✅ refresh (wipe and rebuild)
+
+            if (!gameId) {
+                host.innerHTML = `<div style="opacity:.8">Select a game to see controls.</div>`;
+                return;
+            }
+
+            const schema = GAME_CONTROL_SCHEMAS[gameId];
+            ensureDefaults(gameId);
+
+            // header
+            const header = document.createElement("div");
+            header.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;">
+      <div>
+        <div style="font-size:18px;font-weight:700">${schema?.title ?? "Controls"}</div>
+        <div style="opacity:.75">Selected: <b>${gameId}</b></div>
+      </div>
+      <button id="resetGameSettingsBtn" class="control-button" style="width:auto;padding:10px 12px;">Reset</button>
+    </div>
+  `;
+            host.appendChild(header);
+
+            // reset handler
+            header.querySelector("#resetGameSettingsBtn").addEventListener("click", () => {
+                gameSettings[gameId] = {};
+                ensureDefaults(gameId);
+                renderControlPanel(gameId); // ✅ refresh
+            });
+
+            // no schema fallback
+            if (!schema) {
+                const p = document.createElement("div");
+                p.style.opacity = "0.8";
+                p.textContent = "No custom controls defined for this game yet.";
+                host.appendChild(p);
+                host.appendChild(renderCommonLobbyControls(gameId));
+                return;
+            }
+
+            // controls list
+            for (const c of schema.controls) {
+                // depends-on support
+                if (c.dependsOn) {
+                    const v = gameSettings[gameId]?.[c.dependsOn.key];
+                    if (v !== c.dependsOn.value) continue;
+                }
+
+                host.appendChild(renderControl(gameId, c));
+            }
+
+            // common lobby controls (room, username, join/play, etc.)
+            host.appendChild(renderCommonLobbyControls(gameId));
+        }
+
+        function renderControl(gameId, c) {
+            const wrap = document.createElement("div");
+            wrap.className = "control-block";
+
+            // Toggle
+            if (c.type === "toggle") {
+                const row = document.createElement("div");
+                row.style.display = "flex";
+                row.style.alignItems = "center";
+                row.style.justifyContent = "space-between";
+                row.style.gap = "12px";
+
+                const label = document.createElement("div");
+                label.style.opacity = "0.9";
+                label.textContent = c.label;
+
+                const input = document.createElement("input");
+                input.type = "checkbox";
+                input.checked = !!gameSettings[gameId][c.key];
+
+                input.addEventListener("change", () => {
+                    gameSettings[gameId][c.key] = input.checked;
+                    renderControlPanel(gameId); // ✅ refresh panel so dependent controls show/hide
+                });
+
+                row.appendChild(label);
+                row.appendChild(input);
+                wrap.appendChild(row);
+                return wrap;
+            }
+
+            // Label for select/number/text
+            const label = document.createElement("label");
+            label.className = "control-label";
+            label.textContent = c.label;
+            wrap.appendChild(label);
+
+            let input;
+
+            if (c.type === "select") {
+                input = document.createElement("select");
+                input.className = "control-input";
+                for (const opt of c.options) {
+                    const o = document.createElement("option");
+                    o.value = opt.value;
+                    o.textContent = opt.label;
+                    input.appendChild(o);
+                }
+                input.value = String(gameSettings[gameId][c.key] ?? c.default ?? "");
+
+                input.addEventListener("change", () => {
+                    gameSettings[gameId][c.key] = input.value;
+                    renderControlPanel(gameId); // ✅ refresh if something depends on it
+                });
+
+            } else if (c.type === "number") {
+                input = document.createElement("input");
+                input.type = "number";
+                input.className = "control-input";
+                if (c.min != null) input.min = String(c.min);
+                if (c.max != null) input.max = String(c.max);
+                if (c.step != null) input.step = String(c.step);
+
+                input.value = String(gameSettings[gameId][c.key] ?? c.default ?? "");
+
+                input.addEventListener("input", () => {
+                    // store as number (or null)
+                    gameSettings[gameId][c.key] = input.value === "" ? null : Number(input.value);
+                    // no need to refresh on each keypress; only if dependencies exist
+                });
+
+                input.addEventListener("change", () => {
+                    renderControlPanel(gameId); // ✅ refresh on commit if needed
+                });
+
+            } else {
+                input = document.createElement("input");
+                input.type = "text";
+                input.className = "control-input";
+                input.value = String(gameSettings[gameId][c.key] ?? c.default ?? "");
+
+                input.addEventListener("input", () => {
+                    gameSettings[gameId][c.key] = input.value;
+                });
+            }
+
+            wrap.appendChild(input);
+            return wrap;
+        }
+
+        function onSelectGame(gameId) {
+            selectedGameId = gameId;
+            renderControlPanel(gameId); // ✅ refresh panel content
+            openSettingsPanel();        // optional
+        }
 
         async function api(path, opts = {}) {
             const res = await fetch(path, { credentials: "include", ...opts });
