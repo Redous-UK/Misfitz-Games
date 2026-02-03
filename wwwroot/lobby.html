@@ -55,23 +55,6 @@
                     </div>
 
                     <div class="card">
-                        <h2>Controls</h2>
-                        <div class="row">
-                            <span class="pill" id="selectedGamePill">Selected: (none)</span>
-                        </div>
-
-                        <div class="row" style="margin-top:10px">
-                            <input id="secretWord" style="flex:1; min-width:260px" placeholder="Contexto secret word (optional)" />
-                        </div>
-
-                        <div class="row" style="margin-top:10px">
-                            <button id="btnStart">Start</button>
-                            <button id="btnStop" class="btn-secondary">Stop</button>
-                            <button id="btnPlay" class="btn-secondary">Play</button>
-                            <button id="btnLeaderboard" class="btn-secondary">Leaderboard</button>
-                        </div>
-
-                        <pre id="gameOut">{}</pre>
                     </div>
                 </div>
 
@@ -124,6 +107,25 @@
                 <label class="control-label" for="nameInput">Display name</label>
                 <input id="nameInput" class="control-input" placeholder="Craig" />
             </div>
+
+            <h2>Controls</h2>
+            <div class="row">
+                <span class="pill" id="selectedGamePill">Selected: (none)</span>
+            </div>
+
+            <div class="row" style="margin-top:10px">
+                <input id="secretWord" style="flex:1; min-width:260px" placeholder="Contexto secret word (optional)" />
+            </div>
+
+            <div class="row" style="margin-top:10px">
+                <button id="btnStart">Start</button>
+                <button id="btnStop" class="btn-secondary">Stop</button>
+                <button id="btnPlay" class="btn-secondary">Play</button>
+                <button id="btnLeaderboard" class="btn-secondary">Leaderboard</button>
+            </div>
+
+            <pre id="gameOut">{}</pre>
+        </div>
 
             <div class="control-block">
                 <button id="saveBtn" class="control-button">Save</button>
@@ -573,7 +575,7 @@
         init().catch(() => location.href = "/user.html");
     </script>
     <script>
-        (function () {
+        function sidebar() {
             const btn = document.getElementById("settingsBtn");
             const overlay = document.getElementById("settingsOverlay");
             const panel = document.getElementById("settingsPanel");
@@ -612,7 +614,7 @@
             document.addEventListener("keydown", (e) => {
                 if (e.key === "Escape" && panel.classList.contains("open")) closePanel();
             });
-        })();
+        };
     </script>
 </body>
 </html>
