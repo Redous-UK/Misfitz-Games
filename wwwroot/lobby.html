@@ -757,6 +757,47 @@
                 if (e.key === "Escape" && panel.classList.contains("open")) closePanel();
             });
         })();
+
+        function wireLobbyButtons() {
+            el("btnPlay").onclick = onPlayClicked;
+            el("btnSettings").onclick = openSettingsPanel;
+
+            // any other static controls go here
+        }
+
+        function selectGame(gameId) {
+            selectedGameId = gameId;
+
+            // highlight tile
+            document.querySelectorAll(".game-tile")
+                .forEach(t => t.classList.toggle(
+                    "selected",
+                    t.dataset.game === gameId
+                ));
+
+            // refresh control panel
+            renderControlPanel(gameId);
+        }
+
+        tile.onclick = () => {
+            if (item.enabled === false) return;
+            selectGame(item.id);
+        };
+
+        function selectFirstEnabledGame() {
+            const first = document.querySelector(".game-tile:not([aria-disabled])");
+            if (first) selectGame(first.dataset.game);
+        }
+
+        function el(id) {
+            const e = document.getElementById(id);
+            if (!e) throw new Error(`Element #${id} not found`);
+            return e;
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            initLobby().catch(err => console.error("Lobby init failed", err));
+        });
     </script>
 </body>
 </html>
