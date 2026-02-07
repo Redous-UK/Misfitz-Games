@@ -43,7 +43,7 @@ public class IngestController(
             var claimUserId = User?.FindFirstValue(ClaimTypes.NameIdentifier);
             var claimName = User?.FindFirstValue(ClaimTypes.Name);
 
-            if (string.IsNullOrWhiteSpace(claimUserId) || string.IsNullOrWhiteSpace(claimName))
+            if (string.IsNullOrWhiteSpace(evt.UserId) || string.IsNullOrWhiteSpace(evt.Username))
                 return Unauthorized(new { ok = false, error = "Invalid auth session" });
 
             // IngestEvent is likely a record -> use `with`
