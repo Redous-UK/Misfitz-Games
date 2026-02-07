@@ -108,6 +108,17 @@
 
     <script>
         const el = (id) => document.getElementById(id);
+
+        function onClick(id, handler) {
+            const node = el(id);
+            if (!node) {
+                console.warn(`[bind] missing #${id}`);
+                return false;
+            }
+            node.addEventListener("click", handler);
+            return true;
+        }
+
         const pretty = (x) => JSON.stringify(x, null, 2);
 
         const ROLE_CAPS = {
@@ -672,12 +683,12 @@
 
         el("btnAdmin").onclick = () => location.href = "/admin.html";
 
-        el("btnPlay").onclick = () => {
+        onClick("btnPlay", () => {
             const code = roomId();
             if (!code) return alert("Pick a room first.");
             const game = selectedGameId || "contexto";
             location.href = `/play.html?roomId=${encodeURIComponent(code)}&game=${encodeURIComponent(game)}`;
-        };
+        });
 
         el("btnRefreshRooms").onclick = () => loadRooms();
 
