@@ -41,19 +41,16 @@
                     </div>
 
                     <div id="roomsGrid" class="rooms-grid" style="margin-top:12px"></div>
-
                     <pre id="stateOut">{}</pre>
                 </div>
-
 
                 <div class="card">
                     <h2>Games</h2>
                     <div class="games" id="gamesGrid"></div>
                     <div class="muted" style="margin-top:10px; font-size:12px;">
-                        Tip: Click a game tile to select it. “Start” uses the selected game.
+                        Tip: Click a game tile to select it.
                     </div>
                 </div>
-
 
                 <div class="card">
                     <h2>Players</h2>
@@ -93,35 +90,43 @@
         </div>
 
         <div class="settings-content">
-            <h2>Controls</h2>
-
             <div class="control-block">
                 <label class="control-label" for="username">Display name</label>
                 <input id="username" class="control-input" autocomplete="off" />
             </div>
 
-            <div id="controlPanelHost" class="settings-content"></div>
+            <!-- IMPORTANT: this is where you dynamically render game controls -->
+            <div id="controlPanelHost"></div>
         </div>
     </aside>
 
     <script>
+        // ------------------------
+        // Helpers
+        // ------------------------
         const el = (id) => document.getElementById(id);
 
         function onClick(id, handler) {
             const node = el(id);
-            if (!node) { console.warn(`[bind] missing #${id}`); return false; }
+            if (!node) {
+                console.warn(`[bind] missing #${id}`);
+                return false;
+            }
             node.addEventListener("click", handler);
             return true;
         }
 
-        // ---- Drawer (Settings panel) ----
+        const pretty = (x) => JSON.stringify(x, null, 2);
+
+        // ------------------------
+        // Settings drawer wiring
+        // ------------------------
         function wireSettingsPanel() {
             const btn = el("settingsBtn");
             const overlay = el("settingsOverlay");
             const panel = el("settingsPanel");
             const closeBtn = el("settingsCloseBtn");
 
-            // If the drawer isn't on this page/layout, just skip wiring.
             if (!btn || !overlay || !panel || !closeBtn) {
                 console.warn("[drawer] missing elements", { btn, overlay, panel, closeBtn });
                 return;
@@ -156,20 +161,23 @@
                 if (e.key === "Escape" && panel.classList.contains("open")) closePanel();
             });
 
-            // Optional: expose these if you want to open it from elsewhere
+            // Optional hooks
             window.openSettingsPanel = openPanel;
             window.closeSettingsPanel = closePanel;
         }
 
-        const pretty = (x) => JSON.stringify(x, null, 2);
-
+        // ------------------------
+        // App state
+        // ------------------------
         let myUserId = null;
-        let currentRoomState = null;
+        let activeRoomCode = null;
 
         async function api(path, opts = {}) {
             const res = await fetch(path, { credentials: "include", ...opts });
             const text = await res.text();
-            let json; try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
+            let json;
+            try { json = text ? JSON.parse(text) : null; }
+            catch { json = { raw: text }; }
             if (!res.ok) throw new Error(`HTTP ${res.status}: ${pretty(json)}`);
             return json;
         }
@@ -177,44 +185,190 @@
         async function refreshMe() {
             const me = await api("/member/me");
 
-            el("authOut").textContent = pretty(me);
-            el("meLabel").textContent = me.isAuth
-                ? `👤 ${me.name ?? "Signed in"} (${me.role ?? "user"})`
-                : "Not logged in";
+            const authOut = el("authOut");
+            if (authOut) authOut.textContent = pretty(me);
+
+            const meLabel = el("meLabel");
+            if (meLabel) {
+                meLabel.textContent = me.isAuth
+                    ? `👤 ${me.name ?? "Signed in"} (${me.role ?? "user"})`
+                    : "Not logged in";
+            }
 
             myUserId = me.userId || null;
 
-            // show/hide admin button safely
             const btnAdmin = el("btnAdmin");
             if (btnAdmin) btnAdmin.style.display = (me.role === "admin") ? "" : "none";
+
+            // Nice-to-have: prefill display name in drawer without overriding user edits
+            const usernameInput = el("username");
+            if (usernameInput && !usernameInput.value) {
+                usernameInput.value = me.name ?? "";
+            }
 
             return me;
         }
 
-        async function init() {
-            let me;
-            try {
-                me = await refreshMe();
-            } catch (e) {
-                console.warn("refreshMe failed:", e);
-                location.href = "/user.html";
-                return;
-            }
+        // ------------------------
+        // Room selection + presence ping
+        // ------------------------
+        function setActiveRoom(code) {
+            activeRoomCode = (code || "").trim() || null;
+            const pill = el("activeRoomPill");
+            if (pill) pill.textContent = activeRoomCode ? `Room: ${activeRoomCode}` : "Room: (none)";
 
-            // IMPORTANT: only redirect if genuinely not authed
-            if (!me.isAuth || !myUserId) {
-                location.href = "/user.html";
-                return;
-            }
+            const btnOverlay = el("btnOpenOverlay");
+            if (btnOverlay) btnOverlay.disabled = !activeRoomCode;
 
-            // continue normal lobby init
-            await loadRooms();
-            autoLoadRoomFromStorage();
-            startPolling();
+            if (activeRoomCode) localStorage.setItem("activeRoomCode", activeRoomCode);
+
+            // You will hook these up to your existing functions
+            refreshState().catch(console.warn);
         }
 
-        // bind button safely
-        onClick("btnMe", () => refreshMe().catch(e => console.warn("btnMe failed", e)));
+        async function sendPresenceForRoom(code) {
+            if (!code) return;
+            try {
+                await api("/ingest/event", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        roomId: code,
+                        platform: "web",
+                        channelId: "lobby",
+                        type: "presence",
+                        message: "",
+                        tsUtc: new Date().toISOString()
+                    })
+                });
+            } catch (e) {
+                console.warn("presence ping failed", e);
+            }
+        }
+
+        async function loadRooms() {
+            const grid = el("roomsGrid");
+            if (!grid) return;
+
+            grid.innerHTML = `<div class="muted">Loading rooms…</div>`;
+
+            try {
+                const rooms = await api("/rooms");
+                if (!Array.isArray(rooms) || rooms.length === 0) {
+                    grid.innerHTML = `<div class="muted">No rooms yet.</div>`;
+                    return;
+                }
+
+                rooms.sort((a, b) => String(b.createdAtUtc || "").localeCompare(String(a.createdAtUtc || "")));
+
+                grid.innerHTML = rooms.map(r => {
+                    const code = r.roomCode ?? "";
+                    const name = r.name ?? "Room";
+                    const created = r.createdAtUtc ? new Date(r.createdAtUtc).toLocaleString() : "";
+                    const isActive = activeRoomCode && activeRoomCode === code;
+
+                    return `
+                <div class="room-tile" data-code="${escapeHtml(code)}">
+                  <div class="room-title">${escapeHtml(name)}</div>
+                  <div class="room-sub">Code: <b>${escapeHtml(code)}</b>${created ? ` • Created: ${escapeHtml(created)}` : ""}</div>
+                  <div class="room-meta">
+                    <span class="room-chip ${isActive ? "active" : ""}">${isActive ? "ACTIVE" : "JOIN"}</span>
+                  </div>
+                </div>
+              `;
+                }).join("");
+
+                grid.querySelectorAll(".room-tile[data-code]").forEach(tile => {
+                    tile.addEventListener("click", async () => {
+                        const code = tile.getAttribute("data-code");
+                        if (!code) return;
+                        setActiveRoom(code);
+                        await sendPresenceForRoom(code);
+                    });
+                });
+
+            } catch (e) {
+                grid.innerHTML = `<div class="muted">Failed to load rooms: ${escapeHtml(String(e))}</div>`;
+            }
+        }
+
+        function escapeHtml(s) {
+            return String(s ?? "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        async function refreshState() {
+            const out = el("stateOut");
+            const list = el("playerList");
+
+            if (!activeRoomCode) {
+                if (out) out.textContent = "Pick a room to see state.";
+                if (list) list.innerHTML = `<div class="muted">Pick a room to see players.</div>`;
+                return;
+            }
+
+            const raw = await api(`/rooms/${encodeURIComponent(activeRoomCode)}/state`);
+            const state = raw?.state ?? raw;
+
+            if (out) out.textContent = pretty(raw);
+
+            // If you already have renderPlayers elsewhere, call it here.
+            if (typeof window.renderPlayers === "function") {
+                window.renderPlayers(state, myUserId);
+            }
+        }
+
+        // ------------------------
+        // Init
+        // ------------------------
+        let __initRan = false;
+
+        async function init() {
+            if (__initRan) return;
+            __initRan = true;
+
+            wireSettingsPanel();
+
+            const me = await refreshMe();
+            if (!me?.isAuth || !myUserId) {
+                location.href = "/user.html";
+                return;
+            }
+
+            // restore last room selection
+            const saved = localStorage.getItem("activeRoomCode");
+            if (saved) setActiveRoom(saved);
+
+            await loadRooms();
+
+            // Bind buttons safely (no null crashes)
+            onClick("btnMe", () => refreshMe().catch(e => console.warn("btnMe failed", e)));
+            onClick("btnRefreshRooms", () => loadRooms().catch(console.warn));
+            onClick("btnAdmin", () => (location.href = "/admin.html"));
+            onClick("btnBack", () => (location.href = "/user.html"));
+
+            onClick("btnLogout", async () => {
+                try { await api("/member/logout", { method: "POST" }); }
+                finally { location.href = "/user.html"; }
+            });
+
+            onClick("btnOpenOverlay", () => {
+                if (!activeRoomCode) return alert("Pick a room first.");
+                window.open(`/overlay.html?roomId=${encodeURIComponent(activeRoomCode)}`, "_blank");
+            });
+
+            // Optional: presence ping every 5s while a room is selected
+            setInterval(() => {
+                if (document.hidden) return;
+                if (!activeRoomCode) return;
+                sendPresenceForRoom(activeRoomCode);
+                refreshState().catch(() => { });
+            }, 5000);
+        }
 
         document.addEventListener("DOMContentLoaded", () => {
             init().catch(e => {
@@ -223,6 +377,5 @@
             });
         });
     </script>
-
 </body>
 </html>
