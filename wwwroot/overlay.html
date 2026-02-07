@@ -31,156 +31,92 @@
     </div>
 
     <script>
-        const qs = new URLSearchParams(location.search);
-        const roomId = (qs.get("roomId") || "").trim();
 
-        const el = (id) => document.getElementById(id);
 
-        function setStatus(text, kind) {
-            const b = el("statusBadge");
-            b.textContent = text;
-            b.className = "badge " + (kind === "ok" ? "pill-ok" : kind === "warn" ? "pill-warn" : "");
-        }
-
-        function safeText(s) {
-            if (s === null || s === undefined) return "";
-            return String(s);
-        }
-
-        function renderGuesses(guesses) {
-            const ul = el("guessesList");
-            ul.innerHTML = "";
-
-            const arr = Array.isArray(guesses) ? guesses : [];
-            // show newest first (if yours is already newest-first, remove reverse)
-            const newestFirst = arr.slice().reverse().slice(0, 8);
-
-            if (newestFirst.length === 0) {
-                ul.innerHTML = `<li class="muted">No guesses yet…</li>`;
-                return;
-            }
-
-            for (const g of newestFirst) {
-                const user = safeText(g.username ?? g.Username ?? "Unknown");
-                const guess = safeText(g.guess ?? g.Guess ?? g.word ?? g.Word ?? "");
-                const rank = g.rank ?? g.Rank;
-                const sim = g.similarity ?? g.Similarity;
-
-                const right = (rank !== undefined && rank !== null)
-                    ? `<div class="right"><div class="small">rank</div><div class="what">${rank}</div></div>`
-                    : (sim !== undefined && sim !== null)
-                        ? `<div class="right"><div class="small">score</div><div class="what">${sim}</div></div>`
-                        : `<div class="right"><div class="small">&nbsp;</div><div class="what">&nbsp;</div></div>`;
-
-                const li = document.createElement("li");
-                li.className = "guess";
-                li.innerHTML = `
-              <div>
-                <div class="who">${user}</div>
-                <div class="small">${guess}</div>
-              </div>
-              ${right}
-            `;
-                ul.appendChild(li);
-            }
-        }
-
-        function renderScores(scoresByUserId) {
-            const ul = el("scoresList");
-            ul.innerHTML = "";
-
-            const scores = scoresByUserId && typeof scoresByUserId === "object" ? scoresByUserId : {};
-            const entries = Object.entries(scores)
-                .map(([userId, score]) => ({ userId, score }))
-                .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
-                .slice(0, 5);
-
-            if (entries.length === 0) {
-                ul.innerHTML = `<li class="muted">No scores yet…</li>`;
-                return;
-            }
-
-            for (const e of entries) {
-                const li = document.createElement("li");
-                li.className = "guess";
-                li.innerHTML = `
-              <div>
-                <div class="who">${safeText(e.userId)}</div>
-                <div class="small">score</div>
-              </div>
-              <div class="right">
-                <div class="small">&nbsp;</div>
-                <div class="what">${safeText(e.score)}</div>
-              </div>
-            `;
-                ul.appendChild(li);
-            }
-        }
-
-        async function fetchJson(url) {
-            const res = await fetch(url, { credentials: "include" });
-            const txt = await res.text();
-            let json = null;
-            try { json = txt ? JSON.parse(txt) : null; } catch { json = null; }
-            if (!res.ok) throw new Error(txt || ("HTTP " + res.status));
-            return json;
-        }
-
-        let lastUpdated = "";
-
-        async function tick() {
-            if (!roomId) {
-                el("roomTitle").textContent = "Misfitz Overlay";
-                el("subLine").textContent = "Missing roomId. Use ?roomId=GUID";
-                setStatus("No roomId", "warn");
-                return;
-            }
-
+        async function btnStopHandler() {
             try {
-                const state = await fetchJson(`/rooms/${encodeURIComponent(roomId)}/state`);
-
-                const roomName = state.roomName ?? state.RoomName ?? "Room";
-                const activeGame = state.activeGame ?? state.ActiveGame ?? "None";
-                const updatedAt = state.updatedAtUtc ?? state.UpdatedAtUtc ?? "";
-
-                el("roomTitle").textContent = roomName;
-                el("subLine").textContent = roomId;
-
-                // Only re-render when updatedAt changes (reduces flicker)
-                if (updatedAt && updatedAt === lastUpdated) {
-                    setStatus(String(activeGame), "ok");
-                    return;
-                }
-                lastUpdated = updatedAt;
-
-                if (!activeGame || activeGame === "None" || activeGame === 0) {
-                    el("contextoBlock").classList.add("hidden");
-                    el("noGameBlock").classList.remove("hidden");
-                    setStatus("No active game", "warn");
-                    return;
-                }
-
-                // Contexto public state should include recentGuesses + scoresByUserId
-                const gs = state.gameState ?? state.GameState ?? null;
-
-                el("noGameBlock").classList.add("hidden");
-                el("contextoBlock").classList.remove("hidden");
-
-                const endedAt = gs?.endedAtUtc ?? gs?.EndedAtUtc ?? null;
-                if (endedAt) setStatus("Contexto complete", "ok");
-                else setStatus("Contexto running", "ok");
-
-                renderGuesses(gs?.recentGuesses ?? gs?.RecentGuesses ?? []);
-                renderScores(gs?.scoresByUserId ?? gs?.ScoresByUserId ?? {});
+                const code = roomId();
+                if (!code) return alert("Pick a room first.");
+                const r = await api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" });
+                const gameOut = el("gameOut");
+                if (gameOut) gameOut.textContent = pretty(r);
+                await refreshState();
             } catch (e) {
-                setStatus("Offline", "warn");
-                // don’t spam the overlay with errors; keep it quiet
+                const gameOut = el("gameOut");
+                if (gameOut) gameOut.textContent = String(e);
             }
         }
 
-        // Poll every 1s (stream overlays feel snappier)
-        tick();
-        setInterval(tick, 1000);
+
+        // ---------- init ----------
+        async function init() {
+            // auth
+            const me = await api("/member/me");
+            const authOut = el("authOut");
+            if (authOut) authOut.textContent = pretty(me);
+
+
+            const meLabel = el("meLabel");
+            if (meLabel) {
+                meLabel.textContent = me.isAuth
+                    ? `👤 ${me.name ?? "Signed in"} (${me.role ?? "user"})`
+                    : "Not logged in";
+            }
+
+
+            if (!me.isAuth) {
+                location.href = "/user.html";
+                return;
+            }
+
+
+            myUserId = me.userId || null;
+            applyRoleUI(me.role);
+
+
+            // wire non-drawer buttons safely
+            onClick("btnBack", () => (location.href = "/user.html"));
+
+
+            onClick("btnLogout", async () => {
+                try {
+                    const r = await api("/member/logout", { method: "POST" });
+                    const authOut2 = el("authOut");
+                    if (authOut2) authOut2.textContent = pretty(r);
+                } finally {
+                    location.href = "/user.html";
+                }
+            });
+
+
+            onClick("btnAdmin", () => (location.href = "/admin.html"));
+            onClick("btnRefreshRooms", loadRooms);
+
+
+            onClick("btnOpenOverlay", () => {
+                const code = roomId();
+                if (!code) return alert("Pick a room first.");
+                window.open(`/overlay.html?roomId=${encodeURIComponent(code)}`, "_blank");
+            });
+
+
+            // NOTE: btnPlay/start/stop/leaderboard are handled via delegated click above
+
+
+            // boot
+            await loadGames();
+            await loadRooms();
+            autoLoadRoomFromStorage();
+            startPolling();
+        }
+
+
+        document.addEventListener("DOMContentLoaded", () => {
+            init().catch((err) => {
+                console.error("Lobby init failed", err);
+                location.href = "/user.html";
+            });
+        });
     </script>
 </body>
 </html>
