@@ -737,11 +737,21 @@
             onClick("btnLeaderboard", () => refreshLeaderboard().catch(e => alert(String(e))));
 
             // Auth must be valid
-            const me = await refreshMe();
-            if (!me.isAuth || !myUserId) {
+            try {
+                me = await refreshMe();
+            } catch (e) {
+                console.warn("refreshMe failed:", e);
                 location.href = "/user.html";
                 return;
             }
+
+            if (!me.isAuth) {
+                location.href = "/user.html";
+                return;
+            }
+
+            myUserId = me.userId || null;
+            window.myName = me.name || "";
 
             // Games + rooms
             await loadGames();
