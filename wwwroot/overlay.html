@@ -31,7 +31,7 @@
     </div>
 
     <script>
-
+        let __lobbyInitRan = false;
 
         async function btnStopHandler() {
             try {
@@ -50,11 +50,32 @@
 
         // ---------- init ----------
         async function init() {
+
+            async function init() {
+                if (__lobbyInitRan) {
+                    console.warn("init() called twice — ignoring");
+                    return;
+                }
+                __lobbyInitRan = true;
+
+                // ... rest
+            }
+
+            let me;
             // auth
-            const me = await api("/member/me");
+            try {
+                me = await api("/member/me");
+            } catch (e) {
+                console.error("Get /member/me failed", e);
+                const authOut = el("authOut");
+                if (authOut) authOut.textContent = String(e);
+                return;
+            }
+
+            console.log("ME: ", me);
+
             const authOut = el("authOut");
             if (authOut) authOut.textContent = pretty(me);
-
 
             const meLabel = el("meLabel");
             if (meLabel) {
@@ -63,20 +84,17 @@
                     : "Not logged in";
             }
 
-
-            if (!me.isAuth) {
+            if (!me.isAuth || me.isAuth !== true) {
+                console.warn("Not authed on lobby, redirecting to /user.html", me);
                 location.href = "/user.html";
                 return;
             }
 
-
             myUserId = me.userId || null;
             applyRoleUI(me.role);
 
-
             // wire non-drawer buttons safely
             onClick("btnBack", () => (location.href = "/user.html"));
-
 
             onClick("btnLogout", async () => {
                 try {
