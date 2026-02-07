@@ -136,6 +136,26 @@
             }
         }
 
+        async function sendPresenceForRoom(code) {
+            if (!code) return;
+            try {
+                await api("/ingest/event", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        roomId: code,
+                        platform: "web",
+                        channelId: "lobby",
+                        type: "presence",
+                        message: "",
+                        tsUtc: new Date().toISOString()
+                    })
+                });
+            } catch (e) {
+                console.warn("presence ping failed", e);
+            }
+        }
+
         function renderControlPanel(gameId) {
             const host = document.getElementById("controlPanelHost");
             if (!host) return;
@@ -355,9 +375,11 @@
                 if (document.hidden) return;
                 const code = roomId();
                 if (!code) return;
+
+                sendPresenceForRoom(code);
                 refreshState();
-                // refreshLeaderboard(); // optional
-            }, 2000);
+                refreshLeaderboard();
+            }, 5000);
         }
 
         async function loadRooms() {
@@ -391,10 +413,17 @@
                 }).join("");
 
                 grid.querySelectorAll(".room-tile[data-code]").forEach(tile => {
-                    tile.onclick = () => {
+                    tile.onclick = async () => {
                         const code = tile.getAttribute("data-code");
                         if (!code) return;
                         setActiveRoom(code);
+
+                        await sendPresenceForRoom(code);
+
+                        await refreshState();
+                        await refreshLeaderboard();
+
+                        startPolling();
                     };
                 });
 

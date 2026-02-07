@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using Misfitz_Games.Models;
 using Misfitz_Games.Services;
 using System.Security.Claims;
@@ -39,8 +40,8 @@ public class IngestController(
         // force identity from claims (prevents spoofing evt.UserId/evt.Username)
         if (isCookieAuthed && !hasValidConnectorKey)
         {
-            var claimUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var claimName = User.FindFirstValue(ClaimTypes.Name);
+            var claimUserId = User?.FindFirstValue(ClaimTypes.NameIdentifier);
+            var claimName = User?.FindFirstValue(ClaimTypes.Name);
 
             if (string.IsNullOrWhiteSpace(claimUserId) || string.IsNullOrWhiteSpace(claimName))
                 return Unauthorized(new { ok = false, error = "Invalid auth session" });
@@ -71,7 +72,7 @@ public class IngestController(
         next = RoomPresenceUpdater.TouchPlayer(next, evt.UserId, evt.Username, isConnected: true);
 
         // ---- Route to active game ----
-        if (next.ActiveGame == GameType.Contexto) // use next, not state
+        if (evt.Type == "chat" && next.ActiveGame == GameType.Contexto) // use next, not state
         {
             if (contexto.TryExtractGuess(evt.Message, out var guess))
             {
