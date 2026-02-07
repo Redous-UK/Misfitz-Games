@@ -6,6 +6,7 @@
     <title>Misfitz Games – Lobby</title>
     <link rel="stylesheet" href="/site.css" />
 </head>
+
 <body>
     <section class="hero">
         <div class="wrap">
@@ -48,14 +49,16 @@
                     <h2>Games</h2>
                     <div class="games" id="gamesGrid"></div>
                     <div class="muted" style="margin-top:10px; font-size:12px;">
-                        Tip: Click a game tile to select it.
+                        Tip: Click a game tile to select it. Use the ⚙️ panel for controls.
                     </div>
                 </div>
 
                 <div class="card">
                     <h2>Players</h2>
                     <div class="player-list" id="playerList"></div>
-                    <div class="muted" style="margin-top:10px; font-size:12px;">Tip: Players list updates automatically while a room is selected.</div>
+                    <div class="muted" style="margin-top:10px; font-size:12px;">
+                        Tip: Players list updates automatically while a room is selected.
+                    </div>
                 </div>
 
                 <div class="card">
@@ -79,7 +82,7 @@
         ⚙️
     </button>
 
-    <!-- Overlay (click to close) -->
+    <!-- Overlay -->
     <div id="settingsOverlay" class="settings-overlay" hidden></div>
 
     <!-- Side panel -->
@@ -95,32 +98,77 @@
                 <input id="username" class="control-input" autocomplete="off" />
             </div>
 
-            <!-- IMPORTANT: this is where you dynamically render game controls -->
             <div id="controlPanelHost"></div>
+
+            <div class="control-block" style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+                <button id="btnStart" class="control-button">Start</button>
+                <button id="btnStop" class="control-button btn-secondary">Stop</button>
+                <button id="btnPlay" class="control-button btn-secondary">Play</button>
+                <button id="btnLeaderboard" class="control-button btn-secondary">Leaderboard</button>
+            </div>
+
+            <pre id="gameOut" style="margin-top:12px">{}</pre>
         </div>
     </aside>
 
     <script>
-        // ------------------------
+        // ----------------------------
         // Helpers
-        // ------------------------
+        // ----------------------------
         const el = (id) => document.getElementById(id);
 
         function onClick(id, handler) {
             const node = el(id);
-            if (!node) {
-                console.warn(`[bind] missing #${id}`);
-                return false;
-            }
+            if (!node) { console.warn(`[bind] missing #${id}`); return false; }
             node.addEventListener("click", handler);
             return true;
         }
 
         const pretty = (x) => JSON.stringify(x, null, 2);
 
-        // ------------------------
-        // Settings drawer wiring
-        // ------------------------
+        function esc(s) {
+            return String(s ?? "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        function initials(name) {
+            const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+            const a = parts[0]?.[0] ?? "?";
+            const b = parts.length > 1 ? parts[parts.length - 1][0] : "";
+            return (a + b).toUpperCase();
+        }
+
+        async function api(path, opts = {}) {
+            const res = await fetch(path, { credentials: "include", ...opts });
+            const text = await res.text();
+            let json; try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
+            if (!res.ok) throw new Error(`HTTP ${res.status}: ${pretty(json)}`);
+            return json;
+        }
+
+        // ----------------------------
+        // State
+        // ----------------------------
+        let myUserId = null;
+        let myName = null;
+        let myRole = null;
+
+        let activeRoomCode = null;
+        let currentRoomState = null;
+
+        let selectedGameId = "contexto";
+        const gameSettings = {}; // per-game settings store
+
+        let pollHandle = null;
+        let roomsPollHandle = null;
+
+        // ----------------------------
+        // Drawer (settings panel)
+        // ----------------------------
         function wireSettingsPanel() {
             const btn = el("settingsBtn");
             const overlay = el("settingsOverlay");
@@ -161,27 +209,31 @@
                 if (e.key === "Escape" && panel.classList.contains("open")) closePanel();
             });
 
-            // Optional hooks
             window.openSettingsPanel = openPanel;
             window.closeSettingsPanel = closePanel;
         }
 
-        // ------------------------
-        // App state
-        // ------------------------
-        let myUserId = null;
-        let activeRoomCode = null;
+        // ----------------------------
+        // Role UI
+        // ----------------------------
+        function applyRoleUI(role) {
+            const r = String(role || "").toLowerCase();
+            const isAdmin = r === "admin";
+            const isMember = r === "member" || r === "admin";
 
-        async function api(path, opts = {}) {
-            const res = await fetch(path, { credentials: "include", ...opts });
-            const text = await res.text();
-            let json;
-            try { json = text ? JSON.parse(text) : null; }
-            catch { json = { raw: text }; }
-            if (!res.ok) throw new Error(`HTTP ${res.status}: ${pretty(json)}`);
-            return json;
+            const btnAdmin = el("btnAdmin");
+            if (btnAdmin) btnAdmin.style.display = isAdmin ? "" : "none";
+
+            // Start/Stop only for member/admin
+            const btnStart = el("btnStart");
+            const btnStop = el("btnStop");
+            if (btnStart) btnStart.style.display = isMember ? "" : "none";
+            if (btnStop) btnStop.style.display = isMember ? "" : "none";
         }
 
+        // ----------------------------
+        // Auth
+        // ----------------------------
         async function refreshMe() {
             const me = await api("/member/me");
 
@@ -195,25 +247,33 @@
                     : "Not logged in";
             }
 
+            if (!me.isAuth) return me;
+
             myUserId = me.userId || null;
+            myName = me.name || null;
+            myRole = me.role || null;
 
-            const btnAdmin = el("btnAdmin");
-            if (btnAdmin) btnAdmin.style.display = (me.role === "admin") ? "" : "none";
-
-            // Nice-to-have: prefill display name in drawer without overriding user edits
-            const usernameInput = el("username");
-            if (usernameInput && !usernameInput.value) {
-                usernameInput.value = me.name ?? "";
+            // keep username box in sync (no forced overwrite if user typed)
+            const u = el("username");
+            if (u && (!u.value || u.value.trim().length === 0)) {
+                u.value = myName || "";
             }
 
+            applyRoleUI(myRole);
             return me;
         }
 
-        // ------------------------
-        // Room selection + presence ping
-        // ------------------------
+        // ----------------------------
+        // Rooms
+        // ----------------------------
+        function roomId() {
+            return activeRoomCode;
+        }
+
         function setActiveRoom(code) {
-            activeRoomCode = (code || "").trim() || null;
+            const c = (code || "").trim();
+            activeRoomCode = c || null;
+
             const pill = el("activeRoomPill");
             if (pill) pill.textContent = activeRoomCode ? `Room: ${activeRoomCode}` : "Room: (none)";
 
@@ -222,28 +282,19 @@
 
             if (activeRoomCode) localStorage.setItem("activeRoomCode", activeRoomCode);
 
-            // You will hook these up to your existing functions
+            // Immediately fetch state and start polling
             refreshState().catch(console.warn);
+            refreshLeaderboard().catch(console.warn);
+            startPolling();
+            // Presence ping immediately so they appear without guessing
+            sendPresenceForRoom(activeRoomCode).catch(() => { });
         }
 
-        async function sendPresenceForRoom(code) {
-            if (!code) return;
-            try {
-                await api("/ingest/event", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        roomId: code,
-                        platform: "web",
-                        channelId: "lobby",
-                        type: "presence",
-                        message: "",
-                        tsUtc: new Date().toISOString()
-                    })
-                });
-            } catch (e) {
-                console.warn("presence ping failed", e);
-            }
+        function autoLoadRoomFromStorage() {
+            const saved = localStorage.getItem("activeRoomCode");
+            if (!saved) return false;
+            setActiveRoom(saved);
+            return true;
         }
 
         async function loadRooms() {
@@ -268,9 +319,9 @@
                     const isActive = activeRoomCode && activeRoomCode === code;
 
                     return `
-                <div class="room-tile" data-code="${escapeHtml(code)}">
-                  <div class="room-title">${escapeHtml(name)}</div>
-                  <div class="room-sub">Code: <b>${escapeHtml(code)}</b>${created ? ` • Created: ${escapeHtml(created)}` : ""}</div>
+                <div class="room-tile" data-code="${esc(code)}">
+                  <div class="room-title">${esc(name)}</div>
+                  <div class="room-sub">Code: <b>${esc(code)}</b>${created ? ` • Created: ${esc(created)}` : ""}</div>
                   <div class="room-meta">
                     <span class="room-chip ${isActive ? "active" : ""}">${isActive ? "ACTIVE" : "JOIN"}</span>
                   </div>
@@ -279,95 +330,426 @@
                 }).join("");
 
                 grid.querySelectorAll(".room-tile[data-code]").forEach(tile => {
-                    tile.addEventListener("click", async () => {
+                    tile.addEventListener("click", () => {
                         const code = tile.getAttribute("data-code");
                         if (!code) return;
                         setActiveRoom(code);
-                        await sendPresenceForRoom(code);
+                        // Optional: open panel when selecting a room
+                        // window.openSettingsPanel?.();
                     });
                 });
 
             } catch (e) {
-                grid.innerHTML = `<div class="muted">Failed to load rooms: ${escapeHtml(String(e))}</div>`;
+                grid.innerHTML = `<div class="muted">Failed to load rooms: ${esc(String(e))}</div>`;
             }
         }
 
-        function escapeHtml(s) {
-            return String(s ?? "")
-                .replaceAll("&", "&amp;")
-                .replaceAll("<", "&lt;")
-                .replaceAll(">", "&gt;")
-                .replaceAll('"', "&quot;")
-                .replaceAll("'", "&#039;");
+        // ----------------------------
+        // Presence ping (so players appear without guessing)
+        // Uses cookie auth -> IngestController will overwrite userId/username for web.
+        // ----------------------------
+        async function sendPresenceForRoom(code) {
+            if (!code) return;
+            try {
+                await api("/ingest/event", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        roomId: code,
+                        platform: "web",
+                        channelId: "lobby",
+                        type: "presence",
+                        message: "",
+                        tsUtc: new Date().toISOString()
+                    })
+                });
+            } catch (e) {
+                // don't break UI on presence failures
+                console.warn("presence ping failed", e);
+            }
         }
 
-        async function refreshState() {
-            const out = el("stateOut");
-            const list = el("playerList");
+        // ----------------------------
+        // Players render
+        // ----------------------------
+        function renderPlayers(roomState, currentUserId) {
+            const container = el("playerList");
+            if (!container) return;
 
-            if (!activeRoomCode) {
-                if (out) out.textContent = "Pick a room to see state.";
-                if (list) list.innerHTML = `<div class="muted">Pick a room to see players.</div>`;
+            const hostId = roomState?.hostUserId;
+            const players = Array.isArray(roomState?.players) ? roomState.players : [];
+
+            if (!players.length) {
+                container.innerHTML = `<div class="muted">No players yet — select a room and open play to appear.</div>`;
                 return;
             }
 
-            const raw = await api(`/rooms/${encodeURIComponent(activeRoomCode)}/state`);
+            const sorted = [...players].sort((p1, p2) => {
+                const aHost = p1.userId === hostId ? -1 : 0;
+                const bHost = p2.userId === hostId ? -1 : 0;
+                if (aHost !== bHost) return aHost - bHost;
+
+                const aReady = p1.isReady ? -1 : 0;
+                const bReady = p2.isReady ? -1 : 0;
+                if (aReady !== bReady) return aReady - bReady;
+
+                return String(p1.name || "").localeCompare(String(p2.name || ""));
+            });
+
+            container.innerHTML = sorted.map(p => {
+                const name = p.name ?? "Player";
+                const isHost = p.userId === hostId;
+                const isYou = currentUserId && p.userId === currentUserId;
+                const connected = p.isConnected !== false;
+                const ready = !!p.isReady;
+
+                const cardClasses = ["player-card", !connected ? "is-disconnected" : ""].filter(Boolean).join(" ");
+                const pillClass = connected ? (ready ? "pill-sm ready" : "pill-sm wait") : "pill-sm off";
+                const pillText = connected ? (ready ? "Ready" : "Not ready") : "Disconnected";
+
+                const badges = [
+                    isHost ? `<span class="player-badge host">HOST</span>` : "",
+                    isYou ? `<span class="player-badge you">YOU</span>` : ""
+                ].filter(Boolean).join("");
+
+                const avatar = p.avatarUrl
+                    ? `<img src="${esc(p.avatarUrl)}" alt="avatar" />`
+                    : `<span>${esc(initials(name))}</span>`;
+
+                return `
+              <div class="${cardClasses}">
+                <div class="avatar">${avatar}</div>
+                <div class="meta">
+                  <div class="top">
+                    <div class="name">${esc(name)}</div>
+                    <div class="badges">${badges}</div>
+                  </div>
+                  <div class="bottom">
+                    <span class="${pillClass}">${esc(pillText)}</span>
+                    <span class="sub">${esc(p.userId || "")}</span>
+                  </div>
+                </div>
+              </div>
+            `;
+            }).join("");
+        }
+
+        // ----------------------------
+        // Room state / leaderboard
+        // ----------------------------
+        async function refreshState() {
+            const code = roomId();
+            const stateOut = el("stateOut");
+            const playerList = el("playerList");
+
+            if (!code) {
+                if (stateOut) stateOut.textContent = "Pick a room to see state.";
+                if (playerList) playerList.innerHTML = `<div class="muted">Pick a room to see players.</div>`;
+                return;
+            }
+
+            const raw = await api(`/rooms/${encodeURIComponent(code)}/state`);
             const state = raw?.state ?? raw;
 
-            if (out) out.textContent = pretty(raw);
+            currentRoomState = state;
+            if (stateOut) stateOut.textContent = pretty(raw);
 
-            // If you already have renderPlayers elsewhere, call it here.
-            if (typeof window.renderPlayers === "function") {
-                window.renderPlayers(state, myUserId);
+            renderPlayers(state, myUserId);
+        }
+
+        async function refreshLeaderboard() {
+            const code = roomId();
+            const out = el("gameOut");
+            if (!code) return;
+
+            try {
+                const lb = await api(`/rooms/${encodeURIComponent(code)}/leaderboard`);
+                if (out) out.textContent = pretty(lb);
+            } catch (e) {
+                if (out) out.textContent = String(e);
             }
         }
 
-        // ------------------------
-        // Init
-        // ------------------------
-        let __initRan = false;
+        // ----------------------------
+        // Games UI
+        // ----------------------------
+        function setSelectedGame(id, name) {
+            selectedGameId = id;
+            // highlight tile
+            document.querySelectorAll(".game-tile.is-selected")
+                .forEach(x => x.classList.remove("is-selected"));
+            const tile = document.querySelector(`.game-tile[data-game="${CSS.escape(id)}"]`);
+            if (tile) tile.classList.add("is-selected");
 
+            // update drawer header area
+            renderControlPanel(id);
+
+            // optional: open drawer when picking a game
+            // window.openSettingsPanel?.();
+        }
+
+        async function loadGames() {
+            const grid = el("gamesGrid");
+            if (!grid) return;
+
+            grid.innerHTML = "";
+
+            const payload = await api("/catalog/games");
+            const games = payload?.games;
+            if (!Array.isArray(games)) {
+                grid.innerHTML = `<div class="muted">Invalid games payload.</div>`;
+                return;
+            }
+
+            for (const item of games) {
+                const tile = document.createElement("div");
+                tile.className = "game-tile";
+                tile.dataset.game = item.id;
+
+                if (!item.enabled) {
+                    tile.setAttribute("aria-disabled", "true");
+                    tile.classList.add("is-disabled");
+                }
+
+                const bg = document.createElement("div");
+                bg.className = "game-bg";
+                const imageUrl = item.image || "/assets/Games/placeholder.png";
+                bg.style.backgroundImage = `url('${imageUrl}')`;
+
+                const inner = document.createElement("div");
+                inner.className = "game-inner";
+
+                const left = document.createElement("div");
+
+                const title = document.createElement("div");
+                title.className = "game-title";
+                title.textContent = item.name || item.id;
+
+                const desc = document.createElement("div");
+                desc.className = "game-desc";
+                desc.textContent = item.description || "";
+
+                left.appendChild(title);
+                left.appendChild(desc);
+
+                const badge = document.createElement("span");
+                badge.className = "tile-badge " + (item.enabled ? "ok" : "soon");
+                badge.textContent = item.enabled ? "Ready" : "Soon";
+
+                inner.appendChild(left);
+                inner.appendChild(badge);
+
+                tile.appendChild(bg);
+                tile.appendChild(inner);
+
+                tile.addEventListener("click", () => {
+                    if (!item.enabled) return;
+                    setSelectedGame(item.id, item.name);
+                });
+
+                grid.appendChild(tile);
+            }
+
+            // select default (first enabled, else contexto)
+            const firstEnabled = games.find(g => g.enabled);
+            const defaultId = firstEnabled?.id || "contexto";
+            setSelectedGame(defaultId, firstEnabled?.name);
+        }
+
+        // ----------------------------
+        // Controls panel rendering (simple)
+        // ----------------------------
+        // If you already have GAME_CONTROL_SCHEMAS elsewhere, paste it ABOVE this file,
+        // or keep this minimal controls set.
+        const GAME_CONTROL_SCHEMAS = {
+            contexto: {
+                title: "Contexto",
+                controls: [
+                    { key: "secretWord", label: "Secret word (optional)", type: "text", default: "" }
+                ]
+            }
+            // add more later
+        };
+
+        function ensureDefaults(gameId) {
+            const schema = GAME_CONTROL_SCHEMAS[gameId];
+            if (!schema) return;
+            gameSettings[gameId] ??= {};
+            for (const c of schema.controls) {
+                if (gameSettings[gameId][c.key] === undefined && c.default !== undefined) {
+                    gameSettings[gameId][c.key] = c.default;
+                }
+            }
+        }
+
+        function renderControlPanel(gameId) {
+            const host = el("controlPanelHost");
+            if (!host) return;
+
+            host.innerHTML = "";
+
+            const schema = GAME_CONTROL_SCHEMAS[gameId];
+            if (!schema) {
+                host.innerHTML = `<div class="muted">No custom controls for this game yet.</div>`;
+                return;
+            }
+
+            ensureDefaults(gameId);
+
+            // header
+            const header = document.createElement("div");
+            header.style.marginBottom = "10px";
+            header.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+              <div style="font-weight:700">${esc(schema.title || "Controls")} • <span style="opacity:.8">${esc(gameId)}</span></div>
+              <button id="resetGameSettingsBtn" class="control-button btn-secondary" style="width:auto;padding:8px 10px;">Reset</button>
+            </div>
+          `;
+            host.appendChild(header);
+
+            header.querySelector("#resetGameSettingsBtn").addEventListener("click", () => {
+                gameSettings[gameId] = {};
+                ensureDefaults(gameId);
+                renderControlPanel(gameId);
+            });
+
+            // controls
+            for (const c of schema.controls) {
+                const wrap = document.createElement("div");
+                wrap.className = "control-block";
+
+                const label = document.createElement("label");
+                label.className = "control-label";
+                label.textContent = c.label;
+                wrap.appendChild(label);
+
+                const input = document.createElement("input");
+                input.className = "control-input";
+                input.type = "text";
+                input.value = String(gameSettings[gameId][c.key] ?? "");
+
+                input.addEventListener("input", () => {
+                    gameSettings[gameId][c.key] = input.value;
+                });
+
+                wrap.appendChild(input);
+                host.appendChild(wrap);
+            }
+        }
+
+        // ----------------------------
+        // Game actions
+        // ----------------------------
+        async function startGame() {
+            const code = roomId();
+            if (!code) return alert("Pick a room first.");
+
+            if (selectedGameId === "contexto") {
+                // secret word from settings
+                const secretWord = String(gameSettings.contexto?.secretWord ?? "").trim();
+                const path = secretWord
+                    ? `/rooms/${encodeURIComponent(code)}/games/contexto/start`
+                    : `/rooms/${encodeURIComponent(code)}/games/contexto/next`;
+
+                const opts = secretWord
+                    ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ secretWord }) }
+                    : { method: "POST" };
+
+                const r = await api(path, opts);
+                const out = el("gameOut");
+                if (out) out.textContent = pretty(r);
+
+                await refreshState();
+                await refreshLeaderboard();
+                return;
+            }
+
+            const out = el("gameOut");
+            if (out) out.textContent = pretty({ ok: false, error: "Game not enabled yet" });
+        }
+
+        async function stopGame() {
+            const code = roomId();
+            if (!code) return alert("Pick a room first.");
+
+            const r = await api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" });
+            const out = el("gameOut");
+            if (out) out.textContent = pretty(r);
+
+            await refreshState();
+        }
+
+        function goPlay() {
+            const code = roomId();
+            if (!code) return alert("Pick a room first.");
+            const game = selectedGameId || "contexto";
+            location.href = `/play.html?roomId=${encodeURIComponent(code)}&game=${encodeURIComponent(game)}`;
+        }
+
+        // ----------------------------
+        // Polling
+        // ----------------------------
+        function startPolling() {
+            if (pollHandle) return;
+            pollHandle = setInterval(() => {
+                if (document.hidden) return;
+                const code = roomId();
+                if (!code) return;
+
+                // keep presence alive + update state
+                sendPresenceForRoom(code);
+                refreshState().catch(() => { });
+            }, 5000);
+        }
+
+        // ----------------------------
+        // Wiring / init
+        // ----------------------------
         async function init() {
-            if (__initRan) return;
-            __initRan = true;
-
             wireSettingsPanel();
 
+            // Buttons (safe)
+            onClick("btnBack", () => (location.href = "/user.html"));
+
+            onClick("btnLogout", async () => {
+                try {
+                    const r = await api("/member/logout", { method: "POST" });
+                    const out = el("authOut");
+                    if (out) out.textContent = pretty(r);
+                } finally {
+                    location.href = "/user.html";
+                }
+            });
+
+            onClick("btnAdmin", () => (location.href = "/admin.html"));
+            onClick("btnMe", () => refreshMe().catch(e => console.warn("btnMe failed", e)));
+            onClick("btnRefreshRooms", () => loadRooms().catch(e => console.warn("loadRooms failed", e)));
+
+            onClick("btnOpenOverlay", () => {
+                const code = roomId();
+                if (!code) return alert("Pick a room first.");
+                window.open(`/overlay.html?roomId=${encodeURIComponent(code)}`, "_blank");
+            });
+
+            onClick("btnPlay", goPlay);
+            onClick("btnStart", () => startGame().catch(e => alert(String(e))));
+            onClick("btnStop", () => stopGame().catch(e => alert(String(e))));
+            onClick("btnLeaderboard", () => refreshLeaderboard().catch(e => alert(String(e))));
+
+            // Auth must be valid
             const me = await refreshMe();
-            if (!me?.isAuth || !myUserId) {
+            if (!me.isAuth || !myUserId) {
                 location.href = "/user.html";
                 return;
             }
 
-            // restore last room selection
-            const saved = localStorage.getItem("activeRoomCode");
-            if (saved) setActiveRoom(saved);
-
+            // Games + rooms
+            await loadGames();
             await loadRooms();
 
-            // Bind buttons safely (no null crashes)
-            onClick("btnMe", () => refreshMe().catch(e => console.warn("btnMe failed", e)));
-            onClick("btnRefreshRooms", () => loadRooms().catch(console.warn));
-            onClick("btnAdmin", () => (location.href = "/admin.html"));
-            onClick("btnBack", () => (location.href = "/user.html"));
-
-            onClick("btnLogout", async () => {
-                try { await api("/member/logout", { method: "POST" }); }
-                finally { location.href = "/user.html"; }
-            });
-
-            onClick("btnOpenOverlay", () => {
-                if (!activeRoomCode) return alert("Pick a room first.");
-                window.open(`/overlay.html?roomId=${encodeURIComponent(activeRoomCode)}`, "_blank");
-            });
-
-            // Optional: presence ping every 5s while a room is selected
-            setInterval(() => {
-                if (document.hidden) return;
-                if (!activeRoomCode) return;
-                sendPresenceForRoom(activeRoomCode);
-                refreshState().catch(() => { });
-            }, 5000);
+            // Restore last selected room and start polling
+            autoLoadRoomFromStorage();
+            startPolling();
         }
 
         document.addEventListener("DOMContentLoaded", () => {
