@@ -698,7 +698,7 @@
             window.open(`/overlay.html?roomId=${encodeURIComponent(code)}`, "_blank");
         };
 
-        el("btnStart").onclick = async () => {
+        onClick("btnStart", () => {
             try {
                 const code = roomId();
                 if (!code) return alert("Pick a room first.");
@@ -724,9 +724,9 @@
             } catch (e) {
                 el("gameOut").textContent = String(e);
             }
-        };
+        });
 
-        el("btnStop").onclick = async () => {
+        onClick("btnStop", () => {
             try {
                 const code = roomId();
                 if (!code) return alert("Pick a room first.");
@@ -736,7 +736,7 @@
             } catch (e) {
                 el("gameOut").textContent = String(e);
             }
-        };
+        });
 
         el("btnLeaderboard").onclick = refreshLeaderboard;
 
