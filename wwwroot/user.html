@@ -109,21 +109,38 @@
         const el = (id) => document.getElementById(id);
         const pretty = (x) => JSON.stringify(x, null, 2);
 
+        // Prevent double-click / multiple in-flight calls
+        let loginInFlight = false;
+        let registerInFlight = false;
+
         async function api(path, opts = {}) {
             console.log("API:", path, opts);
+            try {
+                const res = await fetch(path, { credentials: "include", ...opts });
+                console.log("FETCH RES", res.status, res.statusText);
 
-            const res = await fetch(path, { credentials: "include", ...opts });
-            console.log("FETCH RES", res.status, res.statusText);
+                const text = await res.text();
+                let json;
+                try {
+                    json = text ? JSON.parse(text) : null;
+                } catch {
+                    json = { raw: text };
+                }
 
-            const text = await res.text();
-            let json; try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
+                if (!res.ok) {
+                    console.error("API ERROR:", res.status, json);
+                    throw Object.assign(new Error(json?.error || `HTTP ${res.status}`), {
+                        status: res.status,
+                        payload: json,
+                    });
+                }
 
-            if (!res.ok) {
-                console.error("API ERROR:", res.status, json);
-                throw Object.assign(new Error(json?.error || `HTTP ${res.status}`), { status: res.status, payload: json });
+                return json;
+            } catch (err) {
+                // This is the case where the browser aborted the request or the server dropped the connection.
+                console.error("FETCH FAILED:", { name: err?.name, message: err?.message, err });
+                throw err;
             }
-
-            return json;
         }
 
         async function refreshMe() {
@@ -131,16 +148,18 @@
                 const me = await api("/member/me");
                 el("meOut").textContent = pretty(me);
                 el("meLabel").textContent = me.isAuth ? `👤 ${me.name} (${me.role})` : "Not logged in";
+                return me;
             } catch (e) {
                 el("meOut").textContent = pretty({ ok: false, error: e.message, status: e.status, payload: e.payload });
                 el("meLabel").textContent = "Not logged in";
+                return null;
             }
         }
 
         window.addEventListener("DOMContentLoaded", () => {
             // HARD FAIL if IDs don’t match
             const mustExist = ["btnLogin", "btnRegister", "btnLogout", "btnMe", "btnMe2", "btnRegFill", "btnGoLobby"];
-            const missing = mustExist.filter(id => !el(id));
+            const missing = mustExist.filter((id) => !el(id));
             if (missing.length) {
                 alert("user.html is missing elements: " + missing.join(", "));
                 console.error("Missing elements:", missing);
@@ -148,7 +167,11 @@
             }
 
             // Register
-            el("btnRegister").onclick = async () => {
+            el("btnRegister").addEventListener("click", async () => {
+                if (registerInFlight) return;
+                registerInFlight = true;
+                el("btnRegister").disabled = true;
+
                 try {
                     const name = el("regName").value.trim();
                     const password = el("regPass").value;
@@ -156,50 +179,90 @@
                     const r = await api("/member/register", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ name, password })
+                        body: JSON.stringify({ name, password }),
                     });
 
                     el("regOut").textContent = pretty(r);
                 } catch (e) {
-                    el("regOut").textContent = pretty({ ok: false, error: e.message, status: e.status, payload: e.payload });
+                    el("regOut").textContent = pretty({
+                        ok: false,
+                        error: e?.message,
+                        name: e?.name,
+                        status: e?.status,
+                        payload: e?.payload,
+                    });
+                } finally {
+                    registerInFlight = false;
+                    el("btnRegister").disabled = false;
                 }
-            };
+            });
 
             // Copy register fields into login
-            el("btnRegFill").onclick = () => {
+            el("btnRegFill").addEventListener("click", () => {
                 el("loginName").value = el("regName").value.trim();
                 el("loginPass").value = el("regPass").value;
                 el("loginName").focus();
-            };
+            });
 
             // Login
-            el("btnLogin").onclick = async () => {
+            el("btnLogin").addEventListener("click", async () => {
+                if (loginInFlight) return;
+                loginInFlight = true;
+
+                const btnLogin = el("btnLogin");
+                const btnRegister = el("btnRegister");
+                btnLogin.disabled = true;
+                btnRegister.disabled = true;
+
                 try {
                     const name = el("loginName").value.trim();
                     const password = el("loginPass").value;
+                    const rememberMe = el("rememberMe")?.checked ?? true;
 
                     const r = await api("/member/login", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ name, password })
+                        body: JSON.stringify({ name, password, rememberMe }),
                     });
 
                     el("loginOut").textContent = pretty(r);
 
-                    // ✅ IMPORTANT: persist auto-created room code for lobby auto-load
-                    if (r.roomCode) localStorage.setItem("roomId", r.roomCode);
+                    // Persist auto-created room code for lobby auto-load (if returned)
+                    if (r?.roomCode) localStorage.setItem("roomId", r.roomCode);
 
-                    await refreshMe();
+                    // Sanity-check: confirm cookie session is actually live before redirect
+                    const me = await refreshMe();
+                    if (!me?.isAuth) {
+                        // If this happens, cookie isn’t sticking (server config issue: SameSite/Secure/etc.)
+                        el("loginOut").textContent = pretty({
+                            ok: false,
+                            error: "Login returned OK but session is not authenticated on /member/me. Cookie may not be persisting.",
+                            loginResponse: r,
+                            meResponse: me,
+                        });
+                        return;
+                    }
+
                     location.href = "/lobby.html";
                 } catch (e) {
-                    el("loginOut").textContent = pretty({ ok: false, error: e.message, status: e.status, payload: e.payload });
+                    el("loginOut").textContent = pretty({
+                        ok: false,
+                        error: e?.message,
+                        name: e?.name,
+                        status: e?.status,
+                        payload: e?.payload,
+                    });
+                } finally {
+                    loginInFlight = false;
+                    btnLogin.disabled = false;
+                    btnRegister.disabled = false;
                 }
-            };
+            });
 
             console.log("btnLogin wired:", !!el("btnLogin"));
 
             // Logout
-            el("btnLogout").onclick = async () => {
+            el("btnLogout").addEventListener("click", async () => {
                 try {
                     const r = await api("/member/logout", { method: "POST" });
                     el("loginOut").textContent = pretty(r);
@@ -207,12 +270,12 @@
                     el("loginOut").textContent = pretty({ ok: false, error: e.message, status: e.status, payload: e.payload });
                 }
                 await refreshMe();
-            };
+            });
 
             // Buttons
-            el("btnMe").onclick = refreshMe;
-            el("btnMe2").onclick = refreshMe;
-            el("btnGoLobby").onclick = () => location.href = "/lobby.html";
+            el("btnMe").addEventListener("click", () => refreshMe());
+            el("btnMe2").addEventListener("click", () => refreshMe());
+            el("btnGoLobby").addEventListener("click", () => (location.href = "/lobby.html"));
 
             // Enter submits
             el("loginPass").addEventListener("keydown", (ev) => {
@@ -226,6 +289,7 @@
             refreshMe();
         });
     </script>
+
 
 </body>
 </html>
