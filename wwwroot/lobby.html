@@ -698,7 +698,7 @@
             window.open(`/overlay.html?roomId=${encodeURIComponent(code)}`, "_blank");
         };
 
-        onClick("btnStart", () => {
+        onClick("btnStart", async () => {
             try {
                 const code = roomId();
                 if (!code) return alert("Pick a room first.");
@@ -726,7 +726,7 @@
             }
         });
 
-        onClick("btnStop", () => {
+        onClick("btnStop", async () => {
             try {
                 const code = roomId();
                 if (!code) return alert("Pick a room first.");
