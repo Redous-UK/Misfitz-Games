@@ -738,7 +738,9 @@
             }
         });
 
-        el("btnLeaderboard").onclick = refreshLeaderboard;
+        onClick("btnLeaderboard", () => {
+            refreshLeaderboard
+        });
 
         // Init
         async function init() {
