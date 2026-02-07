@@ -72,7 +72,7 @@
                 return;
             }
 
-            console.log("ME: ", me);
+            console.log("ME payload: ", me);
 
             const authOut = el("authOut");
             if (authOut) authOut.textContent = pretty(me);
@@ -84,9 +84,9 @@
                     : "Not logged in";
             }
 
-            if (!me.isAuth || me.isAuth !== true) {
+            if (me.isAuth !== true) {
                 console.warn("Not authed on lobby, redirecting to /user.html", me);
-                location.href = "/user.html";
+                //location.href = "/user.html";
                 return;
             }
 
