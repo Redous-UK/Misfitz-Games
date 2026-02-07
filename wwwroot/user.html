@@ -35,56 +35,60 @@
                 <div class="two">
 
                     <!-- REGISTER -->
-                    <div class="card">
-                        <h2>Register</h2>
-                        <div class="muted">
-                            Create a new account. Username must be 3–32 characters. Password must be 6+ characters.
-                        </div>
+                    <form>
+                        <div class="card">
+                            <h2>Register</h2>
+                            <div class="muted">
+                                Create a new account. Username must be 3–32 characters. Password must be 6+ characters.
+                            </div>
 
-                        <div class="row" style="margin-top:12px">
-                            <input id="regName" placeholder="Username" autocomplete="username" />
-                        </div>
-                        <div class="row" style="margin-top:10px">
-                            <input id="regPass" type="password" placeholder="Password" autocomplete="new-password" />
-                        </div>
+                            <div class="row" style="margin-top:12px">
+                                <input id="regName" placeholder="Username" autocomplete="username" />
+                            </div>
+                            <div class="row" style="margin-top:10px">
+                                <input id="regPass" type="password" placeholder="Password" autocomplete="new-password" />
+                            </div>
 
-                        <div class="row" style="margin-top:10px">
-                            <button id="btnRegister">Create account</button>
-                            <button id="btnRegFill" class="btn-secondary" type="button">Use above in login</button>
-                        </div>
+                            <div class="row" style="margin-top:10px">
+                                <button id="btnRegister">Create account</button>
+                                <button id="btnRegFill" class="btn-secondary" type="button">Use above in login</button>
+                            </div>
 
-                        <pre id="regOut">{}</pre>
-                    </div>
+
+                            <pre id="regOut">{}</pre>
+                        </div>
+                    </form>
 
                     <!-- LOGIN -->
-                    <div class="card">
-                        <h2>Login</h2>
-                        <div class="muted">
-                            Sign in with your account. If “Remember me” is on, you’ll stay signed in.
-                        </div>
-
-                        <div class="row" style="margin-top:12px">
-                            <input id="loginName" placeholder="Username" autocomplete="username" />
-                        </div>
-                        <div class="row" style="margin-top:10px">
-                            <input id="loginPass" type="password" placeholder="Password" autocomplete="current-password" />
-                        </div>
-
-                        <div class="row" style="margin-top:10px; justify-content:space-between">
-                            <label class="check">
-                                <input id="rememberMe" type="checkbox" checked />
-                                Remember me
-                            </label>
-
-                            <div class="row">
-                                <button id="btnLogin">Login</button>
-                                <button id="btnLogout" class="btn-secondary" type="button">Logout</button>
+                    <form>
+                        <div class="card">
+                            <h2>Login</h2>
+                            <div class="muted">
+                                Sign in with your account. If “Remember me” is on, you’ll stay signed in.
                             </div>
+
+                            <div class="row" style="margin-top:12px">
+                                <input id="loginName" placeholder="Username" autocomplete="username" />
+                            </div>
+                            <div class="row" style="margin-top:10px">
+                                <input id="loginPass" type="password" placeholder="Password" autocomplete="current-password" />
+                            </div>
+
+                            <div class="row" style="margin-top:10px; justify-content:space-between">
+                                <label class="check">
+                                    <input id="rememberMe" type="checkbox" checked />
+                                    Remember me
+                                </label>
+
+                                <div class="row">
+                                    <button id="btnLogin">Login</button>
+                                    <button id="btnLogout" class="btn-secondary" type="button">Logout</button>
+                                </div>
+                            </div>
+
+                            <pre id="loginOut">{}</pre>
                         </div>
-
-                        <pre id="loginOut">{}</pre>
-                    </div>
-
+                    </form>
                 </div>
 
                 <!-- ACCOUNT STATUS -->
