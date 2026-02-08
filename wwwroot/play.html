@@ -18,7 +18,7 @@
         <div class="card" style="margin-top:12px;">
             <div class="row">
                 <input id="roomRef" class="grow" placeholder="Room code (e.g. 48392017 or MISFITZ1)" />
-                <input id="username" placeholder="Your name" />
+                <input id="username" placeholder="Your name" autocomplete="off"/>
                 <button id="btnJoin">Join</button>
                 <button id="btnLeave" disabled>Leave</button>
             </div>
@@ -239,37 +239,37 @@
             if (!joinedRef) return;
 
             try {
-                const stateRaw = await api(`/rooms/${encodeURIComponent(joinedRef)}/state`);
-                const state = stateRaw?.state ?? stateRaw;
+                const raw = await api(`/rooms/${encodeURIComponent(joinedRef)}/state`);
+                const state = raw?.state ?? raw; // ✅ supports both shapes
 
                 const roomName = state.roomName ?? state.RoomName ?? "Room";
                 const activeGame = state.activeGame ?? state.ActiveGame ?? "None";
                 const gs = state.gameState ?? state.GameState ?? null;
 
-                const roomLine = el("roomLine");
-                if (roomLine) roomLine.textContent = `${roomName} (${joinedRef})`;
+                el("roomLine").textContent = `${roomName} (${joinedRef})`;
 
                 if (!activeGame || activeGame === "None" || activeGame === 0) {
                     setGame("No game", "warn");
                     renderRecentGuesses(null);
                 } else {
                     const endedAt = gs?.endedAtUtc ?? gs?.EndedAtUtc;
-                    if (endedAt) setGame("Round complete", "ok");
-                    else setGame(String(activeGame), "ok");
+                    setGame(endedAt ? "Round complete" : String(activeGame), "ok");
                     renderRecentGuesses(gs);
                 }
 
-                const [lb, stats] = await Promise.all([
+                const [lbRaw, statsRaw] = await Promise.all([
                     api(`/rooms/${encodeURIComponent(joinedRef)}/leaderboard`),
                     api(`/rooms/${encodeURIComponent(joinedRef)}/stats`)
                 ]);
 
-                const statsOut = el("statsOut");
-                if (statsOut) statsOut.textContent = pretty(stats);
+                const lb = lbRaw?.leaderboard ?? lbRaw?.data ?? lbRaw;      // optional: if you ever wrap these too
+                const stats = statsRaw?.stats ?? statsRaw?.data ?? statsRaw; // optional
+
+                el("statsOut").textContent = pretty(stats);
                 renderLeaderboard(lb);
 
                 setStatus("Connected", "ok");
-            } catch {
+            } catch (e) {
                 setStatus("Offline / Room not found", "bad");
             }
         }
