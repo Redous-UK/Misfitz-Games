@@ -54,9 +54,33 @@ public class GamesController(
         await store.SaveStateAsync(updated, ct);
         await broadcaster.BroadcastStateAsync(roomId.Value, updated, ct);
 
-        // Optionally return newest guess / winner flag
-        // (If GameState is JsonElement in storage, the UI can still rely on /state)
-        return Ok(new { ok = true });
+        // ✅ Return the newest guess details so UI can update instantly (no extra /state fetch needed)
+        // This is safe even if GameState is stored as JsonElement: it’s already materialized inside ApplyGuess.
+        var cs = updated.GameState as ContextoState;
+        var latest = cs?.RecentGuesses?.FirstOrDefault();
+
+
+        if (latest is null)
+            return Ok(new { ok = true });
+
+
+        return Ok(new
+        {
+            ok = true,
+            guess = new
+            {
+                latest.Guess,
+                latest.Percentage,
+                latest.RankOrScore,
+                latest.IsWinner,
+                latest.TsUtc
+            },
+            game = new
+            {
+                isActive = cs!.IsActive,
+                endedAtUtc = cs.EndedAtUtc
+            }
+        });
     }
 
     [HttpPost("/rooms/{roomId:guid}/games/contexto/start")]
