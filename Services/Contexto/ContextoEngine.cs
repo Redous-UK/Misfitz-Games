@@ -1,7 +1,7 @@
 ﻿using System.Text.Json;
 using Misfitz_Games.Models;
 
-namespace Misfitz_Games.Services;
+namespace Misfitz_Games.Services.Contexto;
 
 public sealed class ContextoEngine(WordVectorStore vectors, ContextoRankIndexStore rankStore)
 {

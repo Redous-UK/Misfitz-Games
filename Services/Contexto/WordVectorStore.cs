@@ -1,4 +1,4 @@
-﻿namespace Misfitz_Games.Services;
+﻿namespace Misfitz_Games.Services.Contexto;
 
 public sealed class WordVectorStore
 {
