@@ -31,109 +31,176 @@
     </div>
 
     <script>
-        let __lobbyInitRan = false;
+        const el = (id) => document.getElementById(id);
+        const POLL_MS = 1200;
 
-        async function btnStopHandler() {
-            try {
-                const code = roomId();
-                if (!code) return alert("Pick a room first.");
-                const r = await api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" });
-                const gameOut = el("gameOut");
-                if (gameOut) gameOut.textContent = pretty(r);
-                await refreshState();
-            } catch (e) {
-                const gameOut = el("gameOut");
-                if (gameOut) gameOut.textContent = String(e);
-            }
+        function pretty(x) {
+            try { return JSON.stringify(x, null, 2); } catch { return String(x); }
         }
 
+        async function api(path, opts = {}) {
+            const res = await fetch(path, { credentials: "include", ...opts });
+            const text = await res.text();
+            let json; try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
+            if (!res.ok) throw new Error(`HTTP ${res.status}: ${pretty(json)}`);
+            return json;
+        }
 
-        // ---------- init ----------
-        async function init() {
+        function escapeHtml(s) {
+            return String(s ?? "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
 
-            async function init() {
-                if (__lobbyInitRan) {
-                    console.warn("init() called twice — ignoring");
-                    return;
-                }
-                __lobbyInitRan = true;
+        function setStatus(text, kind = "warn") {
+            const b = el("statusBadge");
+            if (!b) return;
+            b.textContent = text;
+            b.className = "badge " + (kind === "ok" ? "ok" : kind === "bad" ? "bad" : "warn");
+        }
 
-                // ... rest
-            }
+        function getRoomRef() {
+            const qs = new URLSearchParams(location.search);
+            const roomId = (qs.get("roomId") || "").trim();
+            return roomId;
+        }
 
-            let me;
-            // auth
-            try {
-                me = await api("/member/me");
-            } catch (e) {
-                console.error("Get /member/me failed", e);
-                const authOut = el("authOut");
-                if (authOut) authOut.textContent = String(e);
+        function normalizeState(raw) {
+            // supports both shapes: { ...state } or { ok:true, state:{...} }
+            return raw?.state ?? raw;
+        }
+
+        function getContextoState(state) {
+            const gs = state?.gameState ?? state?.GameState;
+            return gs;
+        }
+
+        function renderGuesses(state) {
+            const ul = el("guessesList");
+            if (!ul) return;
+            ul.innerHTML = "";
+
+            const gs = getContextoState(state);
+            const guesses = gs?.recentGuesses ?? gs?.RecentGuesses ?? [];
+            const arr = Array.isArray(guesses) ? guesses : [];
+
+            if (arr.length === 0) {
+                ul.innerHTML = `<li class="small">No guesses yet…</li>`;
                 return;
             }
 
-            console.log("ME payload: ", me);
+            // newest first
+            const list = arr.slice(0, 12);
 
-            const authOut = el("authOut");
-            if (authOut) authOut.textContent = pretty(me);
+            for (const g of list) {
+                const user = g.username ?? g.Username ?? "Unknown";
+                const guess = g.guess ?? g.Guess ?? "";
+                const rankOrScore = g.rankOrScore ?? g.RankOrScore ?? g.rank ?? g.Rank ?? "";
 
-            const meLabel = el("meLabel");
-            if (meLabel) {
-                meLabel.textContent = me.isAuth
-                    ? `👤 ${me.name ?? "Signed in"} (${me.role ?? "user"})`
-                    : "Not logged in";
+                const li = document.createElement("li");
+                li.className = "item";
+                li.innerHTML = `
+              <div>
+                <div class="who">${escapeHtml(String(user))}</div>
+                <div class="small">${escapeHtml(String(guess))}</div>
+              </div>
+              <div class="right">
+                <div class="small">rank</div>
+                <div class="who">${escapeHtml(String(rankOrScore))}</div>
+              </div>
+            `;
+                ul.appendChild(li);
             }
+        }
 
-            if (!me.isAuth || me.isAuth !== true) {
-                console.warn("Not authed on lobby, redirecting to /user.html", me);
-                location.href = "/user.html";
+        function renderScores(leaderboard) {
+            const ul = el("scoresList");
+            if (!ul) return;
+            ul.innerHTML = "";
+
+            const top = leaderboard?.top ?? leaderboard?.Top ?? [];
+            const arr = Array.isArray(top) ? top : [];
+
+            if (arr.length === 0) {
+                ul.innerHTML = `<li class="small">No scores yet…</li>`;
                 return;
             }
 
-            myUserId = me.userId || null;
-            applyRoleUI(me.role);
+            for (const row of arr.slice(0, 10)) {
+                const userId = row.userId ?? row.UserId ?? "user";
+                const score = row.score ?? row.Score ?? 0;
 
-            // wire non-drawer buttons safely
-            onClick("btnBack", () => (location.href = "/user.html"));
-
-            onClick("btnLogout", async () => {
-                try {
-                    const r = await api("/member/logout", { method: "POST" });
-                    const authOut2 = el("authOut");
-                    if (authOut2) authOut2.textContent = pretty(r);
-                } finally {
-                    location.href = "/user.html";
-                }
-            });
-
-
-            onClick("btnAdmin", () => (location.href = "/admin.html"));
-            onClick("btnRefreshRooms", loadRooms);
-
-
-            onClick("btnOpenOverlay", () => {
-                const code = roomId();
-                if (!code) return alert("Pick a room first.");
-                window.open(`/overlay.html?roomId=${encodeURIComponent(code)}`, "_blank");
-            });
-
-
-            // NOTE: btnPlay/start/stop/leaderboard are handled via delegated click above
-
-
-            // boot
-            await loadGames();
-            await loadRooms();
-            autoLoadRoomFromStorage();
-            startPolling();
+                const li = document.createElement("li");
+                li.className = "item";
+                li.innerHTML = `
+              <div>
+                <div class="who">${escapeHtml(String(userId))}</div>
+                <div class="small">score</div>
+              </div>
+              <div class="right">
+                <div class="small">&nbsp;</div>
+                <div class="who">${escapeHtml(String(score))}</div>
+              </div>
+            `;
+                ul.appendChild(li);
+            }
         }
 
+        function showNoGame(isNoGame) {
+            const a = el("contextoBlock");
+            const b = el("noGameBlock");
+            if (a) a.classList.toggle("hidden", !!isNoGame);
+            if (b) b.classList.toggle("hidden", !isNoGame);
+        }
+
+        async function refresh(roomRef) {
+            try {
+                const raw = await api(`/rooms/${encodeURIComponent(roomRef)}/state`);
+                const state = normalizeState(raw);
+
+                const roomName = state?.roomName ?? state?.RoomName ?? "Room";
+                const activeGame = state?.activeGame ?? state?.ActiveGame ?? 0;
+
+                el("roomTitle").textContent = `${roomName}`;
+                el("subLine").textContent = `Room: ${roomRef}`;
+
+                // Contexto is enum 1 in your logs; also support string
+                const isContexto = activeGame === 1 || String(activeGame).toLowerCase() === "contexto";
+                showNoGame(!isContexto);
+
+                if (isContexto) {
+                    renderGuesses(state);
+                    const lb = await api(`/rooms/${encodeURIComponent(roomRef)}/leaderboard`);
+                    renderScores(lb);
+                    setStatus("Live", "ok");
+                } else {
+                    setStatus("No game", "warn");
+                }
+            } catch (e) {
+                setStatus("Offline", "bad");
+            }
+        }
 
         document.addEventListener("DOMContentLoaded", () => {
-            init().catch((err) => {
-                console.error("Lobby init failed", err);
-                location.href = "/user.html";
-            });
+            const roomRef = getRoomRef();
+            if (!roomRef) {
+                setStatus("Missing roomId", "bad");
+                el("subLine").textContent = "Open this as /overlay.html?roomId=ROOMCODE";
+                showNoGame(true);
+                return;
+            }
+
+            // NOTE: Overlay should not force-login. If your /rooms/{id}/state is protected,
+            // either (A) allow anonymous GET for overlay, or (B) open overlay from an authed browser session.
+
+            refresh(roomRef);
+            setInterval(() => {
+                if (document.hidden) return;
+                refresh(roomRef);
+            }, POLL_MS);
         });
     </script>
 </body>
