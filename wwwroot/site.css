@@ -23,36 +23,52 @@ body {
     min-height: 100vh;
 }
 
-.guess-row {
+
+/* Overlay Guess */
+/* The list item itself MUST be flex */
+.item {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    width: 100%;
     padding: 8px 12px;
     margin-bottom: 6px;
     background: #1e1e1e;
     border-radius: 6px;
     color: #fff;
-    font-size: 14px;
+    box-sizing: border-box;
 }
 
+/* Left side sticks together */
 .guess-left {
     display: flex;
-    gap: 10px;
     align-items: center;
+    gap: 10px;
+    min-width: 0;
 }
 
+/* THIS pushes rank to the right */
+.guess-right {
+    margin-left: auto;
+}
+
+/* Styling */
 .username {
-    font-weight: 600;
+    font-weight: 700;
     color: #4fc3f7;
 }
 
 .guess {
-    opacity: 0.9;
+    opacity: 0.85;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 260px;
 }
 
 .rank {
-    font-weight: 700;
+    font-weight: 800;
     color: #ffca28;
+    white-space: nowrap;
 }
 
 /* Floating cog button */

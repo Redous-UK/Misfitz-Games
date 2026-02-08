@@ -103,31 +103,14 @@
                 const li = document.createElement("li");
                 li.className = "item";
                 li.innerHTML = `
-                <div class="guess-left">
-                    <span class="username">${escapeHtml(String(user))}</span>
-                    <span class="guess">${escapeHtml(String(guess))}</span>
-                </div>
-                    <div class="rank">#${escapeHtml(String(rankOrScore))}</div>
-
-
-<div class="demo">
-  <div class="guess-row">
-    <div class="guess-left">
-      <span class="username">Craig</span>
-      <span class="guess">elephant</span>
-    </div>
-    <div class="rank">#12</div>
-  </div>
-
-  <div class="guess-row">
-    <div class="guess-left">
-      <span class="username">Jenna</span>
-      <span class="guess">giraffe</span>
-    </div>
-    <div class="rank">#3</div>
-  </div>
-</div>
-            `;
+                    <div class="guess-left">
+                        <span class="username">${escapeHtml(String(user))}</span>
+                        <span class="guess">${escapeHtml(String(guess))}</span>
+                    </div>
+                    <div class="guess-right">
+                        <div class="rank">#${escapeHtml(String(rankOrScore))}</div>
+                    </div>
+                `;
                 ul.appendChild(li);
             }
         }
