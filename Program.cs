@@ -88,6 +88,8 @@ public static class Program
         builder.Services.AddSingleton<ContextoEngine>();
         builder.Services.AddSingleton<RoomBroadcastService>();
         builder.Services.AddSingleton<ContextoWordProvider>();
+        builder.Services.AddSingleton<WordVectorStore>();
+        builder.Services.AddSingleton<ContextoRankIndexStore>();
 
         builder.Logging.ClearProviders();
         builder.Logging.AddConsole();

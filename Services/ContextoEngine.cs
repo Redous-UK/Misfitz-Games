@@ -196,8 +196,8 @@ public sealed class ContextoEngine
             IsActive: true,
             StartedAtUtc: DateTimeOffset.UtcNow,
             EndedAtUtc: null,
-            RecentGuesses: new List<ContextoGuess>(),
-            ScoresByUserId: new Dictionary<string, int>()
+            RecentGuesses: [],
+            ScoresByUserId: []
         );
     }
 
