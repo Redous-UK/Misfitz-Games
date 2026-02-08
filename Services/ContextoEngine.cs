@@ -77,6 +77,23 @@ public sealed class ContextoEngine
         return (2.0 * overlap) / (aCount + bCount);
     }
 
+    private static double CharOverlapSimilarity(string a, string b)
+    {
+        a = (a ?? "").Trim().ToLowerInvariant();
+        b = (b ?? "").Trim().ToLowerInvariant();
+        if (a.Length == 0 && b.Length == 0) return 1.0;
+        if (a.Length == 0 || b.Length == 0) return 0.0;
+
+        var aSet = a.Where(char.IsLetterOrDigit).ToHashSet();
+        var bSet = b.Where(char.IsLetterOrDigit).ToHashSet();
+
+        if (aSet.Count == 0 || bSet.Count == 0) return 0.0;
+
+        int inter = aSet.Count(ch => bSet.Contains(ch));
+        int uni = aSet.Union(bSet).Count();
+        return uni == 0 ? 0.0 : inter / (double)uni; // 0..1 (Jaccard)
+    }
+
     public RoomState ApplyGuess(RoomState roomState, string userId, string username, string guess)
     {
         var s = GetContextoState(roomState);
@@ -99,6 +116,10 @@ public sealed class ContextoEngine
         ? 1.0
         : DiceBigramSimilarity(normalizedGuess, s.SecretWord);
 
+        // fallback if bigrams give 0
+        if (!isWinner && sim01 <= 0.0)
+            sim01 = CharOverlapSimilarity(normalizedGuess, s.SecretWord);
+
 
         int closenessScore = isWinner ? maxRank : (int)Math.Round(sim01 * maxRank);
         if (!isWinner && closenessScore >= maxRank) closenessScore = maxRank - 1; // keep 100% exclusive
@@ -107,9 +128,6 @@ public sealed class ContextoEngine
         int pseudoRank = ScoreToRank(closenessScore, maxRank);
         int percent = RankToPercentage(pseudoRank, maxRank);
 
-
-        // ✅ FIX: define newScores (your ContextoState requires ScoresByUserId)
-        // Keep this as "simple points" and only award points on a win.
         var newScores = new Dictionary<string, int>(s.ScoresByUserId);
         if (isWinner)
             newScores[userId] = newScores.TryGetValue(userId, out var cur) ? cur + 1 : 1;

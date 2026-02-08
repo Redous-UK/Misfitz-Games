@@ -103,6 +103,13 @@
                 const li = document.createElement("li");
                 li.className = "item";
                 li.innerHTML = `
+                <div class="guess-left">
+                    <span class="username">${escapeHtml(String(user))}</span>
+                    <span class="guess">${escapeHtml(String(guess))}</span>
+                </div>
+                    <div class="rank">#${escapeHtml(String(rankOrScore))}</div>
+
+
               <div>
                 <div class="who">${escapeHtml(String(user))}</div>
                 <div class="small">${escapeHtml(String(guess))}</div>

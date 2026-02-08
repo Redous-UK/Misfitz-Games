@@ -23,6 +23,38 @@ body {
     min-height: 100vh;
 }
 
+.guess-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    background: #1e1e1e;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 14px;
+}
+
+.guess-left {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.username {
+    font-weight: 600;
+    color: #4fc3f7;
+}
+
+.guess {
+    opacity: 0.9;
+}
+
+.rank {
+    font-weight: 700;
+    color: #ffca28;
+}
+
 /* Floating cog button */
 .settings-btn {
     position: fixed;
