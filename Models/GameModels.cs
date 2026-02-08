@@ -32,7 +32,15 @@ public sealed record ContextoGuess(
     string UserId,
     string Username,
     string Guess,
+    int Percentage,
     int RankOrScore,
     bool IsWinner,
     DateTimeOffset TsUtc
+);
+
+public sealed record GuessResponse(
+    bool Complete,
+    bool Incorrect,
+    int Percentage,
+    string Guess
 );

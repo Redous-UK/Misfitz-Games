@@ -11,32 +11,124 @@ public sealed class ContextoEngine
         PropertyNameCaseInsensitive = true
     };
 
+    // Treat rank as: 1 = best/closest, maxRank = worst
+    public static int RankToPercentage(int rank, int maxRank)
+    {
+        if (rank <= 1) return 100;
+        if (rank >= maxRank) return 0;
+
+        var pct = 100 * (1.0 - (rank - 1.0) / (maxRank - 1.0));
+        return (int)Math.Round(pct);
+    }
+
+    // Until you have a real global dictionary rank, we can convert a closeness score into a pseudo-rank.
+    // Score is expected: 0..maxScore where higher = closer.
+    public static int ScoreToRank(int score, int maxScore)
+    {
+        // Higher score = better rank (1 is best)
+        if (score <= 0) return maxScore;
+        if (score >= maxScore) return 1;
+        return Math.Max(1, maxScore - score + 1);
+    }
+
+    /// <summary>
+    /// Temporary, *non-Levenshtein* closeness scorer to unlock Percentage today.
+    /// Uses Dice coefficient over character bigrams (0..1). This is NOT semantic like real Contexto,
+    /// but it's stable and gives players a "warmth" signal.
+    ///
+    /// Later, replace this with semantic similarity (embeddings) WITHOUT changing any controller/UI contracts.
+    /// </summary>
+    private static double DiceBigramSimilarity(string a, string b)
+    {
+        a = (a ?? string.Empty).Trim().ToLowerInvariant();
+        b = (b ?? string.Empty).Trim().ToLowerInvariant();
+
+        if (a.Length == 0 && b.Length == 0) return 1.0;
+        if (a.Length < 2 || b.Length < 2) return a == b ? 1.0 : 0.0;
+
+        static Dictionary<string, int> Bigrams(string s)
+        {
+            var map = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (int i = 0; i < s.Length - 1; i++)
+            {
+                var bg = s.Substring(i, 2);
+                map[bg] = map.TryGetValue(bg, out var cur) ? cur + 1 : 1;
+            }
+            return map;
+        }
+
+        var aB = Bigrams(a);
+        var bB = Bigrams(b);
+
+        int overlap = 0;
+        int aCount = 0;
+        int bCount = 0;
+
+        foreach (var kv in aB) aCount += kv.Value;
+        foreach (var kv in bB) bCount += kv.Value;
+
+        foreach (var kv in aB)
+        {
+            if (bB.TryGetValue(kv.Key, out var bN))
+                overlap += Math.Min(kv.Value, bN);
+        }
+
+        // Dice coefficient
+        return (2.0 * overlap) / (aCount + bCount);
+    }
+
     public RoomState ApplyGuess(RoomState roomState, string userId, string username, string guess)
     {
         var s = GetContextoState(roomState);
-
-        // 🔎 Optional: quick debug breadcrumb (remove later)
-        // Console.WriteLine($"ApplyGuess: activeGame={roomState.ActiveGame} gameStateType={roomState.GameState?.GetType().Name} isActive={(s?.IsActive.ToString() ?? "null")}");
-
         if (s is null || !s.IsActive)
             return roomState;
 
-        var normalizedGuess = guess.Trim();
+        var normalizedGuess = (guess ?? string.Empty).Trim();
         if (normalizedGuess.Length == 0)
             return roomState;
 
+        const int maxRank = 10000; // "ranking universe" size for percentage curve
+
         var isWinner = string.Equals(normalizedGuess, s.SecretWord, StringComparison.OrdinalIgnoreCase);
-        var score = isWinner ? 1 : 0;
 
+        // ---
+        // 1) Compute a closeness score 0..maxRank (higher = closer)
+        //    Winner should be maxRank so they get 100%.
+        // ---
+        int closenessScore;
+        if (isWinner)
+        {
+            closenessScore = maxRank;
+        }
+        else
+        {
+            // TEMP: non-Levenshtein closeness to unlock % today.
+            // Swap this out later for semantic similarity (embeddings).
+            var sim01 = DiceBigramSimilarity(normalizedGuess, s.SecretWord); // 0..1
+            closenessScore = (int)Math.Round(sim01 * maxRank);
+
+            // Keep 100% exclusive to exact match (optional, but feels right)
+            if (closenessScore >= maxRank) closenessScore = maxRank - 1;
+        }
+
+        // 2) Convert to pseudo-rank and percentage using your existing helpers
+        int pseudoRank = ScoreToRank(closenessScore, maxRank);
+        int percent = RankToPercentage(pseudoRank, maxRank);
+
+        // 3) Update points (your ScoresByUserId is "simple points")
+        //    Keep points separate from closeness, so the scoreboard isn't polluted.
         var newScores = new Dictionary<string, int>(s.ScoresByUserId);
-        if (score > 0)
-            newScores[userId] = newScores.TryGetValue(userId, out var cur) ? cur + score : score;
+        if (isWinner)
+            newScores[userId] = newScores.TryGetValue(userId, out var cur) ? cur + 1 : 1;
 
+        // 4) Add guess entry
+        //    Store pseudoRank in RankOrScore for now (because you don't have true rank yet).
         var newGuess = new ContextoGuess(
             UserId: userId,
             Username: username,
             Guess: normalizedGuess,
-            RankOrScore: isWinner ? 1 : 0,
+            Percentage: percent,
+            RankOrScore: pseudoRank,
             IsWinner: isWinner,
             TsUtc: DateTimeOffset.UtcNow
         );
