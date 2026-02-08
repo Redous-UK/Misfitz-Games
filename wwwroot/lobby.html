@@ -351,20 +351,8 @@
         async function sendPresenceForRoom(code) {
             if (!code) return;
             try {
-                await api("/ingest/event", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        roomId: code,
-                        platform: "web",
-                        channelId: "lobby",
-                        type: "presence",
-                        message: "",
-                        tsUtc: new Date().toISOString()
-                    })
-                });
+                await api(`/rooms/${encodeURIComponent(code)}/presence`, { method: "POST" });
             } catch (e) {
-                // don't break UI on presence failures
                 console.warn("presence ping failed", e);
             }
         }
