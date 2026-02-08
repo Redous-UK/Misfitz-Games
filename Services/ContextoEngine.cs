@@ -83,62 +83,57 @@ public sealed class ContextoEngine
         if (s is null || !s.IsActive)
             return roomState;
 
+
         var normalizedGuess = (guess ?? string.Empty).Trim();
         if (normalizedGuess.Length == 0)
             return roomState;
 
-        const int maxRank = 10000; // "ranking universe" size for percentage curve
+
+        const int maxRank = 10000;
+
 
         var isWinner = string.Equals(normalizedGuess, s.SecretWord, StringComparison.OrdinalIgnoreCase);
 
-        // ---
-        // 1) Compute a closeness score 0..maxRank (higher = closer)
-        //    Winner should be maxRank so they get 100%.
-        // ---
-        int closenessScore;
-        if (isWinner)
-        {
-            closenessScore = maxRank;
-        }
-        else
-        {
-            // TEMP: non-Levenshtein closeness to unlock % today.
-            // Swap this out later for semantic similarity (embeddings).
-            var sim01 = DiceBigramSimilarity(normalizedGuess, s.SecretWord); // 0..1
-            closenessScore = (int)Math.Round(sim01 * maxRank);
 
-            // Keep 100% exclusive to exact match (optional, but feels right)
-            if (closenessScore >= maxRank) closenessScore = maxRank - 1;
-        }
+        double sim01 = isWinner
+        ? 1.0
+        : DiceBigramSimilarity(normalizedGuess, s.SecretWord);
 
-        // 2) Convert to pseudo-rank and percentage using your existing helpers
+
+        int closenessScore = isWinner ? maxRank : (int)Math.Round(sim01 * maxRank);
+        if (!isWinner && closenessScore >= maxRank) closenessScore = maxRank - 1; // keep 100% exclusive
+
+
         int pseudoRank = ScoreToRank(closenessScore, maxRank);
         int percent = RankToPercentage(pseudoRank, maxRank);
 
-        // 3) Update points (your ScoresByUserId is "simple points")
-        //    Keep points separate from closeness, so the scoreboard isn't polluted.
+
+        // ✅ FIX: define newScores (your ContextoState requires ScoresByUserId)
+        // Keep this as "simple points" and only award points on a win.
         var newScores = new Dictionary<string, int>(s.ScoresByUserId);
         if (isWinner)
             newScores[userId] = newScores.TryGetValue(userId, out var cur) ? cur + 1 : 1;
 
-        // 4) Add guess entry
-        //    Store pseudoRank in RankOrScore for now (because you don't have true rank yet).
+
         var newGuess = new ContextoGuess(
-            UserId: userId,
-            Username: username,
-            Guess: normalizedGuess,
-            Percentage: percent,
-            RankOrScore: pseudoRank,
-            IsWinner: isWinner,
-            TsUtc: DateTimeOffset.UtcNow
+        UserId: userId,
+        Username: username,
+        Guess: normalizedGuess,
+        Percentage: percent,
+        RankOrScore: pseudoRank, // UI should treat this as "Rank" for now
+        IsWinner: isWinner,
+        TsUtc: DateTimeOffset.UtcNow
         );
+
 
         var guesses = new List<ContextoGuess>(s.RecentGuesses);
         guesses.Insert(0, newGuess);
         if (guesses.Count > 30) guesses.RemoveRange(30, guesses.Count - 30);
 
+
         var endedAt = isWinner ? DateTimeOffset.UtcNow : s.EndedAtUtc;
         var isActive = !isWinner && s.IsActive;
+
 
         var next = s with
         {
@@ -147,6 +142,7 @@ public sealed class ContextoEngine
             IsActive = isActive,
             EndedAtUtc = endedAt
         };
+
 
         return roomState with
         {
