@@ -1,8 +1,9 @@
 ﻿using System.Text.Json;
 using Misfitz_Games.Models;
+using Misfitz_Games.Services.Room;
 using StackExchange.Redis;
 
-namespace Misfitz_Games.Services;
+namespace Misfitz_Games.Services.Infrastructure.Redis;
 
 public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomStateStore
 {

@@ -1,6 +1,6 @@
 ﻿using System.Security.Cryptography;
 
-namespace Misfitz_Games.Services;
+namespace Misfitz_Games.Services.Shared.Security;
 
 public static class PasswordHasher
 {

@@ -4,7 +4,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Misfitz_Games.Data;
 using Misfitz_Games.Models;
-using Misfitz_Games.Services;
+using Misfitz_Games.Services.Room;
+using Misfitz_Games.Services.Shared.Security;
 using System.Security.Claims;
 
 namespace Misfitz_Games.Controllers;

@@ -1,6 +1,6 @@
 ﻿using StackExchange.Redis;
 
-namespace Misfitz_Games.Services;
+namespace Misfitz_Games.Services.Infrastructure.Redis;
 
 public sealed class RedisMuxFactory(IConfiguration config)
 {

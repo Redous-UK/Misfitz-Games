@@ -2,7 +2,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Misfitz_Games.Models;
-using Misfitz_Games.Services;
+using Misfitz_Games.Services.Contexto;
+using Misfitz_Games.Services.Room;
 using System.Security.Claims;
 
 namespace Misfitz_Games.Controllers;

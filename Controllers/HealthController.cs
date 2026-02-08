@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Misfitz_Games.Services;
+using Misfitz_Games.Services.Infrastructure.Redis;
 using Npgsql;
 using StackExchange.Redis;
 

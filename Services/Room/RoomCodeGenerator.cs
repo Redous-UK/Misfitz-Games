@@ -1,4 +1,4 @@
-﻿namespace Misfitz_Games.Services;
+﻿namespace Misfitz_Games.Services.Room;
 
 public static class RoomCodeGenerator
 {

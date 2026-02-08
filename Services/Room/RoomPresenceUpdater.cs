@@ -1,6 +1,6 @@
 ﻿using Misfitz_Games.Models;
 
-namespace Misfitz_Games.Services;
+namespace Misfitz_Games.Services.Room;
 
 public static class RoomPresenceUpdater
 {

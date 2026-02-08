@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Misfitz_Games.Services;
+using Misfitz_Games.Services.Room;
 
 namespace Misfitz_Games.Controllers;
 

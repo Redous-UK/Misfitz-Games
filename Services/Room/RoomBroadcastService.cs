@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 using Misfitz_Games.Hubs;
 
-namespace Misfitz_Games.Services;
+namespace Misfitz_Games.Services.Room;
 
 public sealed class RoomBroadcastService(IHubContext<RoomHub> hub)
 {
