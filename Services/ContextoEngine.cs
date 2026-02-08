@@ -3,7 +3,7 @@ using Misfitz_Games.Models;
 
 namespace Misfitz_Games.Services;
 
-public sealed class ContextoEngine
+public sealed class ContextoEngine(WordVectorStore vectors, ContextoRankIndexStore rankStore)
 {
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -11,147 +11,90 @@ public sealed class ContextoEngine
         PropertyNameCaseInsensitive = true
     };
 
-    // Treat rank as: 1 = best/closest, maxRank = worst
+    private readonly WordVectorStore _vectors = vectors;
+    private readonly ContextoRankIndexStore _rankStore = rankStore;
+
+    // Classic Contexto: 1 is closest, 10_000 is furthest
+    private const int MaxRank = 10_000;
+
+    /// <summary>
+    /// Rank -> Percentage mapping (Contexto-style).
+    /// rank=1 => 100%, rank=maxRank => 0%
+    /// </summary>
     public static int RankToPercentage(int rank, int maxRank)
     {
         if (rank <= 1) return 100;
         if (rank >= maxRank) return 0;
 
-        var pct = 100 * (1.0 - (rank - 1.0) / (maxRank - 1.0));
+        var pct = 100.0 * (1.0 - (rank - 1.0) / (maxRank - 1.0));
         return (int)Math.Round(pct);
     }
 
-    // Until you have a real global dictionary rank, we can convert a closeness score into a pseudo-rank.
-    // Score is expected: 0..maxScore where higher = closer.
-    public static int ScoreToRank(int score, int maxScore)
+    /// <summary>
+    /// Ensures a rank index exists for this room/secret word.
+    /// Builds it lazily if missing.
+    /// </summary>
+    private ContextoRankIndex EnsureRankIndex(Guid roomId, string secretWord)
     {
-        // Higher score = better rank (1 is best)
-        if (score <= 0) return maxScore;
-        if (score >= maxScore) return 1;
-        return Math.Max(1, maxScore - score + 1);
+        if (_rankStore.TryGet(roomId, out var existing))
+            return existing;
+
+        // Build rank table for this secret (semantic ranking)
+        var idx = ContextoRanker.Build(secretWord, _vectors, MaxRank);
+        _rankStore.Set(roomId, idx);
+        return idx;
     }
 
     /// <summary>
-    /// Temporary, *non-Levenshtein* closeness scorer to unlock Percentage today.
-    /// Uses Dice coefficient over character bigrams (0..1). This is NOT semantic like real Contexto,
-    /// but it's stable and gives players a "warmth" signal.
-    ///
-    /// Later, replace this with semantic similarity (embeddings) WITHOUT changing any controller/UI contracts.
+    /// Apply a guess to RoomState. Uses semantic rank (1..10000) and percentage derived from rank.
     /// </summary>
-    private static double DiceBigramSimilarity(string a, string b)
-    {
-        a = (a ?? string.Empty).Trim().ToLowerInvariant();
-        b = (b ?? string.Empty).Trim().ToLowerInvariant();
-
-        if (a.Length == 0 && b.Length == 0) return 1.0;
-        if (a.Length < 2 || b.Length < 2) return a == b ? 1.0 : 0.0;
-
-        static Dictionary<string, int> Bigrams(string s)
-        {
-            var map = new Dictionary<string, int>(StringComparer.Ordinal);
-            for (int i = 0; i < s.Length - 1; i++)
-            {
-                var bg = s.Substring(i, 2);
-                map[bg] = map.TryGetValue(bg, out var cur) ? cur + 1 : 1;
-            }
-            return map;
-        }
-
-        var aB = Bigrams(a);
-        var bB = Bigrams(b);
-
-        int overlap = 0;
-        int aCount = 0;
-        int bCount = 0;
-
-        foreach (var kv in aB) aCount += kv.Value;
-        foreach (var kv in bB) bCount += kv.Value;
-
-        foreach (var kv in aB)
-        {
-            if (bB.TryGetValue(kv.Key, out var bN))
-                overlap += Math.Min(kv.Value, bN);
-        }
-
-        // Dice coefficient
-        return (2.0 * overlap) / (aCount + bCount);
-    }
-
-    private static double CharOverlapSimilarity(string a, string b)
-    {
-        a = (a ?? "").Trim().ToLowerInvariant();
-        b = (b ?? "").Trim().ToLowerInvariant();
-        if (a.Length == 0 && b.Length == 0) return 1.0;
-        if (a.Length == 0 || b.Length == 0) return 0.0;
-
-        var aSet = a.Where(char.IsLetterOrDigit).ToHashSet();
-        var bSet = b.Where(char.IsLetterOrDigit).ToHashSet();
-
-        if (aSet.Count == 0 || bSet.Count == 0) return 0.0;
-
-        int inter = aSet.Count(ch => bSet.Contains(ch));
-        int uni = aSet.Union(bSet).Count();
-        return uni == 0 ? 0.0 : inter / (double)uni; // 0..1 (Jaccard)
-    }
-
     public RoomState ApplyGuess(RoomState roomState, string userId, string username, string guess)
     {
         var s = GetContextoState(roomState);
         if (s is null || !s.IsActive)
             return roomState;
 
-
         var normalizedGuess = (guess ?? string.Empty).Trim();
         if (normalizedGuess.Length == 0)
             return roomState;
 
+        // Ensure rank index exists for this room's current secret
+        var index = EnsureRankIndex(roomState.RoomId, s.SecretWord);
 
-        const int maxRank = 10000;
+        // Rank is semantic closeness ordering (1 best, MaxRank worst)
+        var rank = index.GetRank(normalizedGuess);
 
+        // Winner if it's rank 1 (secret should be rank 1) OR exact match as a safety check
+        var isWinner =
+            rank == 1 ||
+            string.Equals(normalizedGuess, s.SecretWord, StringComparison.OrdinalIgnoreCase);
 
-        var isWinner = string.Equals(normalizedGuess, s.SecretWord, StringComparison.OrdinalIgnoreCase);
+        // Percentage derived from rank
+        var percent = isWinner ? 100 : RankToPercentage(rank, index.MaxRank);
 
-
-        double sim01 = isWinner
-        ? 1.0
-        : DiceBigramSimilarity(normalizedGuess, s.SecretWord);
-
-        // fallback if bigrams give 0
-        if (!isWinner && sim01 <= 0.0)
-            sim01 = CharOverlapSimilarity(normalizedGuess, s.SecretWord);
-
-
-        int closenessScore = isWinner ? maxRank : (int)Math.Round(sim01 * maxRank);
-        if (!isWinner && closenessScore >= maxRank) closenessScore = maxRank - 1; // keep 100% exclusive
-
-
-        int pseudoRank = ScoreToRank(closenessScore, maxRank);
-        int percent = RankToPercentage(pseudoRank, maxRank);
-
+        // NOTE: Your ContextoState currently uses ScoresByUserId as "simple points".
+        // We’ll keep your existing behavior: only increment on win (same as your current engine).
         var newScores = new Dictionary<string, int>(s.ScoresByUserId);
         if (isWinner)
             newScores[userId] = newScores.TryGetValue(userId, out var cur) ? cur + 1 : 1;
 
-
+        // Persist guess (RankOrScore is now used as Rank)
         var newGuess = new ContextoGuess(
-        UserId: userId,
-        Username: username,
-        Guess: normalizedGuess,
-        Percentage: percent,
-        RankOrScore: pseudoRank, // UI should treat this as "Rank" for now
-        IsWinner: isWinner,
-        TsUtc: DateTimeOffset.UtcNow
+            UserId: userId,
+            Username: username,
+            Guess: normalizedGuess,
+            Percentage: percent,
+            RankOrScore: rank, // <-- this is now the semantic rank (1..10000)
+            IsWinner: isWinner,
+            TsUtc: DateTimeOffset.UtcNow
         );
-
 
         var guesses = new List<ContextoGuess>(s.RecentGuesses);
         guesses.Insert(0, newGuess);
         if (guesses.Count > 30) guesses.RemoveRange(30, guesses.Count - 30);
 
-
         var endedAt = isWinner ? DateTimeOffset.UtcNow : s.EndedAtUtc;
         var isActive = !isWinner && s.IsActive;
-
 
         var next = s with
         {
@@ -160,7 +103,6 @@ public sealed class ContextoEngine
             IsActive = isActive,
             EndedAtUtc = endedAt
         };
-
 
         return roomState with
         {
@@ -185,6 +127,8 @@ public sealed class ContextoEngine
     }
 
     // Keep this if your controllers call ContextoEngine.NewRound(...)
+    // NOTE: This only creates the state. The semantic rank index is built lazily
+    // on first guess via EnsureRankIndex(roomId, secretWord).
     public static ContextoState NewRound(string secretWord)
     {
         var normalized = (secretWord ?? "").Trim();
