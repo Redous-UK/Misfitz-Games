@@ -13,6 +13,9 @@
     <Content Remove="tiktok-connector\**" />
     <EmbeddedResource Remove="tiktok-connector\**" />
     <None Remove="tiktok-connector\**" />
+	  <Content Include="Data\contexto_vocab.txt">
+		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
   </ItemGroup>
 
   <ItemGroup>
