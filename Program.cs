@@ -25,6 +25,7 @@ public static class Program
             o.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
         });
 
+
         // CORS: if your frontend is served from the SAME origin as the API,
         // you do NOT need AllowCredentials+CORS at all. But leaving this is fine.
         builder.Services.AddCors(options =>
@@ -34,7 +35,14 @@ public static class Program
                  .AllowAnyMethod()
                  .AllowCredentials()
                  .SetIsOriginAllowed(_ => true));
-        });
+
+            options.AddPolicy("dev", p =>
+                p.WithOrigins("http://localhost:5173", "http://localhost:8080")
+                 .AllowAnyHeader()
+                 .AllowAnyMethod()
+                 .AllowCredentials()
+                 );
+        }); 
 
         // --- EF Core (SQLite) for user accounts ---
         // Use Render disk path if you have one (recommended):
@@ -237,6 +245,13 @@ public static class Program
             return Results.Ok(new { ok = true, count, last });
         });
 
+
+        if (app.Environment.IsDevelopment())
+        {
+            app.UseDeveloperExceptionPage();
+        }
+
         app.Run();
+
     }
 }
