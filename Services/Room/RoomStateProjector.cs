@@ -66,7 +66,7 @@ public static class RoomStateProjector
                 startedAtUtc = cs.StartedAtUtc,
                 endedAtUtc = cs.EndedAtUtc,
                 recentGuesses = cs.RecentGuesses,
-                leaderboard = leaderboard
+                leaderboard
             };
         }
 

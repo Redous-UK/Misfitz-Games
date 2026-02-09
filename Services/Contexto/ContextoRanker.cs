@@ -4,10 +4,12 @@ public sealed class ContextoRankIndex
 {
     private readonly Dictionary<string, int> _rankByWord;
 
+    public string SecretWord { get; }
     public int MaxRank { get; }
 
-    public ContextoRankIndex(Dictionary<string, int> rankByWord, int maxRank)
+    public ContextoRankIndex(string secretWord, Dictionary<string, int> rankByWord, int maxRank)
     {
+        SecretWord = secretWord;
         _rankByWord = rankByWord;
         MaxRank = maxRank;
     }
@@ -34,7 +36,7 @@ public sealed class ContextoRankIndex
         if (s.Length > 0)
             ranks[s] = 1;
 
-        return new ContextoRankIndex(ranks, maxRank);
+        return new ContextoRankIndex(s, ranks, maxRank);
     }
 }
 
@@ -79,7 +81,7 @@ public static class ContextoRanker
         // (should already be true, but keep it robust)
         ranksDict[secret] = 1;
 
-        return new ContextoRankIndex(ranksDict, maxRank);
+        return new ContextoRankIndex(secret, ranksDict, maxRank);
     }
 
     /// <summary>
