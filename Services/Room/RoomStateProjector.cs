@@ -16,6 +16,13 @@ public static class RoomStateProjector
         // --- Ensure players key always exists (never null) ---
         var players = state.Players ?? [];
 
+        // Build a userId -> username lookup (players first, then recent guesses)
+        var nameByUserId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var p in players)
+            if (!string.IsNullOrWhiteSpace(p.UserId) && !string.IsNullOrWhiteSpace(p.Name))
+                nameByUserId[p.UserId] = p.Name;
+
         // --- Normalize contexto state regardless of storage type (ContextoState or JsonElement) ---
         ContextoState? cs = null;
 
@@ -29,18 +36,37 @@ public static class RoomStateProjector
             }
         }
 
+        // Fill gaps from recent guesses (last-known username)
+        if (cs is not null)
+        {
+            foreach (var g in cs.RecentGuesses)
+                if (!string.IsNullOrWhiteSpace(g.UserId) && !string.IsNullOrWhiteSpace(g.Username))
+                    nameByUserId.TryAdd(g.UserId, g.Username);
+        }
+
         // If contexto, strip SecretWord from the public output
         object? publicGameState = state.GameState;
 
         if (cs is not null)
         {
+            // Build username-aware leaderboard
+            var leaderboard = cs.ScoresByUserId
+                .OrderByDescending(kv => kv.Value)
+                .Select(kv => new
+                {
+                    userId = kv.Key,
+                    username = nameByUserId.TryGetValue(kv.Key, out var u) ? u : kv.Key,
+                    score = kv.Value
+                })
+                .ToArray();
+
             publicGameState = new
             {
                 isActive = cs.IsActive,
                 startedAtUtc = cs.StartedAtUtc,
                 endedAtUtc = cs.EndedAtUtc,
                 recentGuesses = cs.RecentGuesses,
-                scoresByUserId = cs.ScoresByUserId
+                leaderboard = leaderboard
             };
         }
 
