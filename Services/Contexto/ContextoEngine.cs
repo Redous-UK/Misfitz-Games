@@ -30,20 +30,29 @@ public sealed class ContextoEngine(WordVectorStore vectors, ContextoRankIndexSto
         return (int)Math.Round(pct);
     }
 
-    /// <summary>
-    /// Ensures a rank index exists for this room/secret word.
-    /// Builds it lazily if missing.
-    /// </summary>
     private ContextoRankIndex EnsureRankIndex(Guid roomId, string secretWord)
     {
         if (_rankStore.TryGet(roomId, out var existing))
             return existing;
 
-        // Build rank table for this secret (semantic ranking)
-        var idx = ContextoRanker.Build(secretWord, _vectors, MaxRank);
+        var normalizedSecret = (secretWord ?? string.Empty).Trim().ToLowerInvariant();
+
+        ContextoRankIndex idx;
+        try
+        {
+            // Build rank table for this secret (semantic ranking)
+            idx = ContextoRanker.Build(normalizedSecret, _vectors, MaxRank);
+        }
+        catch
+        {
+            // Absolute safety fallback: secret is rank 1; everything else is MaxRank.
+            idx = ContextoRankIndex.FallbackOnlySecret(normalizedSecret, MaxRank);
+        }
+
         _rankStore.Set(roomId, idx);
         return idx;
     }
+
 
     /// <summary>
     /// Apply a guess to RoomState. Uses semantic rank (1..10000) and percentage derived from rank.
