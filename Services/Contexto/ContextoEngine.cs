@@ -32,10 +32,10 @@ public sealed class ContextoEngine(WordVectorStore vectors, ContextoRankIndexSto
 
     private ContextoRankIndex EnsureRankIndex(Guid roomId, string secretWord)
     {
+        var normalizedSecret = (secretWord ?? string.Empty).Trim().ToLowerInvariant();
+
         if (_rankStore.TryGet(roomId, out var existing))
             return existing;
-
-        var normalizedSecret = (secretWord ?? string.Empty).Trim().ToLowerInvariant();
 
         ContextoRankIndex idx;
         try
