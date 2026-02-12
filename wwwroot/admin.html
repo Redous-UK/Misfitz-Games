@@ -386,10 +386,16 @@
         };
 
         // Init
-        syncRoomFromStorage();
-        wireDebugToggle();
-        setSelectedGame("contexto");
-        el("btnMe").click();
+
+        async function boot() {
+            await requireAdmin();
+            syncRoomFromStorage();
+            wireDebugToggle();
+            setSelectedGame("contexto");
+            el("btnMe").click();
+        }
+        boot.catch(() => location.href = "/user.html");
+
 
         function wireDebugToggle() {
             const key = "admin_show_debug";
@@ -415,8 +421,7 @@
             if (!me.isAuth) return location.href = "/user.html";
             if (me.role !== "admin") return location.href = "/lobby.html";
         }
-        requireAdmin().catch(() => location.href = "/user.html");
-
+       // requireAdmin().catch(() => location.href = "/user.html");
     </script>
 </body>
 </html>
