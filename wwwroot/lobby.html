@@ -279,14 +279,11 @@
 
             const btnOverlay = el("btnOpenOverlay");
             if (btnOverlay) btnOverlay.disabled = !activeRoomCode;
-
             if (activeRoomCode) localStorage.setItem("activeRoomCode", activeRoomCode);
 
-            // Immediately fetch state and start polling
             refreshState().catch(console.warn);
             refreshLeaderboard().catch(console.warn);
             startPolling();
-            // Presence ping immediately so they appear without guessing
             sendPresenceForRoom(activeRoomCode).catch(() => { });
         }
 
@@ -318,9 +315,7 @@
                     return;
                 }
 
-
                 rooms.sort((a, b) => String(b.createdAtUtc || "").localeCompare(String(a.createdAtUtc || "")));
-
 
                 const gameLabel = (r) => {
                     if (r?.hasActiveGame) {
@@ -333,20 +328,15 @@
                     return { text: "No game", cls: "room-chip game idle" };
                 };
 
-
                 grid.innerHTML = rooms.map(r => {
                     const code = r.roomCode ?? "";
                     const name = r.name ?? "Room";
                     const created = r.createdAtUtc ? new Date(r.createdAtUtc).toLocaleString() : "";
                     const isActive = activeRoomCode && activeRoomCode === code;
 
-
                     const players = Number.isFinite(r.playerCount) ? r.playerCount : null;
                     const pText = players === null ? "" : ` • 👥 ${players}`;
-
-
                     const gl = gameLabel(r);
-
 
                     return `
                     <div class="room-tile" data-code="${esc(code)}">
@@ -369,15 +359,13 @@
                     });
                 });
 
-
             } catch (e) {
                 grid.innerHTML = `<div class="muted">Failed to load rooms: ${esc(String(e))}</div>`;
             }
         }
 
         // ----------------------------
-        // Presence ping (so players appear without guessing)
-        // Uses cookie auth -> IngestController will overwrite userId/username for web.
+        // Presence ping
         // ----------------------------
         async function sendPresenceForRoom(code) {
             if (!code) return;
