@@ -81,7 +81,30 @@ public class RoomsController(IRoomStateStore store) : ControllerBase
 
     [HttpGet("/rooms")]
     public async Task<IActionResult> List(CancellationToken ct)
-        => Ok(await store.ListRoomsAsync(ct));
+    {
+        var rooms = await store.ListRoomsAsync(ct);
+        var items = new List<RoomSummaryDto>(rooms.Count);
+
+        foreach (var r in rooms)
+        {
+            var state = await store.GetStateAsync(r.RoomId, ct);
+
+            var activeGame = state?.ActiveGame ?? GameType.None;
+            var players = state?.Players?.Count ?? 0;
+
+            items.Add(new RoomSummaryDto(
+            RoomId: r.RoomId,
+            Name: r.Name,
+            RoomCode: r.RoomCode,
+            CreatedAtUtc: r.CreatedAtUtc,
+            PlayerCount: players,
+            HasActiveGame: activeGame != GameType.None,
+            ActiveGame: activeGame == GameType.None ? null : activeGame.ToString()
+            ));
+        }
+
+        return Ok(new { rooms = items });
+    }
 
     [HttpGet("/rooms/{roomRef}")]
     public async Task<IActionResult> Get(string roomRef, CancellationToken ct)
@@ -93,6 +116,7 @@ public class RoomsController(IRoomStateStore store) : ControllerBase
         return room is null
             ? NotFound(new { ok = false, error = "Room not found" })
             : Ok(room);
+
     }
 
     [HttpGet("/rooms/{roomRef}/state")]

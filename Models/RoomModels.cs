@@ -29,8 +29,22 @@ public sealed record PlayerPresence(
 );
 
 public sealed record RoomSummaryDto(
+    int RoomId,
+    string Name,
     string RoomCode,
     int PlayerCount,
     bool HasActiveGame,
-    string? ActiveGame
-);
+    string? ActiveGame,
+    DateTimeOffset CreatedAtUtc
+)
+{
+    public RoomSummaryDto(Guid RoomId, string Name, string RoomCode, DateTimeOffset CreatedAtUtc, int PlayerCount, bool HasActiveGame, string? ActiveGame)
+    {
+        this.Name = Name;
+        this.RoomCode = RoomCode;
+        this.CreatedAtUtc = CreatedAtUtc;
+        this.PlayerCount = PlayerCount;
+        this.HasActiveGame = HasActiveGame;
+        this.ActiveGame = ActiveGame;
+    }
+}
