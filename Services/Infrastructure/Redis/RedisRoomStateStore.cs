@@ -1,7 +1,7 @@
-﻿using System.Text.Json;
-using Misfitz_Games.Models;
+﻿using Misfitz_Games.Models;
 using Misfitz_Games.Services.Room;
 using StackExchange.Redis;
+using System.Text.Json;
 
 namespace Misfitz_Games.Services.Infrastructure.Redis;
 
@@ -263,7 +263,7 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
         // Release code mapping
         if (room is not null && !string.IsNullOrWhiteSpace(room.RoomCode))
             await db.KeyDeleteAsync(RoomCodeKey(room.RoomCode)).ConfigureAwait(false);
-            await db.KeyDeleteAsync(RoomStatsKey(roomId)).ConfigureAwait(false);
+        await db.KeyDeleteAsync(RoomStatsKey(roomId)).ConfigureAwait(false);
 
         return removedFromIndex;
     }

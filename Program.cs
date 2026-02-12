@@ -42,7 +42,7 @@ public static class Program
                  .AllowAnyMethod()
                  .AllowCredentials()
                  );
-        }); 
+        });
 
         // --- EF Core (SQLite) for user accounts ---
         // Use Render disk path if you have one (recommended):

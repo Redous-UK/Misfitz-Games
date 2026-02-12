@@ -1,5 +1,5 @@
-﻿using System.Text.Json;
-using Misfitz_Games.Models;
+﻿using Misfitz_Games.Models;
+using System.Text.Json;
 
 namespace Misfitz_Games.Services.Room;
 

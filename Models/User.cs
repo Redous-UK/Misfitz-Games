@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Misfitz_Games.Models;
+﻿namespace Misfitz_Games.Models;
 
 public class User
 {

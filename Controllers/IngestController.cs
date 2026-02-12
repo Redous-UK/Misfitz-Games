@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
 using Misfitz_Games.Models;
 using Misfitz_Games.Services.Contexto;
 using Misfitz_Games.Services.Room;

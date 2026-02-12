@@ -1,6 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
-
-namespace Misfitz_Games.Services.Contexto;
+﻿namespace Misfitz_Games.Services.Contexto;
 
 /// <summary>
 /// Loads the Contexto vocabulary (and later vectors) from disk.

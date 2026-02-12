@@ -301,16 +301,38 @@
             const grid = el("roomsGrid");
             if (!grid) return;
 
+
             grid.innerHTML = `<div class="muted">Loading rooms…</div>`;
 
+
             try {
-                const rooms = await api("/rooms");
+                const payload = await api("/rooms");
+
+
+                // ✅ NEW: controller returns { rooms: [...] }
+                const rooms = Array.isArray(payload) ? payload : (payload?.rooms ?? []);
+
+
                 if (!Array.isArray(rooms) || rooms.length === 0) {
                     grid.innerHTML = `<div class="muted">No rooms yet.</div>`;
                     return;
                 }
 
+
                 rooms.sort((a, b) => String(b.createdAtUtc || "").localeCompare(String(a.createdAtUtc || "")));
+
+
+                const gameLabel = (r) => {
+                    if (r?.hasActiveGame) {
+                        const g = String(r.activeGame || "").trim();
+                        return {
+                            text: g ? `🎮 ${g}` : "🎮 Active",
+                            cls: "room-chip game active"
+                        };
+                    }
+                    return { text: "No game", cls: "room-chip game idle" };
+                };
+
 
                 grid.innerHTML = rooms.map(r => {
                     const code = r.roomCode ?? "";
@@ -318,26 +340,35 @@
                     const created = r.createdAtUtc ? new Date(r.createdAtUtc).toLocaleString() : "";
                     const isActive = activeRoomCode && activeRoomCode === code;
 
+
+                    const players = Number.isFinite(r.playerCount) ? r.playerCount : null;
+                    const pText = players === null ? "" : ` • 👥 ${players}`;
+
+
+                    const gl = gameLabel(r);
+
+
                     return `
-                <div class="room-tile" data-code="${esc(code)}">
-                  <div class="room-title">${esc(name)}</div>
-                  <div class="room-sub">Code: <b>${esc(code)}</b>${created ? ` • Created: ${esc(created)}` : ""}</div>
-                  <div class="room-meta">
+                    <div class="room-tile" data-code="${esc(code)}">
+                    <div class="room-title">${esc(name)}</div>
+                    <div class="room-sub">Code: <b>${esc(code)}</b>${created ? ` • Created: ${esc(created)}` : ""}${pText}</div>
+                    <div class="room-meta">
                     <span class="room-chip ${isActive ? "active" : ""}">${isActive ? "ACTIVE" : "JOIN"}</span>
-                  </div>
-                </div>
-              `;
+                    <span class="${gl.cls}">${esc(gl.text)}</span>
+                    </div>
+                    </div>
+                    `;
                 }).join("");
+
 
                 grid.querySelectorAll(".room-tile[data-code]").forEach(tile => {
                     tile.addEventListener("click", () => {
                         const code = tile.getAttribute("data-code");
                         if (!code) return;
                         setActiveRoom(code);
-                        // Optional: open panel when selecting a room
-                        // window.openSettingsPanel?.();
                     });
                 });
+
 
             } catch (e) {
                 grid.innerHTML = `<div class="muted">Failed to load rooms: ${esc(String(e))}</div>`;
@@ -544,11 +575,6 @@
             setSelectedGame(defaultId, firstEnabled?.name);
         }
 
-        // ----------------------------
-        // Controls panel rendering (simple)
-        // ----------------------------
-        // If you already have GAME_CONTROL_SCHEMAS elsewhere, paste it ABOVE this file,
-        // or keep this minimal controls set.
         const GAME_CONTROL_SCHEMAS = {
             contexto: {
                 title: "Contexto",
