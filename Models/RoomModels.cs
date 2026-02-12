@@ -27,3 +27,10 @@ public sealed record PlayerPresence(
     bool IsReady = false,
     string? AvatarUrl = null
 );
+
+public sealed record RoomSummaryDto(
+    string RoomCode,
+    int PlayerCount,
+    bool HasActiveGame,
+    string? ActiveGame
+);
