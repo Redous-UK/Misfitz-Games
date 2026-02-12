@@ -44,7 +44,7 @@
                     <div class="muted" style="margin-top:10px; font-size:12px;">
                         Tip: <span class="kbd">Create room</span> should call your room-create endpoint. If yours differs, update <span class="kbd">createRoom()</span>.
                     </div>
-                    <pre id="stateOut">{}</pre>
+                    <pre id="stateOut" class="debug-out">{}</pre>
                 </div>
 
                 <div class="card">
@@ -68,7 +68,7 @@
                         <button class="btn-secondary" id="btnPreset72h">72h</button>
                     </div>
 
-                    <pre id="cleanupOut">{}</pre>
+                    <pre id="cleanupOut" class="debug-out">{}</pre>
                 </div>
 
                 <div class="two">
@@ -101,7 +101,7 @@
                             <span class="kbd">.../games/stop</span>.
                         </div>
 
-                        <pre id="gameOut">{}</pre>
+                        <pre id="gameOut" class="debug-out">{}</pre>
                     </div>
 
                     <div class="card">
@@ -113,7 +113,15 @@
                         <div class="muted" style="margin-top:10px; font-size:12px;">
                             If you store the current room in <span class="kbd">localStorage.roomId</span>, this page can keep it in sync.
                         </div>
-                        <pre id="adminOut">{}</pre>
+
+                        <div class="row" style="gap:10px; align-items:center; flex-wrap:wrap;">
+                            <label class="pill" style="display:flex; gap:8px; align-items:center; cursor:pointer;">
+                                <input id="toggleDebug" type="checkbox" />
+                                Show outputs
+                            </label>
+                        </div>
+
+                        <pre id="adminOut" class="debug-out">{}</pre>
                     </div>
 
                 </div>
@@ -134,29 +142,6 @@
             if (!res.ok) throw new Error(`HTTP ${res.status}: ${pretty(json)}`);
             return json;
         }
-
-       /* async function tryClearRooms() {
-            // Update this list once you confirm the real one
-            const candidates = [
-                { method: "POST", path: "/admin/rooms/clear" },
-                { method: "POST", path: "/rooms/clear" },
-                { method: "POST", path: "/rooms/admin/clear" },
-                { method: "DELETE", path: "/rooms" }
-            ];
-
-            let lastErr = null;
-
-            for (const c of candidates) {
-                try {
-                    const r = await api(c.path, { method: c.method });
-                    return { ok: true, used: `${c.method} ${c.path}`, result: r };
-                } catch (e) {
-                    lastErr = String(e);
-                }
-            }
-
-            return { ok: false, error: "No clear-rooms endpoint matched.", lastErr, tried: candidates };
-        }*/
 
         function getCleanupParams() {
             const olderThanHours = Math.max(1, parseInt(el("cleanupHours").value || "24", 10));
@@ -179,7 +164,6 @@
             const { olderThanHours, max } = getCleanupParams();
             const q = `?olderThanHours=${encodeURIComponent(olderThanHours)}&max=${encodeURIComponent(max)}`;
 
-            // Optional: force a preview first so you always see what would be removed
             const prev = await previewCleanup();
 
             const yes = confirm(
@@ -214,23 +198,6 @@
         el("btnPreset6h").onclick = () => setHours(6);
         el("btnPreset24h").onclick = () => setHours(24);
         el("btnPreset72h").onclick = () => setHours(72);
-
-        /*el("btnClearRooms").onclick = async () => {
-            const yes = confirm(
-                "Clear ALL open rooms?\n\nThis will remove room codes + room state. Players will be kicked out."
-            );
-            if (!yes) return;
-
-            el("btnClearRooms").disabled = true;
-            try {
-                const r = await tryClearRooms();
-                el("roomsOut").textContent = pretty(r);
-            } catch (e) {
-                el("roomsOut").textContent = pretty({ ok: false, error: String(e) });
-            } finally {
-                el("btnClearRooms").disabled = false;
-            }
-        };*/
 
         function roomId() {
             return el("roomCode").value.trim();
@@ -275,10 +242,7 @@
 
         // IMPORTANT: update this if your create-room endpoint differs
         async function createRoom() {
-            // Try a couple of common options:
-            // 1) POST /rooms/create
-            // 2) POST /rooms
-            // If neither exists, tell me your actual route and I’ll patch it.
+
             try {
                 let r;
                 try {
@@ -423,8 +387,28 @@
 
         // Init
         syncRoomFromStorage();
+        wireDebugToggle();
         setSelectedGame("contexto");
         el("btnMe").click();
+
+        function wireDebugToggle() {
+            const key = "admin_show_debug";
+            const cb = document.getElementById("toggleDebug");
+            if (!cb) return;
+
+            // load saved preference
+            const saved = localStorage.getItem(key);
+            const enabled = saved === "1";
+
+            cb.checked = enabled;
+            document.body.classList.toggle("show-debug", enabled);
+
+            cb.addEventListener("change", () => {
+                const on = cb.checked;
+                document.body.classList.toggle("show-debug", on);
+                localStorage.setItem(key, on ? "1" : "0");
+            });
+        }
 
         async function requireAdmin() {
             const me = await api("/member/me");

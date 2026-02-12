@@ -23,6 +23,14 @@ body {
     min-height: 100vh;
 }
 
+/* Debug Settings */
+.debug-out {
+    display: none;
+}
+
+body.show-debug .debug-out {
+    display: block;
+}
 
 /* Overlay Guess */
 /* The list item itself MUST be flex */
