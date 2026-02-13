@@ -394,7 +394,7 @@
             setSelectedGame("contexto");
             el("btnMe").click();
         }
-        boot.catch(() => location.href = "/user.html");
+        boot().catch(() => location.href = "/user.html");
 
 
         function wireDebugToggle() {
