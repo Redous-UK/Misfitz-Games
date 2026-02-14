@@ -227,13 +227,10 @@
 
                     el("loginOut").textContent = pretty(r);
 
-                    // Persist auto-created room code for lobby auto-load (if returned)
-                    if (r?.roomCode) localStorage.setItem("roomId", r.roomCode);
-
                     // Sanity-check: confirm cookie session is actually live before redirect
                     const me = await refreshMe();
                     if (!me?.isAuth) {
-                        // If this happens, cookie isn’t sticking (server config issue: SameSite/Secure/etc.)
+                        // If this happens, cookie isn’t sticking
                         el("loginOut").textContent = pretty({
                             ok: false,
                             error: "Login returned OK but session is not authenticated on /member/me. Cookie may not be persisting.",
@@ -241,6 +238,21 @@
                             meResponse: me,
                         });
                         return;
+                    }
+
+                    // ✅ NEW: Prevent guests from auto-creating or restoring rooms
+                    const role = String(me.role || "").toLowerCase();
+                    const isGuest = role === "guest";
+
+                    if (isGuest) {
+                        // Guests should not keep or auto-load any room
+                        localStorage.removeItem("roomId");
+                        localStorage.removeItem("activeRoomCode");
+                    } else {
+                        // Persist auto-created room code ONLY for non-guests
+                        if (r?.roomCode) {
+                            localStorage.setItem("roomId", r.roomCode);
+                        }
                     }
 
                     location.href = "/lobby.html";
