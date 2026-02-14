@@ -37,3 +37,14 @@ public sealed record RoomSummaryDto(
     string? ActiveGame,
     DateTimeOffset CreatedAtUtc
 );
+
+public sealed record IdleRoomCandidate(
+    Guid RoomId,
+    string RoomCode,
+    string Name,
+    DateTimeOffset CreatedAtUtc,
+    int PlayerCount,
+    string? HostUserId,
+    string ActiveGame,
+    string Reason
+);

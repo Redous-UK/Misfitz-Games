@@ -66,6 +66,8 @@
                         <button class="btn-secondary" id="btnPreset6h">6h</button>
                         <button class="btn-secondary" id="btnPreset24h">24h</button>
                         <button class="btn-secondary" id="btnPreset72h">72h</button>
+                        <button id="btnPreviewCloseIdle" class="btn-secondary">Preview close idle</button>
+                        <button id="btnRunCloseIdle" class="btn-danger">Close idle</button>
                     </div>
 
                     <pre id="cleanupOut" class="debug-out">{}</pre>
@@ -177,7 +179,45 @@
             return r;
         }
 
+        async function previewCloseIdle() {
+            const { olderThanHours, max } = getCleanupParams();
+            const q = `?olderThanHours=${encodeURIComponent(olderThanHours)}&max=${encodeURIComponent(max)}`;
+            const r = await api(`/admin/rooms/close-idle/preview${q}`, { method: "GET" });
+            el("cleanupOut").textContent = pretty(r);
+            return r;
+        }
+
+        async function runCloseIdle() {
+            const { olderThanHours, max } = getCleanupParams();
+            const prev = await previewCloseIdle();
+
+            const yes = confirm(
+                `Close ${prev?.count ?? "these"} IDLE rooms (no active game) older than ${olderThanHours}h?\n\n` +
+                `This cannot be undone.`
+            );
+            if (!yes) return;
+
+            const q = `?olderThanHours=${encodeURIComponent(olderThanHours)}&max=${encodeURIComponent(max)}`;
+            const r = await api(`/admin/rooms/close-idle${q}`, { method: "POST" });
+            el("cleanupOut").textContent = pretty(r);
+            return r;
+        }
+
         // Wire buttons
+        el("btnPreviewCloseIdle").onclick = async () => {
+            el("btnPreviewCloseIdle").disabled = true;
+            try { await previewCloseIdle(); }
+            catch (e) { el("cleanupOut").textContent = pretty({ ok: false, error: String(e) }); }
+            finally { el("btnPreviewCloseIdle").disabled = false; }
+        };
+
+        el("btnRunCloseIdle").onclick = async () => {
+            el("btnRunCloseIdle").disabled = true;
+            try { await runCloseIdle(); }
+            catch (e) { el("cleanupOut").textContent = pretty({ ok: false, error: String(e) }); }
+            finally { el("btnRunCloseIdle").disabled = false; }
+        };
+
         el("btnPreviewCleanup").onclick = async () => {
             el("btnPreviewCleanup").disabled = true;
             try { await previewCleanup(); }
