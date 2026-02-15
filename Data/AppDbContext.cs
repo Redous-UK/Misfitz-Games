@@ -25,5 +25,29 @@ public class AppDbContext : DbContext
             .Property(x => x.Username)
             .HasMaxLength(32)
             .IsRequired();
+
+        modelBuilder.Entity<Device>()
+            .HasIndex(x => new { x.OwnerUserId, x.Name })
+            .IsUnique();
+
+        modelBuilder.Entity<Device>()
+            .HasIndex(x => new { x.OwnerUserId, x.Provider, x.ExternalDeviceId })
+            .IsUnique();
+
+        modelBuilder.Entity<DeviceGroup>()
+            .HasIndex(x => new { x.OwnerUserId, x.Name })
+            .IsUnique();
+
+        modelBuilder.Entity<DeviceGroupMember>()
+            .HasKey(x => new { x.GroupId, x.DeviceId });
+
+        modelBuilder.Entity<Effect>()
+            .HasIndex(x => new { x.OwnerUserId, x.Name })
+            .IsUnique();
+
+        modelBuilder.Entity<EffectTarget>()
+            .HasOne(t => t.Effect)
+            .WithMany(e => e.Targets)
+            .HasForeignKey(t => t.EffectId);
     }
 }
