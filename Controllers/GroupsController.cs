@@ -14,10 +14,9 @@ namespace Misfitz_Games.Controllers;
 [ApiController]
 [Route("api/effects/v2/groups")]
 [Authorize(Policy = "MemberOrAdmin")]
-public class GroupsController : ControllerBase
+public class GroupsController(AppDbContext db) : ControllerBase
 {
-    private readonly AppDbContext _db;
-    public GroupsController(AppDbContext db) => _db = db;
+    private readonly AppDbContext _db = db;
 
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken ct)

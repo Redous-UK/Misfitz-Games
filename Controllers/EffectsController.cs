@@ -15,18 +15,11 @@ namespace Misfitz_Games.Controllers;
 [ApiController]
 [Route("api/effects")]
 [Authorize(Policy = "MemberOrAdmin")]
-public class EffectsController : ControllerBase
+public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsService legacyEffects) : ControllerBase
 {
-    private readonly AppDbContext _db;
-    private readonly EffectsEngine _engine;
-    private readonly EffectsService _legacyEffects; // keeps your existing pulse route alive
-
-    public EffectsController(AppDbContext db, EffectsEngine engine, EffectsService legacyEffects)
-    {
-        _db = db;
-        _engine = engine;
-        _legacyEffects = legacyEffects;
-    }
+    private readonly AppDbContext _db = db;
+    private readonly EffectsEngine _engine = engine;
+    private readonly EffectsService _legacyEffects = legacyEffects; // keeps your existing pulse route alive
 
     // ------------------------------------------------------------------
     // Legacy endpoint (keep working while you migrate to v2)
@@ -50,7 +43,8 @@ public class EffectsController : ControllerBase
     [HttpGet("devices")]
     public async Task<IActionResult> ListDevices(CancellationToken ct)
     {
-        var uid = GetAppUserIdOrThrow();
+        if (!TryGetAppUserId(out var uid))
+            return Unauthorized(new { ok = false, error = "Missing user id claim" });
 
         var devices = await _db.Devices
             .AsNoTracking()
@@ -78,7 +72,8 @@ public class EffectsController : ControllerBase
     [HttpPost("devices")]
     public async Task<IActionResult> CreateDevice([FromBody] CreateDeviceRequest req, CancellationToken ct)
     {
-        var uid = GetAppUserIdOrThrow();
+        if (!TryGetAppUserId(out var uid))
+            return Unauthorized(new { ok = false, error = "Missing user id claim" });
 
         if (string.IsNullOrWhiteSpace(req.Name) || string.IsNullOrWhiteSpace(req.ExternalDeviceId))
             return BadRequest(new { ok = false, error = "Name and ExternalDeviceId required" });
@@ -108,7 +103,8 @@ public class EffectsController : ControllerBase
     [HttpDelete("devices/{deviceId:guid}")]
     public async Task<IActionResult> DeleteDevice(Guid deviceId, CancellationToken ct)
     {
-        var uid = GetAppUserIdOrThrow();
+        if (!TryGetAppUserId(out var uid))
+            return Unauthorized(new { ok = false, error = "Missing user id claim" });
 
         var dev = await _db.Devices.FirstOrDefaultAsync(d => d.OwnerUserId == uid && d.Id == deviceId, ct);
         if (dev is null) return NotFound(new { ok = false });
@@ -133,7 +129,8 @@ public class EffectsController : ControllerBase
     [HttpGet("groups")]
     public async Task<IActionResult> ListGroups(CancellationToken ct)
     {
-        var uid = GetAppUserIdOrThrow();
+        if (!TryGetAppUserId(out var uid))
+            return Unauthorized(new { ok = false, error = "Missing user id claim" });
 
         var groups = await _db.DeviceGroups
             .AsNoTracking()
@@ -150,7 +147,8 @@ public class EffectsController : ControllerBase
     [HttpPost("groups")]
     public async Task<IActionResult> CreateGroup([FromBody] CreateGroupRequest req, CancellationToken ct)
     {
-        var uid = GetAppUserIdOrThrow();
+        if (!TryGetAppUserId(out var uid))
+            return Unauthorized(new { ok = false, error = "Missing user id claim" });
 
         if (string.IsNullOrWhiteSpace(req.Name))
             return BadRequest(new { ok = false, error = "Name required" });
@@ -172,7 +170,8 @@ public class EffectsController : ControllerBase
     [HttpPost("groups/{groupId:guid}/members")]
     public async Task<IActionResult> AddGroupMember(Guid groupId, [FromBody] SetMemberRequest req, CancellationToken ct)
     {
-        var uid = GetAppUserIdOrThrow();
+        if (!TryGetAppUserId(out var uid))
+            return Unauthorized(new { ok = false, error = "Missing user id claim" });
 
         var group = await _db.DeviceGroups.FirstOrDefaultAsync(g => g.OwnerUserId == uid && g.Id == groupId, ct);
         if (group is null) return NotFound(new { ok = false, error = "Group not found" });
@@ -193,7 +192,8 @@ public class EffectsController : ControllerBase
     [HttpDelete("groups/{groupId:guid}/members/{deviceId:guid}")]
     public async Task<IActionResult> RemoveGroupMember(Guid groupId, Guid deviceId, CancellationToken ct)
     {
-        var uid = GetAppUserIdOrThrow();
+        if (!TryGetAppUserId(out var uid))
+            return Unauthorized(new { ok = false, error = "Missing user id claim" });
 
         var group = await _db.DeviceGroups.AsNoTracking().FirstOrDefaultAsync(g => g.OwnerUserId == uid && g.Id == groupId, ct);
         if (group is null) return NotFound(new { ok = false, error = "Group not found" });
@@ -217,7 +217,8 @@ public class EffectsController : ControllerBase
     [HttpGet("effects")]
     public async Task<IActionResult> ListEffects(CancellationToken ct)
     {
-        var uid = GetAppUserIdOrThrow();
+        if (!TryGetAppUserId(out var uid))
+            return Unauthorized(new { ok = false, error = "Missing user id claim" });
 
         var effects = await _db.Effects
             .AsNoTracking()
@@ -234,7 +235,8 @@ public class EffectsController : ControllerBase
     [HttpPost("effects")]
     public async Task<IActionResult> CreateEffect([FromBody] CreateEffectRequest req, CancellationToken ct)
     {
-        var uid = GetAppUserIdOrThrow();
+        if (!TryGetAppUserId(out var uid))
+            return Unauthorized(new { ok = false, error = "Missing user id claim" });
 
         if (string.IsNullOrWhiteSpace(req.Name))
             return BadRequest(new { ok = false, error = "Name required" });
@@ -269,7 +271,8 @@ public class EffectsController : ControllerBase
     [HttpPost("effects/{effectId:guid}/targets")]
     public async Task<IActionResult> AddEffectTarget(Guid effectId, [FromBody] AddTargetRequest req, CancellationToken ct)
     {
-        var uid = GetAppUserIdOrThrow();
+        if (!TryGetAppUserId(out var uid))
+            return Unauthorized(new { ok = false, error = "Missing user id claim" });
 
         var effect = await _db.Effects.FirstOrDefaultAsync(e => e.OwnerUserId == uid && e.Id == effectId, ct);
         if (effect is null) return NotFound(new { ok = false, error = "Effect not found" });
@@ -318,7 +321,8 @@ public class EffectsController : ControllerBase
     [HttpPost("effects/{effectId:guid}/run")]
     public async Task<IActionResult> RunEffect(Guid effectId, CancellationToken ct)
     {
-        var uid = GetAppUserIdOrThrow();
+        if (!TryGetAppUserId(out var uid))
+            return Unauthorized(new { ok = false, error = "Missing user id claim" });
 
         await _engine.ExecuteEffectAsync(uid, effectId, ct);
         return Ok(new { ok = true });
@@ -327,17 +331,17 @@ public class EffectsController : ControllerBase
     // ------------------------------------------------------------------
     // Helper: resolve your App user id from claims
     // ------------------------------------------------------------------
-    private int GetAppUserIdOrThrow()
+    private bool TryGetAppUserId(out int uid)
     {
+        uid = 0;
+
         // Adjust this if your claim name differs.
         var raw =
             User.FindFirstValue(ClaimTypes.NameIdentifier) ??
             User.FindFirstValue("uid") ??
-            User.FindFirstValue("userId");
+            User.FindFirstValue("userId") ??
+            User.FindFirstValue("id");
 
-        if (!int.TryParse(raw, out var uid))
-            throw new InvalidOperationException("Missing/invalid user id claim. Ensure you issue NameIdentifier (int User.Id).");
-
-        return uid;
+        return int.TryParse(raw, out uid);
     }
 }

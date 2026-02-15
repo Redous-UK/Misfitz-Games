@@ -14,10 +14,9 @@ namespace Misfitz_Games.Controllers;
 [ApiController]
 [Route("api/effects/v2/devices")]
 [Authorize(Policy = "MemberOrAdmin")]
-public class DevicesController : ControllerBase
+public class DevicesController(AppDbContext db) : ControllerBase
 {
-    private readonly AppDbContext _db;
-    public DevicesController(AppDbContext db) => _db = db;
+    private readonly AppDbContext _db = db;
 
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken ct)
