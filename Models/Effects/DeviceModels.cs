@@ -15,7 +15,7 @@ public class Device
     public Guid Id { get; set; } = Guid.NewGuid();
 
     // Owner (AppDbContext User.Id)
-    public int OwnerUserId { get; set; }
+    public Guid OwnerUserId { get; set; }
 
     // Friendly name (unique per user)
     public string Name { get; set; } = "";

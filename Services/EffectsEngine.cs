@@ -17,7 +17,7 @@ public class EffectsEngine(AppDbContext db, TuyaPlugService tuya)
     // very simple in-memory cooldown (per instance)
     private static readonly Dictionary<string, DateTimeOffset> _cooldowns = [];
 
-    public async Task ExecuteEffectAsync(int ownerUserId, Guid effectId, CancellationToken ct = default)
+    public async Task ExecuteEffectAsync(Guid ownerUserId, Guid effectId, CancellationToken ct = default)
     {
         var effect = await _db.Effects
             .AsNoTracking()
@@ -64,7 +64,7 @@ public class EffectsEngine(AppDbContext db, TuyaPlugService tuya)
         }
     }
 
-    private async Task<List<(Device dev, int seconds)>> ExpandTargetsToDevices(int ownerUserId, Effect effect, CancellationToken ct)
+    private async Task<List<(Device dev, int seconds)>> ExpandTargetsToDevices(Guid ownerUserId, Effect effect, CancellationToken ct)
     {
         var output = new List<(Device dev, int seconds)>();
         var seen = new HashSet<Guid>();

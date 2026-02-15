@@ -7,7 +7,7 @@ public class DeviceGroup
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
-    public int OwnerUserId { get; set; }
+    public Guid OwnerUserId { get; set; }
 
     public string Name { get; set; } = "";
 
