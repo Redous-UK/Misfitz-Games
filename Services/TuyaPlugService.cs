@@ -10,21 +10,18 @@ using System.Threading.Tasks;
 
 namespace Misfitz_Games.Services;
 
-public class TuyaPlugService
+public class TuyaPlugService(IConfiguration cfg)
 {
-    // ====== FILL THESE IN (move to config later) ======
-    private const string ClientId = "rjcfwedasgs7mnsvt9jn";
-    private const string ClientSecret = "e6b9e50fe7394359809124d033b92b5e";
 
-    // This is your plug device ID
-    private const string DeviceId = "bf5c1ba9d90c5bf0420t6h";
+    private readonly string _clientId = cfg["TUYA_CLIENT_ID"] ?? throw new InvalidOperationException("TUYA_CLIENT_ID missing");
+    private readonly string _clientSecret = cfg["TUYA_CLIENT_SECRET"] ?? throw new InvalidOperationException("TUYA_CLIENT_SECRET missing");
+    private readonly string _apiBase = cfg["TUYA_API_BASE"] ?? "https://openapi.tuyaeu.com";
+    private readonly string _defaultDeviceId = cfg["TUYA_DEFAULT_DEVICE_ID"] ?? "";
 
-    // EU region for UK in most cases
-    private const string ApiBase = "https://openapi.tuyaeu.com";
-    // ================================================
-
-    // Friendly access for EffectsService
-    public string DeviceId1 => DeviceId;
+    public string DeviceId1 =>
+        !string.IsNullOrWhiteSpace(_defaultDeviceId)
+            ? _defaultDeviceId
+            : throw new InvalidOperationException("TUYA_DEFAULT_DEVICE_ID missing");
 
     // Cache (basic) to avoid re-fetching functions constantly
     private string? _cachedSwitchCode;
@@ -40,12 +37,12 @@ public class TuyaPlugService
         await SendSwitchAsync(http, token, deviceId, switchCode, on, ct);
     }
 
-    private static async Task<string> GetAccessTokenAsync(HttpClient http, CancellationToken ct)
+    private async Task<string> GetAccessTokenAsync(HttpClient http, CancellationToken ct)
     {
         var path = "/v1.0/token?grant_type=1";
         var method = HttpMethod.Get;
 
-        using var req = new HttpRequestMessage(method, ApiBase + path);
+        using var req = new HttpRequestMessage(method, _apiBase + path);
         SignRequest(req, method, path, body: "", accessToken: null);
 
         using var res = await http.SendAsync(req, ct);
@@ -66,7 +63,7 @@ public class TuyaPlugService
         var path = $"/v1.0/iot-03/devices/{deviceId}/functions";
         var method = HttpMethod.Get;
 
-        using var req = new HttpRequestMessage(method, ApiBase + path);
+        using var req = new HttpRequestMessage(method, _apiBase + path);
         SignRequest(req, method, path, body: "", accessToken: accessToken);
 
         using var res = await http.SendAsync(req, ct);
@@ -116,7 +113,7 @@ public class TuyaPlugService
         return best.Code;
     }
 
-    private static async Task SendSwitchAsync(HttpClient http, string accessToken, string deviceId, string switchCode, bool on, CancellationToken ct)
+    private async Task SendSwitchAsync(HttpClient http, string accessToken, string deviceId, string switchCode, bool on, CancellationToken ct)
     {
         var path = $"/v1.0/iot-03/devices/{deviceId}/commands";
         var method = HttpMethod.Post;
@@ -130,7 +127,7 @@ public class TuyaPlugService
         };
 
         var body = JsonSerializer.Serialize(bodyObj);
-        using var req = new HttpRequestMessage(method, ApiBase + path)
+        using var req = new HttpRequestMessage(method, _apiBase + path)
         {
             Content = new StringContent(body, Encoding.UTF8, "application/json")
         };
@@ -147,16 +144,20 @@ public class TuyaPlugService
             throw new Exception("Tuya returned success=false: " + json);
     }
 
-    private static void SignRequest(HttpRequestMessage req, HttpMethod method, string path, string body, string? accessToken)
+    private void SignRequest(HttpRequestMessage req, HttpMethod method, string path, string body, string? accessToken)
     {
         var t = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture);
         var nonce = Guid.NewGuid().ToString("N");
 
         var contentSha256 = Sha256Hex(body ?? "");
         var stringToSign = $"{method.Method}\n{contentSha256}\n\n{path}";
-        var signStr = ClientId + (accessToken ?? "") + t + nonce + stringToSign;
+        var signStr = _clientId
+                      + (accessToken ?? "")
+                      + t
+                      + nonce
+                      + stringToSign;
 
-        var sign = HmacSha256Hex(ClientSecret, signStr).ToUpperInvariant();
+        var sign = HmacSha256Hex(_clientSecret, signStr).ToUpperInvariant();
 
         req.Headers.Remove("client_id");
         req.Headers.Remove("t");
@@ -165,7 +166,7 @@ public class TuyaPlugService
         req.Headers.Remove("nonce");
         req.Headers.Remove("access_token");
 
-        req.Headers.Add("client_id", ClientId);
+        req.Headers.Add("client_id", _clientId);
         req.Headers.Add("t", t);
         req.Headers.Add("sign_method", "HMAC-SHA256");
         req.Headers.Add("sign", sign);

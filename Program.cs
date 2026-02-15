@@ -105,7 +105,7 @@ public static class Program
         builder.Services.AddSingleton<ContextoRankIndexStore>();
 
         // Effects / hardware services
-        builder.Services.AddSingleton<TuyaPlugService>();
+        builder.Services.AddHttpClient<TuyaPlugService>();
         builder.Services.AddSingleton<EffectsService>();
 
         // Logging
@@ -170,6 +170,12 @@ public static class Program
             service = "Misfitz-Games",
             utc = DateTimeOffset.UtcNow
         }));
+
+        app.MapGet("/debug/tuya", async (TuyaPlugService tuya) =>
+        {
+            await tuya.SetSwitchAsync(tuya.DeviceId1, false); // or create a GetTokenAsync method
+            return Results.Ok(new { ok = true, utc = DateTimeOffset.UtcNow });
+        });
 
         app.MapGet("/debug/redis", (RedisMuxFactory factory) =>
         {
