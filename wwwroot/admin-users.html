@@ -18,7 +18,6 @@
             <div class="row">
                 <input id="key" placeholder="Bootstrap key (ADMIN_BOOTSTRAP_KEY)" />
                 <button id="btnLoad">Load users</button>
-                <button id="btnCopyLink" class="btn-secondary">Copy link with key</button>
             </div>
 
             <table id="tbl" style="display:none">
@@ -142,14 +141,6 @@
         }
 
         el("btnLoad").onclick = () => loadUsers().catch(e => el("out").textContent = String(e));
-
-        el("btnCopyLink").onclick = async () => {
-            const key = el("key").value.trim();
-            if (!key) return alert("Enter the bootstrap key first.");
-            const url = `${location.origin}${location.pathname}?key=${encodeURIComponent(key)}`;
-            await navigator.clipboard.writeText(url);
-            alert("Link copied.");
-        };
     </script>
 </body>
 </html>
