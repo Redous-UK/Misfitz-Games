@@ -9,10 +9,10 @@ public class AppDbContext : DbContext
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
     public DbSet<User> Users => Set<User>();
-    public DbSet<DeviceModels> Devices => Set<DeviceModels>();
-    public DbSet<GroupModels> DeviceGroups => Set<GroupModels>();
+    public DbSet<Device> Devices => Set<Device>();
+    public DbSet<DeviceGroup> DeviceGroups => Set<DeviceGroup>();
     public DbSet<DeviceGroupMember> DeviceGroupMembers => Set<DeviceGroupMember>();
-    public DbSet<EffectModels> Effects => Set<EffectModels>();
+    public DbSet<Effect> Effects => Set<Effect>();
     public DbSet<EffectTarget> EffectTargets => Set<EffectTarget>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
