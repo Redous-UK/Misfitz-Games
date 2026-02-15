@@ -10,13 +10,13 @@ using System.Threading.Tasks;
 
 namespace Misfitz_Games.Services;
 
-public class TuyaPlugService(IConfiguration cfg)
+public class TuyaPlugService(IConfiguration cfg, HttpClient http)
 {
-
     private readonly string _clientId = cfg["TUYA_CLIENT_ID"] ?? throw new InvalidOperationException("TUYA_CLIENT_ID missing");
     private readonly string _clientSecret = cfg["TUYA_CLIENT_SECRET"] ?? throw new InvalidOperationException("TUYA_CLIENT_SECRET missing");
     private readonly string _apiBase = cfg["TUYA_API_BASE"] ?? "https://openapi.tuyaeu.com";
     private readonly string _defaultDeviceId = cfg["TUYA_DEFAULT_DEVICE_ID"] ?? "";
+    private readonly HttpClient _http = http;
 
     public string DeviceId1 =>
         !string.IsNullOrWhiteSpace(_defaultDeviceId)
@@ -29,15 +29,14 @@ public class TuyaPlugService(IConfiguration cfg)
 
     public async Task SetSwitchAsync(string deviceId, bool on, CancellationToken ct = default)
     {
-        using var http = new HttpClient();
 
-        var token = await GetAccessTokenAsync(http, ct);
-        var switchCode = await GetSwitchCodeAsync(http, token, deviceId, ct);
+        var token = await GetAccessTokenAsync(ct);
+        var switchCode = await GetSwitchCodeAsync(token, deviceId, ct);
 
-        await SendSwitchAsync(http, token, deviceId, switchCode, on, ct);
+        await SendSwitchAsync(token, deviceId, switchCode, on, ct);
     }
 
-    private async Task<string> GetAccessTokenAsync(HttpClient http, CancellationToken ct)
+    private async Task<string> GetAccessTokenAsync(CancellationToken ct)
     {
         var path = "/v1.0/token?grant_type=1";
         var method = HttpMethod.Get;
@@ -45,7 +44,7 @@ public class TuyaPlugService(IConfiguration cfg)
         using var req = new HttpRequestMessage(method, _apiBase + path);
         SignRequest(req, method, path, body: "", accessToken: null);
 
-        using var res = await http.SendAsync(req, ct);
+        using var res = await _http.SendAsync(req, ct);
         var json = await res.Content.ReadAsStringAsync(ct);
 
         EnsureSuccess(res, json);
@@ -54,7 +53,7 @@ public class TuyaPlugService(IConfiguration cfg)
         return doc.RootElement.GetProperty("result").GetProperty("access_token").GetString()!;
     }
 
-    private async Task<string> GetSwitchCodeAsync(HttpClient http, string accessToken, string deviceId, CancellationToken ct)
+    private async Task<string> GetSwitchCodeAsync(string accessToken, string deviceId, CancellationToken ct)
     {
         // Cache switch code for 10 minutes (device functions rarely change)
         if (_cachedSwitchCode is not null && DateTimeOffset.UtcNow - _switchCodeFetchedAt < TimeSpan.FromMinutes(10))
@@ -66,7 +65,7 @@ public class TuyaPlugService(IConfiguration cfg)
         using var req = new HttpRequestMessage(method, _apiBase + path);
         SignRequest(req, method, path, body: "", accessToken: accessToken);
 
-        using var res = await http.SendAsync(req, ct);
+        using var res = await _http.SendAsync(req, ct);
         var json = await res.Content.ReadAsStringAsync(ct);
 
         EnsureSuccess(res, json);
@@ -113,7 +112,7 @@ public class TuyaPlugService(IConfiguration cfg)
         return best.Code;
     }
 
-    private async Task SendSwitchAsync(HttpClient http, string accessToken, string deviceId, string switchCode, bool on, CancellationToken ct)
+    private async Task SendSwitchAsync(string accessToken, string deviceId, string switchCode, bool on, CancellationToken ct)
     {
         var path = $"/v1.0/iot-03/devices/{deviceId}/commands";
         var method = HttpMethod.Post;
@@ -134,7 +133,7 @@ public class TuyaPlugService(IConfiguration cfg)
 
         SignRequest(req, method, path, body, accessToken);
 
-        using var res = await http.SendAsync(req, ct);
+        using var res = await _http.SendAsync(req, ct);
         var json = await res.Content.ReadAsStringAsync(ct);
 
         EnsureSuccess(res, json);

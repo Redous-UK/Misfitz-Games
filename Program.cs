@@ -106,7 +106,7 @@ public static class Program
 
         // Effects / hardware services
         builder.Services.AddHttpClient<TuyaPlugService>();
-        builder.Services.AddSingleton<EffectsService>();
+        builder.Services.AddScoped<EffectsService>();
 
         // Logging
         builder.Logging.ClearProviders();
