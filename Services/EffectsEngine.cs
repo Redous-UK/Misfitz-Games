@@ -9,19 +9,13 @@ using Misfitz_Games.Models.Effects;
 
 namespace Misfitz_Games.Services;
 
-public class EffectsEngine
+public class EffectsEngine(AppDbContext db, TuyaPlugService tuya)
 {
-    private readonly AppDbContext _db;
-    private readonly TuyaPlugService _tuya;
+    private readonly AppDbContext _db = db;
+    private readonly TuyaPlugService _tuya = tuya;
 
     // very simple in-memory cooldown (per instance)
-    private static readonly Dictionary<string, DateTimeOffset> _cooldowns = new();
-
-    public EffectsEngine(AppDbContext db, TuyaPlugService tuya)
-    {
-        _db = db;
-        _tuya = tuya;
-    }
+    private static readonly Dictionary<string, DateTimeOffset> _cooldowns = [];
 
     public async Task ExecuteEffectAsync(int ownerUserId, Guid effectId, CancellationToken ct = default)
     {
@@ -29,10 +23,7 @@ public class EffectsEngine
             .AsNoTracking()
             .Where(e => e.OwnerUserId == ownerUserId && e.Id == effectId && e.IsEnabled)
             .Include(e => e.Targets)
-            .FirstOrDefaultAsync(ct);
-
-        if (effect is null)
-            throw new InvalidOperationException("Effect not found or disabled.");
+            .FirstOrDefaultAsync(ct) ?? throw new InvalidOperationException("Effect not found or disabled.");
 
         // effect-level cooldown (very basic)
         EnforceCooldown($"effect:{ownerUserId}:{effect.Id}", effect.CooldownSeconds);

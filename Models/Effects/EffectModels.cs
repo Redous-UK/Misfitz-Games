@@ -33,7 +33,7 @@ public class Effect
 
     public DateTimeOffset CreatedUtc { get; set; } = DateTimeOffset.UtcNow;
 
-    public List<EffectTarget> Targets { get; set; } = new();
+    public List<EffectTarget> Targets { get; set; } = [];
 }
 
 public class EffectTarget

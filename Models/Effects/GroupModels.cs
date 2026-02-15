@@ -13,7 +13,7 @@ public class DeviceGroup
 
     public DateTimeOffset CreatedUtc { get; set; } = DateTimeOffset.UtcNow;
 
-    public List<DeviceGroupMember> Members { get; set; } = new();
+    public List<DeviceGroupMember> Members { get; set; } = [];
 }
 
 public class DeviceGroupMember

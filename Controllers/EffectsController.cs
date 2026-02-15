@@ -333,7 +333,6 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
     // ------------------------------------------------------------------
     private bool TryGetAppUserId(out int uid)
     {
-        uid = 0;
 
         // Adjust this if your claim name differs.
         var raw =
