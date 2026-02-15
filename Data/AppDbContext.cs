@@ -12,6 +12,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<DeviceGroupMember> DeviceGroupMembers => Set<DeviceGroupMember>();
     public DbSet<Effect> Effects => Set<Effect>();
     public DbSet<EffectTarget> EffectTargets => Set<EffectTarget>();
+    public DbSet<TuyaAccountLink> TuyaLinks => Set<TuyaAccountLink>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -47,5 +48,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne(t => t.Effect)
             .WithMany(e => e.Targets)
             .HasForeignKey(t => t.EffectId);
+
+        modelBuilder.Entity<TuyaAccountLink>()
+            .HasIndex(x => x.UserId)
+            .IsUnique();
     }
 }

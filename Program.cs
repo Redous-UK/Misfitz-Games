@@ -8,6 +8,7 @@ using Misfitz_Games.Services.Contexto;
 using Misfitz_Games.Services.Infrastructure.Redis;
 using Misfitz_Games.Services.Room;
 using System.Security.Claims;
+using Misfitz_Games.Services.Tuya;
 
 namespace Misfitz_Games;
 
@@ -108,6 +109,8 @@ public static class Program
         builder.Services.AddHttpClient<TuyaPlugService>();
         builder.Services.AddScoped<EffectsService>();
         builder.Services.AddScoped<EffectsEngine>();
+        builder.Services.AddDataProtection();
+        builder.Services.AddScoped<TuyaOAuthService>();
 
         // Logging
         builder.Logging.ClearProviders();
