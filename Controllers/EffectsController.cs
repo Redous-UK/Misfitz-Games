@@ -25,7 +25,7 @@ public class EffectsController(EffectsService effects) : ControllerBase
             {
                 ok = false,
                 error = ex.Message,
-                type = ex.GetType().FullName
+                type = ex.GetType().FullName,
                 // If you want full details temporarily:
                 details = ex.ToString()
             });
