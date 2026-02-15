@@ -69,14 +69,19 @@ public class IngestController(
         RoomState next = state;
 
         // ✅ Update presence for ANY event (web or tiktok)
-        next = RoomPresenceUpdater.TouchPlayer(next, evt.UserId, evt.Username, isConnected: true);
+        next = RoomPresenceUpdater.TouchPlayer(
+            next,
+            userId: evt.UserId ?? "Guest",
+            username: evt.Username ?? "Guest",
+            isConnected: true
+        );
 
         // ---- Route to active game ----
         if (evt.Type == "chat" && next.ActiveGame == GameType.Contexto) // use next, not state
         {
             if (contexto.TryExtractGuess(evt.Message, out var guess))
             {
-                next = contexto.ApplyGuess(next, evt.UserId, evt.Username, guess); // ✅ use next, not state
+                next = contexto.ApplyGuess(next, evt.UserId ?? "Guest", evt.Username ?? "Guest", guess); // ✅ use next, not state
             }
         }
 

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Misfitz_Games.Data;
 using Misfitz_Games.Hubs;
+using Misfitz_Games.Services;
 using Misfitz_Games.Services.Contexto;
 using Misfitz_Games.Services.Infrastructure.Redis;
 using Misfitz_Games.Services.Room;
@@ -17,6 +18,8 @@ public static class Program
         var builder = WebApplication.CreateBuilder(args);
 
         builder.Services.AddControllers();
+        builder.Services.AddEndpointsApiExplorer();
+        builder.Services.AddSwaggerGen();
 
         builder.Services.AddSignalR(o =>
         {
@@ -101,6 +104,11 @@ public static class Program
         builder.Services.AddSingleton<WordVectorStore>();
         builder.Services.AddSingleton<ContextoRankIndexStore>();
 
+        // Effects / hardware services
+        builder.Services.AddSingleton<TuyaPlugService>();
+        builder.Services.AddSingleton<EffectsService>();
+
+        // Logging
         builder.Logging.ClearProviders();
         builder.Logging.AddConsole();
 
@@ -249,6 +257,8 @@ public static class Program
         if (app.Environment.IsDevelopment())
         {
             app.UseDeveloperExceptionPage();
+            app.UseSwagger();
+            app.UseSwaggerUI();
         }
 
         app.Run();
