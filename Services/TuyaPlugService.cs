@@ -75,7 +75,27 @@ public class TuyaPlugService
         EnsureSuccess(res, json);
 
         using var doc = JsonDocument.Parse(json);
-        var funcs = doc.RootElement.GetProperty("result").EnumerateArray()
+
+        var result = doc.RootElement.GetProperty("result");
+
+        JsonElement functionsEl;
+
+        // Tuya commonly returns: result: { functions: [ ... ] }
+        if (result.ValueKind == JsonValueKind.Object && result.TryGetProperty("functions", out var fns))
+        {
+            functionsEl = fns;
+        }
+        // Some APIs may return: result: [ ... ]
+        else if (result.ValueKind == JsonValueKind.Array)
+        {
+            functionsEl = result;
+        }
+        else
+        {
+            throw new InvalidOperationException($"Unexpected Tuya /functions payload shape. result is {result.ValueKind}.");
+        }
+
+        var funcs = functionsEl.EnumerateArray()
             .Select(e => new
             {
                 Code = e.GetProperty("code").GetString(),

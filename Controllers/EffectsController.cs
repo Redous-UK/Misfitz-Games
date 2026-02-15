@@ -26,7 +26,7 @@ public class EffectsController(EffectsService effects) : ControllerBase
                 ok = false,
                 error = ex.Message,
                 type = ex.GetType().FullName,
-                // If you want full details temporarily:
+                // If you want full details temporarily:  if you uncomment dont forget to apply comma after type
                 details = ex.ToString()
             });
         }
