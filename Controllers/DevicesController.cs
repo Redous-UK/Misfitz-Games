@@ -89,16 +89,16 @@ public class DevicesController(AppDbContext db) : ControllerBase
         return Ok(new { ok = true });
     }
 
-    private int GetAppUserIdOrThrow()
+    private Guid GetAppUserIdOrThrow()
     {
-        // Adjust this if your claim name differs.
         var raw =
             User.FindFirstValue(ClaimTypes.NameIdentifier) ??
             User.FindFirstValue("uid") ??
-            User.FindFirstValue("userId");
+            User.FindFirstValue("userId") ??
+            User.FindFirstValue("id");
 
-        if (!int.TryParse(raw, out var uid))
-            throw new InvalidOperationException("Missing/invalid user id claim. Ensure you issue NameIdentifier (int User.Id).");
+        if (!Guid.TryParse(raw, out var uid))
+            throw new InvalidOperationException("Missing/invalid user id claim.");
 
         return uid;
     }

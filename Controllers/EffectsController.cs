@@ -15,18 +15,11 @@ namespace Misfitz_Games.Controllers;
 [ApiController]
 [Route("api/effects")]
 [Authorize(Policy = "MemberOrAdmin")]
-public class EffectsController : ControllerBase
+public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsService legacyEffects) : ControllerBase
 {
-    private readonly AppDbContext _db;
-    private readonly EffectsEngine _engine;
-    private readonly EffectsService _legacyEffects; // keeps your existing pulse route alive
-
-    public EffectsController(AppDbContext db, EffectsEngine engine, EffectsService legacyEffects)
-    {
-        _db = db;
-        _engine = engine;
-        _legacyEffects = legacyEffects;
-    }
+    private readonly AppDbContext _db = db;
+    private readonly EffectsEngine _engine = engine;
+    private readonly EffectsService _legacyEffects = legacyEffects; // keeps your existing pulse route alive
 
     // ------------------------------------------------------------------
     // Legacy endpoint (keep working while you migrate to v2)
