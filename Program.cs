@@ -112,6 +112,9 @@ public static class Program
         builder.Services.AddDataProtection();
         builder.Services.AddScoped<TuyaOAuthService>();
 
+        //TikFinity / Spotify / Streamer
+        builder.Services.AddSingleton<WebhookIngestService>();
+
         // Logging
         builder.Logging.ClearProviders();
         builder.Logging.AddConsole();
