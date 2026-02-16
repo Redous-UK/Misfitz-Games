@@ -4,9 +4,11 @@ public enum GameType
 {
     None = 0,
     Contexto = 1,
-    Deal = 2
+    Deal = 2,
+    Hangman = 3
 }
 
+// High-level room info
 public sealed record RoomState(
     Guid RoomId,
     string RoomName,
@@ -17,6 +19,29 @@ public sealed record RoomState(
     string? HostUserId = null
 );
 
+// Players / presence
+
+
+
+
+//Hangman Specific
+public sealed record HangmanStartRequest(
+    string? Word = null,
+    int? MaxWrong = null
+);
+
+public sealed record HangmanGuessRequest(
+    string Value
+);
+
+public sealed record HangmanState(
+    string Word,
+    HashSet<char> Guessed,
+    List<string> WrongGuesses,
+    int MaxWrong
+);
+
+//Contexto Specific
 public sealed record ContextoStartRequest(string SecretWord);
 
 public sealed record ContextoState(

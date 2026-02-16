@@ -1,4 +1,8 @@
-﻿namespace Misfitz_Games.Models;
+﻿using Misfitz_Games.Services.Games.Hangman;
+
+
+namespace Misfitz_Games.Models;
+
 
 public sealed record RoomCreateRequest(
     string Name,
@@ -48,3 +52,4 @@ public sealed record IdleRoomCandidate(
     string ActiveGame,
     string Reason
 );
+
