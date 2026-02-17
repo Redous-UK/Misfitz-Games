@@ -267,6 +267,7 @@
             }
 
             applyRoleUI(myRole);
+            syncActionButtons();
             return me;
         }
 
@@ -291,6 +292,7 @@
             refreshState().catch(console.warn);
             refreshLeaderboard().catch(console.warn);
             startPolling();
+            syncActionButtons();
             sendPresenceForRoom(activeRoomCode).catch(() => { });
         }
 
@@ -486,6 +488,7 @@
             if (tile) tile.classList.add("is-selected");
 
             renderControlPanel(id);
+            syncActionButtons();
         }
 
         async function loadGames() {
@@ -644,32 +647,44 @@
         // ----------------------------
         // Game actions (scalable)
         // ----------------------------
-        const STARTERS = {
-            contexto: async (code) => {
-                const secretWord = String(gameSettings.contexto?.secretWord ?? "").trim();
-                const path = secretWord
-                    ? `/rooms/${encodeURIComponent(code)}/games/contexto/start`
-                    : `/rooms/${encodeURIComponent(code)}/games/contexto/next`;
+        const GAMES_REGISTRY = {
+            contexto: {
+                title: "Contexto",
+                playUrl: (code) => `/play.html?roomId=${encodeURIComponent(code)}&game=contexto`,
+                overlayUrl: (code) => `/overlay.html?roomId=${encodeURIComponent(code)}&game=contexto`,
+                start: async (code) => {
+                    const secretWord = String(gameSettings.contexto?.secretWord ?? "").trim();
+                    const path = secretWord
+                        ? `/rooms/${encodeURIComponent(code)}/games/contexto/start`
+                        : `/rooms/${encodeURIComponent(code)}/games/contexto/next`;
 
-                const opts = secretWord
-                    ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ secretWord }) }
-                    : { method: "POST" };
+                    const opts = secretWord
+                        ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ secretWord }) }
+                        : { method: "POST" };
 
-                return await api(path, opts);
+                    return await api(path, opts);
+                },
+                stop: async (code) => api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" })
             },
 
-            hangman: async (code) => {
-                const word = String(gameSettings.hangman?.word ?? "").trim();
-                if (!word) throw new Error("Hangman: enter a word (temporary)");
+            hangman: {
+                title: "Hangman",
+                playUrl: (code) => `/play.html?roomId=${encodeURIComponent(code)}&game=hangman`,
+                overlayUrl: (code) => `/overlay.html?roomId=${encodeURIComponent(code)}&game=hangman`,
+                start: async (code) => {
+                    const word = String(gameSettings.hangman?.word ?? "").trim();
+                    if (!word) throw new Error("Hangman: enter a word (temporary)");
 
-                const mw = gameSettings.hangman?.maxWrong;
-                const maxWrong = Number.isFinite(mw) && mw > 0 ? mw : 6;
+                    const mw = gameSettings.hangman?.maxWrong;
+                    const maxWrong = Number.isFinite(mw) && mw > 0 ? mw : 6;
 
-                return await api(`/rooms/${encodeURIComponent(code)}/games/hangman/start`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ word, maxWrong })
-                });
+                    return await api(`/rooms/${encodeURIComponent(code)}/games/hangman/start`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ word, maxWrong })
+                    });
+                },
+                stop: async (code) => api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" })
             }
         };
 
@@ -677,15 +692,15 @@
             const code = roomId();
             if (!code) return alert("Pick a room first.");
 
-            const gameId = String(selectedGameId || "").toLowerCase();
-            const starter = STARTERS[gameId];
-            if (!starter) {
+            const gameId = String(selectedGameId || "contexto").toLowerCase();
+            const g = GAMES_REGISTRY[gameId];
+            if (!g?.start) {
                 const out = el("gameOut");
                 if (out) out.textContent = pretty({ ok: false, error: `No start handler for ${gameId}` });
                 return;
             }
 
-            const r = await starter(code);
+            const r = await g.start(code);
             const out = el("gameOut");
             if (out) out.textContent = pretty(r);
 
@@ -697,7 +712,14 @@
             const code = roomId();
             if (!code) return alert("Pick a room first.");
 
-            const r = await api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" });
+            const gameId = String(selectedGameId || "contexto").toLowerCase();
+            const g = GAMES_REGISTRY[gameId];
+
+            // Prefer per-game stop, fallback to global stop
+            const r = g?.stop
+                ? await g.stop(code)
+                : await api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" });
+
             const out = el("gameOut");
             if (out) out.textContent = pretty(r);
 
@@ -707,8 +729,27 @@
         function goPlay() {
             const code = roomId();
             if (!code) return alert("Pick a room first.");
-            const game = selectedGameId || "contexto";
-            location.href = `/play.html?roomId=${encodeURIComponent(code)}&game=${encodeURIComponent(game)}`;
+
+            const gameId = String(selectedGameId || "contexto").toLowerCase();
+            const g = GAMES_REGISTRY[gameId];
+
+            location.href = g?.playUrl ? g.playUrl(code) : `/play.html?roomId=${encodeURIComponent(code)}&game=${encodeURIComponent(gameId)}`;
+        }
+
+        function syncActionButtons() {
+            const hasRoom = !!roomId();
+            const gameId = String(selectedGameId || "contexto").toLowerCase();
+            const hasGame = !!GAMES_REGISTRY[gameId];
+
+            // role gating (member/admin can start/stop)
+            const r = String(myRole || "").toLowerCase();
+            const canControl = (r === "member" || r === "admin");
+
+            el("btnStart") && (el("btnStart").disabled = !(hasRoom && hasGame && canControl));
+            el("btnStop") && (el("btnStop").disabled = !(hasRoom && canControl));
+            el("btnPlay") && (el("btnPlay").disabled = !hasRoom);
+            el("btnOpenOverlay") && (el("btnOpenOverlay").disabled = !hasRoom);
+            el("btnLeaderboard") && (el("btnLeaderboard").disabled = !hasRoom);
         }
 
         // ----------------------------
@@ -751,12 +792,20 @@
             onClick("btnOpenOverlay", () => {
                 const code = roomId();
                 if (!code) return alert("Pick a room first.");
-                window.open(`/overlay.html?roomId=${encodeURIComponent(code)}&game=${encodeURIComponent(selectedGameId || "contexto")}`, "_blank");
+
+                const gameId = String(selectedGameId || "contexto").toLowerCase();
+                const g = GAMES_REGISTRY[gameId];
+
+                const url = g?.overlayUrl
+                    ? g.overlayUrl(code)
+                    : `/overlay.html?roomId=${encodeURIComponent(code)}&game=${encodeURIComponent(gameId)}`;
+
+                window.open(url, "_blank");
             });
 
             onClick("btnPlay", goPlay);
             onClick("btnStart", () => startSelectedGame().catch(e => alert(String(e))));
-            onClick("btnStop", () => stopGame().catch(e => alert(String(e))));
+            onClick("btnStop", () => stopSelectedGame().catch(e => alert(String(e))));
             onClick("btnLeaderboard", () => refreshLeaderboard().catch(e => alert(String(e))));
 
             // Auth must be valid
