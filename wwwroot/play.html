@@ -221,12 +221,12 @@
                 const li = document.createElement("li");
                 li.className = "item";
                 li.innerHTML = `
-            <div>
-              <div class="who">${escapeHtml(user)}</div>
-              <div class="small">${escapeHtml(guess)}</div>
-            </div>
-            ${right}
-          `;
+                <div>
+                  <div class="who">${escapeHtml(user)}</div>
+                  <div class="small">${escapeHtml(guess)}</div>
+                </div>
+                ${right}
+              `;
                 ul.appendChild(li);
             }
         }
@@ -251,15 +251,15 @@
                 const li = document.createElement("li");
                 li.className = "item";
                 li.innerHTML = `
-            <div>
-              <div class="who">${escapeHtml(userId)}</div>
-              <div class="small">score</div>
-            </div>
-            <div class="right">
-              <div class="small">&nbsp;</div>
-              <div class="who">${escapeHtml(String(score))}</div>
-            </div>
-          `;
+                <div>
+                  <div class="who">${escapeHtml(userId)}</div>
+                  <div class="small">score</div>
+                </div>
+                <div class="right">
+                  <div class="small">&nbsp;</div>
+                  <div class="who">${escapeHtml(String(score))}</div>
+                </div>
+              `;
                 ul.appendChild(li);
             }
         }
@@ -496,7 +496,7 @@
 
             try {
                 await api(`/room/${encodeURIComponent(joinedRef)}/hangman/guess`, {
-                    method: onautocomplete: "POST",
+                    method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ value })
                 });
