@@ -10,6 +10,7 @@ using Misfitz_Games.Services.Infrastructure.Redis;
 using Misfitz_Games.Services.Room;
 using Misfitz_Games.Services.Tuya;
 using System.Security.Claims;
+using Microsoft.Extensions.FileProviders;
 
 namespace Misfitz_Games;
 
@@ -136,7 +137,16 @@ public static class Program
         });
 
         // Static files first is fine
-        app.UseStaticFiles();
+        var dataPath = "/data/site";
+
+        if (Directory.Exists(dataPath))
+        {
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                FileProvider = new PhysicalFileProvider(dataPath),
+                RequestPath = ""
+            });
+        }
 
         app.UseRouting();
 
