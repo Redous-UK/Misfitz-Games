@@ -147,10 +147,10 @@ public static class Program
         Directory.CreateDirectory(dataRoot);
         Directory.CreateDirectory(backupsRoot);
 
-        var wwwroot = Path.Combine(app.Environment.ContentRootPath, "wwwroot");
-        if (Directory.Exists(wwwroot) && !Directory.EnumerateFileSystemEntries(dataRoot).Any())
+        var seed = Path.Combine(app.Environment.ContentRootPath, "Data", "Site");
+        if (Directory.Exists(seed) && !Directory.EnumerateFileSystemEntries(dataRoot).Any())
         {
-            CopyDirectory(wwwroot, dataRoot);
+            CopyDirectory(seed, dataRoot);
         }
 
         // ------------- Serve editable site from /data/site -------------
