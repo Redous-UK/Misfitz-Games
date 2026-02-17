@@ -18,7 +18,7 @@
         <div class="card" style="margin-top:12px;">
             <div class="row">
                 <input id="roomRef" class="grow" placeholder="Room code (e.g. 48392017 or MISFITZ1)" />
-                <input id="username" placeholder="Your name" autocomplete="off"/>
+                <input id="username" placeholder="Your name" autocomplete="off" />
                 <button id="btnJoin">Join</button>
                 <button id="btnLeave" disabled>Leave</button>
             </div>
@@ -27,30 +27,61 @@
             </div>
         </div>
 
+
         <div class="grid" style="margin-top:12px;">
-            <div class="card">
-                <div class="titleRow">
-                    <div>
-                        <div style="font-weight:900;">Contexto</div>
-                        <div class="muted">Send guesses below. They’ll appear in recent guesses.</div>
+            <section id="panel-contexto" class="card hidden">
+                <div class="card">
+                    <div class="titleRow">
+                        <div>
+                            <div style="font-weight:900;">Contexto</div>
+                            <div class="muted">Send guesses below. They’ll appear in recent guesses.</div>
+                        </div>
+                        <span id="gameBadge" class="badge warn">No game</span>
                     </div>
-                    <span id="gameBadge" class="badge warn">No game</span>
-                </div>
 
-                <div class="row" style="margin-top:12px;">
-                    <input id="guess" class="grow" placeholder="Type a guess (e.g. apple)" />
-                    <button id="btnGuess" disabled>Send guess</button>
-                </div>
-                <div class="muted" style="margin-top:6px;">Tip: you can type plain words (no command needed).</div>
+                    <div class="row" style="margin-top:12px;">
+                        <input id="guess" class="grow" placeholder="Type a guess (e.g. apple)" />
+                        <button id="btnGuess" disabled>Send guess</button>
+                    </div>
+                    <div class="muted" style="margin-top:6px;">Tip: you can type plain words (no command needed).</div>
 
-                <div class="sectionTitle">RECENT GUESSES</div>
-                <ul id="recentGuesses"></ul>
+                    <div class="sectionTitle">RECENT GUESSES</div>
+                    <ul id="recentGuesses"></ul>
 
-                <div id="debugBlock" class="hidden">
-                    <div class="sectionTitle">DEBUG STATE</div>
-                    <pre id="stateOut" class="debug-out">{}</pre>
+                    <div id="debugBlock" class="debug-out">
+                        <div class="sectionTitle">DEBUG STATE</div>
+                        <pre id="stateOut" class="debug-out">{}</pre>
+                    </div>
                 </div>
-            </div>
+            </section>
+            <section id="panel-hangman" class="card hidden">
+                <div class="card">
+                    <div class="titleRow">
+                        <div>
+                            <div style="font-weight:900;">Hangman</div>
+                            <div style="font-size:32px; letter-spacing:6px;" id="hangmanMasked">_ _ _ _</div>
+                        </div>
+                        <div class="muted" style="margin-top:8px;">
+                            Wrong: <span id="hangmanWrong">0/6</span>
+                        </div>
+                        <div class="muted" style="margin-top:8px;">
+                            Guessed: <span id="hangmanGuessed"></span>
+                        </div>
+                        <span id="gameBadge" class="badge warn">No game</span>
+                    </div>
+
+                    <div style="margin-top:12px; display:flex; gap:8px;">
+                        <input id="hangmanGuessInput" maxlength="32" placeholder="Type a letter or word…" />
+                        <button id="hangmanGuessBtn">Guess</button>
+                    </div>
+                    <div class="muted" style="margin-top:6px;">Tip: you can type plain words (no command needed).</div>
+
+                    <div id="debugBlock" class="debug-out">
+                        <div class="sectionTitle">DEBUG STATE</div>
+                        <pre id="stateOut" class="debug-out">{}</pre>
+                    </div>
+                </div>
+            </section>
 
             <div class="card">
                 <div class="titleRow">
@@ -101,7 +132,7 @@
 
             myUserId = me.userId || null;
             myName = me.name || "Player";
-            myRole = me.role || "guest";
+            myRole = me.role || "Guest";
 
             const input = el("username");
             if (input) {
@@ -228,6 +259,30 @@
           `;
                 ul.appendChild(li);
             }
+        }
+
+        function activeGameToId(activeGame) {
+            // server might send enum int, or string
+            if (activeGame === null || activeGame === undefined) return "none";
+            if (typeof activeGame === "number") {
+                // GameType: None=0, Contexto=1, Deal=2, Hangman=3
+                if (activeGame === 1) return "contexto";
+                if (activeGame === 2) return "deal";
+                if (activeGame === 3) return "hangman";
+                return "none";
+            }
+            const s = String(activeGame).toLowerCase();
+            if (s.includes("contexto")) return "contexto";
+            if (s.includes("hangman")) return "hangman";
+            if (s.includes("deal")) return "deal";
+            if (s === "none") return "none";
+            return s;
+        }
+
+        function showGamePanels(gameId) {
+            el("panel-contexto")?.classList.toggle("hidden", gameId !== "contexto");
+            el("panel-hangman")?.classList.toggle("hidden", gameId !== "hangman");
+            // add dealPanel later
         }
 
         // --- state/polling ---

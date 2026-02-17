@@ -1,4 +1,4 @@
-﻿namespace Misfitz_Games.Services.Contexto;
+﻿namespace Misfitz_Games.Services.Games.Contexto;
 
 public sealed class ContextoWordProvider
 {

@@ -132,6 +132,18 @@ public class RoomsController(IRoomStateStore store) : ControllerBase
         return Ok(RoomStateProjector.ToPublic(state));
     }
 
+    [HttpGet("/room/resolve/{roomRef}")]
+    public async Task<IActionResult> Resolve(string roomRef, CancellationToken ct)
+    {
+        var roomId = await store.ResolveRoomIdAsync(roomRef, ct);
+        if (roomId is null) return NotFound(new { error = "Room not found." });
+
+        var state = await store.GetStateAsync(roomId.Value, ct);
+        if (state is null) return NotFound(new { error = "Room state not found." });
+
+        return Ok(new { roomId = roomId.Value, state });
+    }
+
     private static string NormalizeCustomCode(string code)
         => (code ?? "").Trim().ToUpperInvariant();
 

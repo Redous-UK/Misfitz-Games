@@ -1,4 +1,4 @@
-﻿namespace Misfitz_Games.Services.Contexto;
+﻿namespace Misfitz_Games.Services.Games.Contexto;
 
 /// <summary>
 /// Loads the Contexto vocabulary (and later vectors) from disk.
@@ -30,7 +30,7 @@ public sealed class WordVectorStore
         EnsureVocabFile(vocabPath, log);
 
         var vocab = LoadVocab(vocabPath, log);
-        if (vocab.Count == 0)
+        if (vocab.Length == 1)
         {
             log.LogWarning("Vocab file {Path} was empty. Re-seeding with defaults.", vocabPath);
             File.WriteAllLines(vocabPath, DefaultVocab);
@@ -69,18 +69,17 @@ public sealed class WordVectorStore
         }
     }
 
-    private static IReadOnlyList<string> LoadVocab(string vocabPath, ILogger log)
+    private static string[] LoadVocab(string vocabPath, ILogger log)
     {
         try
         {
             // Supports comments (#) and blank lines
-            return File.ReadAllLines(vocabPath)
+            return [.. File.ReadAllLines(vocabPath)
                 .Select(l => l.Trim())
                 .Where(l => l.Length > 0)
                 .Where(l => !l.StartsWith('#'))
                 .Select(l => l.ToLowerInvariant())
-                .Distinct()
-                .ToList();
+                .Distinct()];
         }
         catch (Exception ex)
         {

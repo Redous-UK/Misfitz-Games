@@ -1,18 +1,11 @@
-﻿namespace Misfitz_Games.Services.Contexto;
+﻿namespace Misfitz_Games.Services.Games.Contexto;
 
-public sealed class ContextoRankIndex
+public sealed class ContextoRankIndex(string secretWord, Dictionary<string, int> rankByWord, int maxRank)
 {
-    private readonly Dictionary<string, int> _rankByWord;
+    private readonly Dictionary<string, int> _rankByWord = rankByWord;
 
-    public string SecretWord { get; }
-    public int MaxRank { get; }
-
-    public ContextoRankIndex(string secretWord, Dictionary<string, int> rankByWord, int maxRank)
-    {
-        SecretWord = secretWord;
-        _rankByWord = rankByWord;
-        MaxRank = maxRank;
-    }
+    public string SecretWord { get; } = secretWord;
+    public int MaxRank { get; } = maxRank;
 
     public int GetRank(string word)
     {
