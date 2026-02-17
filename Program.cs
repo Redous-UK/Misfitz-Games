@@ -419,6 +419,14 @@ public static class Program
             db.Database.Migrate();
         }
 
+        app.MapGet("/debug/static", () =>
+        {
+            var dataRoot = "/data/site";
+            var exists = Directory.Exists(dataRoot);
+            var count = exists ? Directory.EnumerateFileSystemEntries(dataRoot, "*", SearchOption.AllDirectories).Count() : 0;
+            return Results.Ok(new { dataRoot, exists, count });
+        });
+
         app.MapGet("/", context =>
         {
             context.Response.Redirect("/user.html");
