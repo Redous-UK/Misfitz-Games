@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Misfitz_Games.Data;
 using Misfitz_Games.Hubs;
 using Misfitz_Games.Services;
-using Misfitz_Games.Services.Contexto;
+using Misfitz_Games.Services.Games.Contexto;
 using Misfitz_Games.Services.Infrastructure.Redis;
 using Misfitz_Games.Services.Room;
 using System.Security.Claims;
