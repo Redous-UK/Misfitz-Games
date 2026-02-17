@@ -13,13 +13,12 @@
             <span id="meLabel">Checking login…</span>
             <span id="statusBadge" class="badge warn">Not connected</span>
         </div>
-        <div class="muted">Join a room using an 8-digit code or a custom code like <b>MISFITZ1</b>.</div>
 
         <div class="card" style="margin-top:12px;">
             <div class="row">
                 <input id="roomRef" class="grow" placeholder="Room code (e.g. 48392017 or MISFITZ1)" />
                 <input id="username" placeholder="Your name" autocomplete="off" />
-                <button id="btnJoin">Join</button>
+                <button id="btnJoin" hidden>Join</button>
                 <button id="btnLeave" disabled>Leave</button>
             </div>
             <div class="muted" style="margin-top:8px;">
