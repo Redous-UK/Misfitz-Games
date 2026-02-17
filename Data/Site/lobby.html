@@ -22,6 +22,7 @@
                 <div class="row">
                     <span id="meLabel" class="pill">Checking login…</span>
                     <button id="btnAdmin" class="btn-secondary" style="display:none">Admin</button>
+                    <button id="adminLink" class="hidden" href="/admin">🛠 Admin Editor</button>
                     <button id="btnLogout" class="btn-secondary">Logout</button>
                     <button id="btnBack" class="btn-secondary">Back to Login</button>
                 </div>
@@ -241,6 +242,16 @@
         // ----------------------------
         // Auth
         // ----------------------------
+
+        function updateAdminLink(me) {
+            const a = document.getElementById("adminLink");
+            if (!a) return;
+
+            const isAdmin = me?.isAuth && (me?.role || "").toLowerCase() === "admin";
+            a.classList.toggle("hidden", !isAdmin);
+            a.href = "/admin";
+        }
+
         async function refreshMe() {
             const me = await api("/member/me");
 
@@ -267,6 +278,7 @@
             }
 
             applyRoleUI(myRole);
+            updateAdminLink(me);
             syncActionButtons();
             return me;
         }
