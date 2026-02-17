@@ -135,6 +135,15 @@
                 .replaceAll("'", "&#039;");
         }
 
+        // Normalize casing differences between System.Text.Json camelCase vs PascalCase
+        function pick(o, ...keys) {
+            for (const k of keys) {
+                if (!o) break;
+                if (o[k] !== undefined) return o[k];
+            }
+            return undefined;
+        }
+
         function initials(name) {
             const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
             const a = parts[0]?.[0] ?? "?";
@@ -164,7 +173,6 @@
         const gameSettings = {}; // per-game settings store
 
         let pollHandle = null;
-        let roomsPollHandle = null;
 
         // ----------------------------
         // Drawer (settings panel)
@@ -297,17 +305,11 @@
             const grid = el("roomsGrid");
             if (!grid) return;
 
-
             grid.innerHTML = `<div class="muted">Loading rooms…</div>`;
-
 
             try {
                 const payload = await api("/rooms");
-
-
-                // ✅ NEW: controller returns { rooms: [...] }
                 const rooms = Array.isArray(payload) ? payload : (payload?.rooms ?? []);
-
 
                 if (!Array.isArray(rooms) || rooms.length === 0) {
                     grid.innerHTML = `<div class="muted">No rooms yet.</div>`;
@@ -319,10 +321,7 @@
                 const gameLabel = (r) => {
                     if (r?.hasActiveGame) {
                         const g = String(r.activeGame || "").trim();
-                        return {
-                            text: g ? `🎮 ${g}` : "🎮 Active",
-                            cls: "room-chip game active"
-                        };
+                        return { text: g ? `🎮 ${g}` : "🎮 Active", cls: "room-chip game active" };
                     }
                     return { text: "No game", cls: "room-chip game idle" };
                 };
@@ -338,17 +337,16 @@
                     const gl = gameLabel(r);
 
                     return `
-                    <div class="room-tile" data-code="${esc(code)}">
-                    <div class="room-title">${esc(name)}</div>
-                    <div class="room-sub">Code: <b>${esc(code)}</b>${created ? ` • Created: ${esc(created)}` : ""}${pText}</div>
-                    <div class="room-meta">
+                <div class="room-tile" data-code="${esc(code)}">
+                  <div class="room-title">${esc(name)}</div>
+                  <div class="room-sub">Code: <b>${esc(code)}</b>${created ? ` • Created: ${esc(created)}` : ""}${pText}</div>
+                  <div class="room-meta">
                     <span class="room-chip ${isActive ? "active" : ""}">${isActive ? "ACTIVE" : "JOIN"}</span>
                     <span class="${gl.cls}">${esc(gl.text)}</span>
-                    </div>
-                    </div>
-                    `;
+                  </div>
+                </div>
+              `;
                 }).join("");
-
 
                 grid.querySelectorAll(".room-tile[data-code]").forEach(tile => {
                     tile.addEventListener("click", () => {
@@ -382,15 +380,16 @@
             const container = el("playerList");
             if (!container) return;
 
-            const hostId = roomState?.hostUserId;
-            const players = Array.isArray(roomState?.players) ? roomState.players : [];
+            const hostId = pick(roomState, "hostUserId", "HostUserId");
+            const players = pick(roomState, "players", "Players");
+            const arr = Array.isArray(players) ? players : [];
 
-            if (!players.length) {
+            if (!arr.length) {
                 container.innerHTML = `<div class="muted">No players yet — select a room and open play to appear.</div>`;
                 return;
             }
 
-            const sorted = [...players].sort((p1, p2) => {
+            const sorted = [...arr].sort((p1, p2) => {
                 const aHost = p1.userId === hostId ? -1 : 0;
                 const bHost = p2.userId === hostId ? -1 : 0;
                 if (aHost !== bHost) return aHost - bHost;
@@ -479,19 +478,14 @@
         // ----------------------------
         // Games UI
         // ----------------------------
-        function setSelectedGame(id, name) {
+        function setSelectedGame(id) {
             selectedGameId = id;
-            // highlight tile
-            document.querySelectorAll(".game-tile.is-selected")
-                .forEach(x => x.classList.remove("is-selected"));
+
+            document.querySelectorAll(".game-tile.is-selected").forEach(x => x.classList.remove("is-selected"));
             const tile = document.querySelector(`.game-tile[data-game="${CSS.escape(id)}"]`);
             if (tile) tile.classList.add("is-selected");
 
-            // update drawer header area
             renderControlPanel(id);
-
-            // optional: open drawer when picking a game
-            // window.openSettingsPanel?.();
         }
 
         async function loadGames() {
@@ -550,7 +544,7 @@
 
                 tile.addEventListener("click", () => {
                     if (!item.enabled) return;
-                    setSelectedGame(item.id, item.name);
+                    setSelectedGame(item.id);
                 });
 
                 grid.appendChild(tile);
@@ -559,9 +553,13 @@
             // select default (first enabled, else contexto)
             const firstEnabled = games.find(g => g.enabled);
             const defaultId = firstEnabled?.id || "contexto";
-            setSelectedGame(defaultId, firstEnabled?.name);
+            setSelectedGame(defaultId);
         }
 
+        // ----------------------------
+        // Controls schema (per-game)
+        // ----------------------------
+        // Add new games by adding a schema entry + adding a start handler in STARTERS below.
         const GAME_CONTROL_SCHEMAS = {
             contexto: {
                 title: "Contexto",
@@ -572,10 +570,10 @@
             hangman: {
                 title: "Hangman",
                 controls: [
-                    { key: "secretWord", label: "Secret word (optional)", type: "text", default: "" }
+                    { key: "word", label: "Word (temp – until random words)", type: "text", default: "" },
+                    { key: "maxWrong", label: "Max wrong", type: "number", default: 6 }
                 ]
             }
-            // add more later
         };
 
         function ensureDefaults(gameId) {
@@ -603,7 +601,6 @@
 
             ensureDefaults(gameId);
 
-            // header
             const header = document.createElement("div");
             header.style.marginBottom = "10px";
             header.innerHTML = `
@@ -620,7 +617,6 @@
                 renderControlPanel(gameId);
             });
 
-            // controls
             for (const c of schema.controls) {
                 const wrap = document.createElement("div");
                 wrap.className = "control-block";
@@ -632,11 +628,12 @@
 
                 const input = document.createElement("input");
                 input.className = "control-input";
-                input.type = "text";
+                input.type = c.type === "number" ? "number" : "text";
                 input.value = String(gameSettings[gameId][c.key] ?? "");
 
                 input.addEventListener("input", () => {
-                    gameSettings[gameId][c.key] = input.value;
+                    const v = input.value;
+                    gameSettings[gameId][c.key] = (c.type === "number") ? (v === "" ? "" : Number(v)) : v;
                 });
 
                 wrap.appendChild(input);
@@ -645,14 +642,10 @@
         }
 
         // ----------------------------
-        // Game actions
+        // Game actions (scalable)
         // ----------------------------
-        async function startGame() {
-            const code = roomId();
-            if (!code) return alert("Pick a room first.");
-
-            if (selectedGameId === "contexto") {
-                // secret word from settings
+        const STARTERS = {
+            contexto: async (code) => {
                 const secretWord = String(gameSettings.contexto?.secretWord ?? "").trim();
                 const path = secretWord
                     ? `/rooms/${encodeURIComponent(code)}/games/contexto/start`
@@ -662,17 +655,42 @@
                     ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ secretWord }) }
                     : { method: "POST" };
 
-                const r = await api(path, opts);
-                const out = el("gameOut");
-                if (out) out.textContent = pretty(r);
+                return await api(path, opts);
+            },
 
-                await refreshState();
-                await refreshLeaderboard();
+            hangman: async (code) => {
+                const word = String(gameSettings.hangman?.word ?? "").trim();
+                if (!word) throw new Error("Hangman: enter a word (temporary)");
+
+                const mw = gameSettings.hangman?.maxWrong;
+                const maxWrong = Number.isFinite(mw) && mw > 0 ? mw : 6;
+
+                return await api(`/rooms/${encodeURIComponent(code)}/games/hangman/start`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ word, maxWrong })
+                });
+            }
+        };
+
+        async function startSelectedGame() {
+            const code = roomId();
+            if (!code) return alert("Pick a room first.");
+
+            const gameId = String(selectedGameId || "").toLowerCase();
+            const starter = STARTERS[gameId];
+            if (!starter) {
+                const out = el("gameOut");
+                if (out) out.textContent = pretty({ ok: false, error: `No start handler for ${gameId}` });
                 return;
             }
 
+            const r = await starter(code);
             const out = el("gameOut");
-            if (out) out.textContent = pretty({ ok: false, error: "Game not enabled yet" });
+            if (out) out.textContent = pretty(r);
+
+            await refreshState();
+            await refreshLeaderboard();
         }
 
         async function stopGame() {
@@ -703,7 +721,6 @@
                 const code = roomId();
                 if (!code) return;
 
-                // keep presence alive + update state
                 sendPresenceForRoom(code);
                 refreshState().catch(() => { });
             }, 5000);
@@ -715,7 +732,6 @@
         async function init() {
             wireSettingsPanel();
 
-            // Buttons (safe)
             onClick("btnBack", () => (location.href = "/user.html"));
 
             onClick("btnLogout", async () => {
@@ -735,15 +751,16 @@
             onClick("btnOpenOverlay", () => {
                 const code = roomId();
                 if (!code) return alert("Pick a room first.");
-                window.open(`/overlay.html?roomId=${encodeURIComponent(code)}`, "_blank");
+                window.open(`/overlay.html?roomId=${encodeURIComponent(code)}&game=${encodeURIComponent(selectedGameId || "contexto")}`, "_blank");
             });
 
             onClick("btnPlay", goPlay);
-            onClick("btnStart", () => startGame().catch(e => alert(String(e))));
+            onClick("btnStart", () => startSelectedGame().catch(e => alert(String(e))));
             onClick("btnStop", () => stopGame().catch(e => alert(String(e))));
             onClick("btnLeaderboard", () => refreshLeaderboard().catch(e => alert(String(e))));
 
             // Auth must be valid
+            let me;
             try {
                 me = await refreshMe();
             } catch (e) {
@@ -757,14 +774,10 @@
                 return;
             }
 
-            myUserId = me.userId || null;
-            window.myName = me.name || "";
-
             // Games + rooms
             await loadGames();
             await loadRooms();
 
-            // Restore last selected room and start polling
             autoLoadRoomFromStorage();
             startPolling();
         }
