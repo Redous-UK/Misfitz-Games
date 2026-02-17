@@ -306,6 +306,56 @@
             }
         }
 
+        async function startSelectedGame() {
+            const code = roomId();
+            if (!code) return alert("Enter a room code first.");
+
+            const g = (selectedGameId || "").toLowerCase();
+            const starters = {
+                contexto: () => startContexto(code),
+                hangman: () => startHangman(code),
+                // deal: () => startDeal(code), // later
+            };
+
+            const fn = starters[g];
+            if (!fn) return alert(`No start handler for: ${selectedGameId}`);
+
+            const r = await fn();
+            el("gameOut").textContent = pretty(r);
+
+            await refreshState();
+            await refreshLeaderboard();
+        }
+
+        async function startContexto(code) {
+            const secretWord = el("secretWord").value.trim();
+
+            const path = secretWord
+                ? `/rooms/${encodeURIComponent(code)}/games/contexto/start`
+                : `/rooms/${encodeURIComponent(code)}/games/contexto/next`;
+
+            const opts = secretWord
+                ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ secretWord }) }
+                : { method: "POST" };
+
+            return await api(path, opts);
+        }
+
+        async function startHangman(code) {
+            // MVP: until you add server-side random words, use an input or prompt.
+            const word = (el("hangmanWord")?.value ?? "").trim() || (prompt("Hangman word (temporary):") || "").trim();
+            if (!word) throw new Error("Word required.");
+
+            const maxWrongRaw = (el("hangmanMaxWrong")?.value ?? "").trim();
+            const maxWrong = maxWrongRaw ? Number(maxWrongRaw) : 6;
+
+            return await api(`/rooms/${encodeURIComponent(code)}/games/hangman/start`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ word, maxWrong: Number.isFinite(maxWrong) ? maxWrong : 6 })
+            });
+        }
+
         // Auth / nav
         el("btnLobby").onclick = () => location.href = "/lobby.html";
 
@@ -345,34 +395,7 @@
         // Game controls
         el("gameSelect").onchange = (e) => setSelectedGame(e.target.value);
 
-        el("btnStart").onclick = async () => {
-            try {
-                const code = roomId();
-                if (!code) return alert("Enter a room code first.");
-
-                if (selectedGameId === "contexto") {
-                    const secretWord = el("secretWord").value.trim();
-                    const path = secretWord
-                        ? `/rooms/${encodeURIComponent(code)}/games/contexto/start`
-                        : `/rooms/${encodeURIComponent(code)}/games/contexto/next`;
-
-                    const opts = secretWord
-                        ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ secretWord }) }
-                        : { method: "POST" };
-
-                    const r = await api(path, opts);
-                    el("gameOut").textContent = pretty(r);
-                    await refreshState();
-                    await refreshLeaderboard();
-                    return;
-                }
-
-                // placeholder for deal
-                el("gameOut").textContent = pretty({ ok: false, error: "Deal or No Deal start not wired yet." });
-            } catch (e) {
-                el("gameOut").textContent = String(e);
-            }
-        };
+        el("btnStart").onclick = () => startSelectedGame().catch(e => alert(String(e)));
 
         el("btnStop").onclick = async () => {
             try {

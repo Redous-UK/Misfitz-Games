@@ -11,7 +11,7 @@ public sealed class HangmanController(
     RoomBroadcastService broadcaster
 ) : ControllerBase
 {
-    [HttpPost("/room/{roomIdOrCode}/hangman/start")]
+    [HttpPost("/rooms/{roomIdOrCode}/hangman/start")]
     public async Task<IActionResult> Start(string roomIdOrCode, [FromBody] HangmanStartRequest req, CancellationToken ct)
     {
         var roomId = await store.ResolveRoomIdAsync(roomIdOrCode, ct);
@@ -52,7 +52,7 @@ public sealed class HangmanController(
         return Ok(HangmanView.PublicView(hangman));
     }
 
-    [HttpPost("/room/{roomIdOrCode}/hangman/guess")]
+    [HttpPost("/rooms/{roomIdOrCode}/hangman/guess")]
     public async Task<IActionResult> Guess(string roomIdOrCode, [FromBody] HangmanGuessRequest req, CancellationToken ct)
     {
         var roomId = await store.ResolveRoomIdAsync(roomIdOrCode, ct);
@@ -94,7 +94,7 @@ public sealed class HangmanController(
         return Ok(new { correct, message, state = HangmanView.PublicView(next) });
     }
 
-    [HttpGet("/room/{roomIdOrCode}/hangman/state")]
+    [HttpGet("/rooms/{roomIdOrCode}/hangman/state")]
     public async Task<IActionResult> State(string roomIdOrCode, CancellationToken ct)
     {
         var roomId = await store.ResolveRoomIdAsync(roomIdOrCode, ct);

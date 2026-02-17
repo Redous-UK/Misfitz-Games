@@ -27,61 +27,56 @@
             </div>
         </div>
 
-
         <div class="grid" style="margin-top:12px;">
+            <!-- Game panels: add new games by creating a new section with id panel-<gameId> -->
+
             <section id="panel-contexto" class="card hidden">
-                <div class="card">
-                    <div class="titleRow">
-                        <div>
-                            <div style="font-weight:900;">Contexto</div>
-                            <div class="muted">Send guesses below. They’ll appear in recent guesses.</div>
-                        </div>
-                        <span id="gameBadgeContexto" class="badge warn">No game</span>
+                <div class="titleRow">
+                    <div>
+                        <div style="font-weight:900;">Contexto</div>
+                        <div class="muted">Send guesses below. They’ll appear in recent guesses.</div>
                     </div>
+                    <span id="gameBadge-contexto" class="badge warn">No game</span>
+                </div>
 
-                    <div class="row" style="margin-top:12px;">
-                        <input id="guess" class="grow" placeholder="Type a guess (e.g. apple)" />
-                        <button id="btnGuess" disabled>Send guess</button>
-                    </div>
-                    <div class="muted" style="margin-top:6px;">Tip: you can type plain words (no command needed).</div>
+                <div class="row" style="margin-top:12px;">
+                    <input id="guess" class="grow" placeholder="Type a guess (e.g. apple)" />
+                    <button id="btnGuess" disabled>Send guess</button>
+                </div>
+                <div class="muted" style="margin-top:6px;">Tip: you can type plain words (no command needed).</div>
 
-                    <div class="sectionTitle">RECENT GUESSES</div>
-                    <ul id="recentGuesses"></ul>
+                <div class="sectionTitle">RECENT GUESSES</div>
+                <ul id="recentGuesses"></ul>
 
-                    <div id="debugBlockContexto" class="debug-out">
-                        <div class="sectionTitle">DEBUG STATE</div>
-                        <pre id="stateOutContexto" class="debug-out">{}</pre>
-                    </div>
+                <div id="debug-contexto" class="debug-out">
+                    <div class="sectionTitle">DEBUG STATE</div>
+                    <pre id="stateOut-contexto" class="debug-out">{}</pre>
                 </div>
             </section>
+
             <section id="panel-hangman" class="card hidden">
-                <div class="card">
-                    <div class="titleRow">
-                        <div>
-                            <div style="font-weight:900;">Hangman</div>
-                            <div style="font-size:32px; letter-spacing:6px;" id="hangmanMasked">_ _ _ _</div>
-                        </div>
-                        <div class="muted" style="margin-top:8px;">
-                            Wrong: <span id="hangmanWrong">0/6</span>
-                        </div>
-                        <div class="muted" style="margin-top:8px;">
-                            Guessed: <span id="hangmanGuessed"></span>
-                        </div>
-                        <span id="gameBadgeHangman" class="badge warn">No game</span>
+                <div class="titleRow">
+                    <div>
+                        <div style="font-weight:900;">Hangman</div>
+                        <div style="font-size:32px; letter-spacing:6px;" id="hangmanMasked">_ _ _ _</div>
                     </div>
+                    <span id="gameBadge-hangman" class="badge warn">No game</span>
+                </div>
 
-                    <div style="margin-top:12px; display:flex; gap:8px;">
-                        <input id="hangmanGuessInput" maxlength="32" placeholder="Type a letter or word…" />
-                        <button id="hangmanGuessBtn">Guess</button>
-                    </div>
-                    <div class="muted" style="margin-top:6px;">Tip: you can type plain words (no command needed).</div>
+                <div class="muted" style="margin-top:8px;">Wrong: <span id="hangmanWrong">0/6</span></div>
+                <div class="muted" style="margin-top:8px;">Guessed: <span id="hangmanGuessed"></span></div>
 
-                    <div id="debugBlockHangman" class="debug-out">
-                        <div class="sectionTitle">DEBUG STATE</div>
-                        <pre id="stateOutHangman" class="debug-out">{}</pre>
-                    </div>
+                <div style="margin-top:12px; display:flex; gap:8px;">
+                    <input id="hangmanGuessInput" maxlength="32" placeholder="Type a letter or word…" />
+                    <button id="hangmanGuessBtn">Guess</button>
+                </div>
+                <div class="muted" style="margin-top:6px;">Tip: you can type plain words (no command needed).</div>
 
-                    <div class="muted" style="margin-top:10px;" id="hangmanStatus"></div>
+                <div id="hangmanStatus" class="muted" style="margin-top:10px;"></div>
+
+                <div id="debug-hangman" class="debug-out">
+                    <div class="sectionTitle">DEBUG STATE</div>
+                    <pre id="stateOut-hangman" class="debug-out">{}</pre>
                 </div>
             </section>
 
@@ -98,14 +93,13 @@
                 <ul id="leaderboard"></ul>
 
                 <div class="sectionTitle">ROOM LINKS</div>
-                <div class="muted">
-                    Overlay: <a id="overlayLink" href="#" target="_blank" style="color:var(--fg);">open</a>
-                </div>
+                <div class="muted">Overlay: <a id="overlayLink" href="#" target="_blank" style="color:var(--fg);">open</a></div>
             </div>
         </div>
     </div>
 
     <script>
+        // --- tiny utils ---
         const el = (id) => document.getElementById(id);
         const pretty = (o) => JSON.stringify(o, null, 2);
 
@@ -115,18 +109,35 @@
         async function api(path, opts = {}) {
             const res = await fetch(path, { credentials: "include", ...opts });
             const text = await res.text();
-            let json; try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
+            let json;
+            try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
             if (!res.ok) throw new Error(`HTTP ${res.status}: ${pretty(json)}`);
             return json;
         }
 
+        // Normalize casing differences between System.Text.Json camelCase vs PascalCase
+        function pick(o, ...keys) {
+            for (const k of keys) {
+                if (!o) break;
+                if (o[k] !== undefined) return o[k];
+            }
+            return undefined;
+        }
+
+        function setBadge(id, text, kind = "warn") {
+            const b = el(id);
+            if (!b) return;
+            b.textContent = text;
+            b.className = "badge " + (kind === "ok" ? "ok" : kind === "bad" ? "bad" : "warn");
+        }
+
+        // --- identity ---
         let myUserId = null;
         let myName = null;
         let myRole = null;
 
         async function refreshMe() {
             const me = await api("/member/me");
-
             if (!me.isAuth) {
                 location.href = "/user.html";
                 return null;
@@ -139,31 +150,15 @@
             const input = el("username");
             if (input) {
                 input.value = myName;
-                input.readOnly = true; // recommended so users don't spoof
+                input.readOnly = true;
             }
 
-            // optional cache
             localStorage.setItem("myName", myName);
             localStorage.setItem("myUserId", myUserId);
             localStorage.setItem("myRole", myRole);
 
+            el("meLabel") && (el("meLabel").textContent = `${myName} (${myRole})`);
             return me;
-        }
-
-        // --- badges ---
-        function setStatus(text, kind = "warn") {
-            const b = el("statusBadge");
-            if (!b) return;
-            b.textContent = text;
-            b.className = "badge " + (kind === "ok" ? "ok" : kind === "bad" ? "bad" : "warn");
-        }
-
-        function setGame(text, kind = "warn") {
-            const id = (selectedGame === "hangman") ? "gameBadgeHangman" : "gameBadgeContexto";
-            const b = el(id);
-            if (!b) return;
-            b.textContent = text;
-            b.className = "badge " + (kind === "ok" ? "ok" : kind === "bad" ? "bad" : "warn");
         }
 
         // --- room ref helpers ---
@@ -187,7 +182,87 @@
                 .replaceAll("'", "&#039;");
         }
 
-        // --- render ---
+        // --- game routing (single place to extend) ---
+        // Add new games by:
+        // 1) Add GameType mapping in activeGameToId
+        // 2) Add a panel section with id panel-<gameId>
+        // 3) Add entry to GAMES with: badgeId, enable/disable, render(), guess(), debugTargetId
+
+        const GAMES = {
+            contexto: {
+                panelId: "panel-contexto",
+                badgeId: "gameBadge-contexto",
+                debugOutId: "stateOut-contexto",
+                enableInputs: () => {
+                    el("btnGuess") && (el("btnGuess").disabled = !joinedRef);
+                },
+                disableInputs: () => {
+                    el("btnGuess") && (el("btnGuess").disabled = true);
+                },
+                render: async (roomState) => {
+                    const gs = pick(roomState, "gameState", "GameState") ?? null;
+                    renderRecentGuesses(gs);
+                    el("stateOut-contexto") && (el("stateOut-contexto").textContent = pretty(roomState));
+                },
+                guess: async () => sendContextoGuess(),
+            },
+            hangman: {
+                panelId: "panel-hangman",
+                badgeId: "gameBadge-hangman",
+                debugOutId: "stateOut-hangman",
+                enableInputs: () => {
+                    // Hangman button always enabled when joined; you can tighten this if desired
+                    el("hangmanGuessBtn") && (el("hangmanGuessBtn").disabled = !joinedRef);
+                },
+                disableInputs: () => {
+                    el("hangmanGuessBtn") && (el("hangmanGuessBtn").disabled = true);
+                },
+                render: async (_roomState) => {
+                    // Prefer public view endpoint for Hangman to avoid object GameState deserialization issues
+                    const g = await api(`/rooms/${encodeURIComponent(joinedRef)}/games/hangman/state`);
+                    renderHangmanPublic(g);
+                    el("stateOut-hangman") && (el("stateOut-hangman").textContent = pretty(g));
+
+                    // Hide contexto-only list if present
+                    const ul = el("recentGuesses");
+                    if (ul) ul.innerHTML = `<li class="small">Hangman doesn’t use recent guesses.</li>`;
+                },
+                guess: async () => sendHangmanGuess(),
+            }
+        };
+
+        function activeGameToId(activeGame) {
+            if (activeGame === null || activeGame === undefined) return "none";
+            if (typeof activeGame === "number") {
+                // GameType: None=0, Contexto=1, Deal=2, Hangman=3
+                if (activeGame === 1) return "contexto";
+                if (activeGame === 2) return "deal";
+                if (activeGame === 3) return "hangman";
+                return "none";
+            }
+            const s = String(activeGame).toLowerCase();
+            if (s.includes("contexto")) return "contexto";
+            if (s.includes("hangman")) return "hangman";
+            if (s.includes("deal")) return "deal";
+            if (s === "none") return "none";
+            return s;
+        }
+
+        function showOnlyPanel(gameId) {
+            for (const [id, cfg] of Object.entries(GAMES)) {
+                el(cfg.panelId)?.classList.toggle("hidden", id !== gameId);
+            }
+        }
+
+        function setGameBadge(gameId, text, kind = "warn") {
+            // clear all to avoid stale state when switching
+            for (const cfg of Object.values(GAMES)) setBadge(cfg.badgeId, "—", "warn");
+            const cfg = GAMES[gameId];
+            if (!cfg) return;
+            setBadge(cfg.badgeId, text, kind);
+        }
+
+        // --- render helpers ---
         function renderRecentGuesses(gs) {
             const ul = el("recentGuesses");
             if (!ul) return;
@@ -195,9 +270,6 @@
 
             const guesses = gs?.recentGuesses ?? gs?.RecentGuesses ?? [];
             const arr = Array.isArray(guesses) ? guesses : [];
-
-            // If your server stores newest-first (you insert at 0), keep as-is.
-            // Show up to 10 newest:
             const list = arr.slice(0, 10);
 
             if (list.length === 0) {
@@ -221,12 +293,12 @@
                 const li = document.createElement("li");
                 li.className = "item";
                 li.innerHTML = `
-                <div>
-                  <div class="who">${escapeHtml(user)}</div>
-                  <div class="small">${escapeHtml(guess)}</div>
-                </div>
-                ${right}
-              `;
+              <div>
+                <div class="who">${escapeHtml(user)}</div>
+                <div class="small">${escapeHtml(guess)}</div>
+              </div>
+              ${right}
+            `;
                 ul.appendChild(li);
             }
         }
@@ -251,45 +323,20 @@
                 const li = document.createElement("li");
                 li.className = "item";
                 li.innerHTML = `
-                <div>
-                  <div class="who">${escapeHtml(userId)}</div>
-                  <div class="small">score</div>
-                </div>
-                <div class="right">
-                  <div class="small">&nbsp;</div>
-                  <div class="who">${escapeHtml(String(score))}</div>
-                </div>
-              `;
+              <div>
+                <div class="who">${escapeHtml(userId)}</div>
+                <div class="small">score</div>
+              </div>
+              <div class="right">
+                <div class="small">&nbsp;</div>
+                <div class="who">${escapeHtml(String(score))}</div>
+              </div>
+            `;
                 ul.appendChild(li);
             }
         }
 
-        function activeGameToId(activeGame) {
-            // server might send enum int, or string
-            if (activeGame === null || activeGame === undefined) return "none";
-            if (typeof activeGame === "number") {
-                // GameType: None=0, Contexto=1, Deal=2, Hangman=3
-                if (activeGame === 1) return "contexto";
-                if (activeGame === 2) return "deal";
-                if (activeGame === 3) return "hangman";
-                return "none";
-            }
-            const s = String(activeGame).toLowerCase();
-            if (s.includes("contexto")) return "contexto";
-            if (s.includes("hangman")) return "hangman";
-            if (s.includes("deal")) return "deal";
-            if (s === "none") return "none";
-            return s;
-        }
-
-        function showGamePanels(gameId) {
-            el("panel-contexto")?.classList.toggle("hidden", gameId !== "contexto");
-            el("panel-hangman")?.classList.toggle("hidden", gameId !== "hangman");
-            // add dealPanel later
-        }
-
         function renderHangmanPublic(g) {
-            // g should be HangmanView.PublicView output
             const masked = g?.masked ?? "";
             const guessed = g?.guessed ?? [];
             const wrongCount = g?.wrongCount ?? 0;
@@ -305,13 +352,19 @@
                         "Guess a letter or word…";
         }
 
-
-
-
         // --- state/polling ---
         let joinedRef = "";
         let pollTimer = null;
         let presenceHandle = null;
+
+        // selectedGame is what user *wants* to view when room has no active game
+        let selectedGame = "contexto";
+
+        function getGameToRender(activeGameId) {
+            // prefer server active game if any; else use selectedGame (from query)
+            if (activeGameId && activeGameId !== "none") return activeGameId;
+            return GAMES[selectedGame] ? selectedGame : "contexto";
+        }
 
         async function refreshAll() {
             if (!joinedRef) return;
@@ -320,48 +373,31 @@
                 const raw = await api(`/rooms/${encodeURIComponent(joinedRef)}/state`);
                 const state = raw?.state ?? raw;
 
-                const roomName = state.roomName ?? state.RoomName ?? "Room";
-                const activeGameRaw = state.activeGame ?? state.ActiveGame ?? 0;
+                const roomName = pick(state, "roomName", "RoomName") ?? "Room";
+                const activeGameRaw = pick(state, "activeGame", "ActiveGame") ?? 0;
                 const activeGameId = activeGameToId(activeGameRaw);
 
                 el("roomLine").textContent = `${roomName} (${joinedRef})`;
 
-                // Determine what to render:
-                // - If server has an active game, render that.
-                // - Otherwise render the selected game from querystring (so play.html can prep the chosen game UI).
-                const gameIdToRender = (activeGameId && activeGameId !== "none") ? activeGameId : selectedGame;
-
+                const gameIdToRender = getGameToRender(activeGameId);
                 selectedGame = gameIdToRender; // keep in sync
-                showGamePanels(gameIdToRender);
 
-                // Enable/disable guess buttons appropriately
-                if (gameIdToRender === "contexto") {
-                    el("btnGuess") && (el("btnGuess").disabled = !joinedRef);
-                } else {
-                    el("btnGuess") && (el("btnGuess").disabled = true);
+                showOnlyPanel(gameIdToRender);
+
+                // Enable/disable per game
+                for (const [id, cfg] of Object.entries(GAMES)) {
+                    if (id === gameIdToRender) cfg.enableInputs();
+                    else cfg.disableInputs();
                 }
 
-                if (activeGameId === "none") {
-                    setGame(`No game (selected: ${gameIdToRender})`, "warn");
-                } else {
-                    setGame(gameIdToRender, "ok");
-                }
+                if (activeGameId === "none") setGameBadge(gameIdToRender, `No game (selected: ${gameIdToRender})`, "warn");
+                else setGameBadge(gameIdToRender, gameIdToRender, "ok");
 
-                // --- game-specific render ---
-                // Render game-specific UI
-                if (gameIdToRender === "contexto") {
-                    const gs = state.gameState ?? state.GameState ?? null;
-                    renderRecentGuesses(gs);
-                    el("stateOutContexto").textContent = pretty(state);
-                } else if (gameIdToRender === "hangman") {
-                    const g = await api(`/room/${encodeURIComponent(joinedRef)}/hangman/state`);
-                    renderHangmanPublic(g);
-                    el("stateOutHangman").textContent = pretty(g);
-                    const ul = el("recentGuesses");
-                    if (ul) ul.innerHTML = `<li class="small">Hangman doesn’t use recent guesses.</li>`;
-                }
+                // Game-specific render
+                const cfg = GAMES[gameIdToRender];
+                if (cfg) await cfg.render(state);
 
-                // Leaderboard/stats (keep as-is)
+                // Room stats/leaderboard
                 const [lbRaw, statsRaw] = await Promise.all([
                     api(`/rooms/${encodeURIComponent(joinedRef)}/leaderboard`),
                     api(`/rooms/${encodeURIComponent(joinedRef)}/stats`)
@@ -373,9 +409,9 @@
                 el("statsOut").textContent = pretty(stats);
                 renderLeaderboard(lb);
 
-                setStatus("Connected", "ok");
+                setBadge("statusBadge", "Connected", "ok");
             } catch (e) {
-                setStatus("Offline / Room not found", "bad");
+                setBadge("statusBadge", "Offline / Room not found", "bad");
             }
         }
 
@@ -400,16 +436,11 @@
             const ref = normalizeRef(el("roomRef")?.value);
             if (!isRoomRef(ref)) return alert("Enter a valid room code (8 digits) or custom code (4-12 A-Z0-9).");
 
-            // Preserve GUID / digits; normalize only custom codes
             const normalized = /^\d{8}$/.test(ref) || ref.includes("-") ? ref : ref.toUpperCase();
             joinedRef = normalized;
 
-            const btnJoin = el("btnJoin");
-            const btnLeave = el("btnLeave");
-            const btnGuess = el("btnGuess");
-            if (btnJoin) btnJoin.disabled = true;
-            if (btnLeave) btnLeave.disabled = false;
-            if (btnGuess) btnGuess.disabled = false;
+            el("btnJoin") && (el("btnJoin").disabled = true);
+            el("btnLeave") && (el("btnLeave").disabled = false);
 
             const overlayLink = el("overlayLink");
             if (overlayLink) overlayLink.href = `/overlay.html?roomId=${encodeURIComponent(joinedRef)}&game=${encodeURIComponent(selectedGame)}`;
@@ -429,39 +460,28 @@
             if (presenceHandle) clearInterval(presenceHandle);
             presenceHandle = null;
 
-            const btnJoin = el("btnJoin");
-            const btnLeave = el("btnLeave");
-            const btnGuess = el("btnGuess");
-            if (btnJoin) btnJoin.disabled = false;
-            if (btnLeave) btnLeave.disabled = true;
-            if (btnGuess) btnGuess.disabled = true;
+            el("btnJoin") && (el("btnJoin").disabled = false);
+            el("btnLeave") && (el("btnLeave").disabled = true);
 
-            const roomLine = el("roomLine");
-            if (roomLine) roomLine.textContent = "—";
+            el("roomLine") && (el("roomLine").textContent = "—");
+            setBadge("statusBadge", "Not connected", "warn");
 
-            setStatus("Not connected", "warn");
-            setGame("No game", "warn");
+            // Clear game badges
+            for (const cfg of Object.values(GAMES)) setBadge(cfg.badgeId, "No game", "warn");
 
-            const recent = el("recentGuesses");
-            if (recent) recent.innerHTML = "";
-
-            const lb = el("leaderboard");
-            if (lb) lb.innerHTML = "";
-
-            const statsOut = el("statsOut");
-            if (statsOut) statsOut.textContent = "{}";
+            el("recentGuesses") && (el("recentGuesses").innerHTML = "");
+            el("leaderboard") && (el("leaderboard").innerHTML = "");
+            el("statsOut") && (el("statsOut").textContent = "{}");
         }
 
-        async function sendGuess() {
+        // --- game input handlers ---
+        async function sendContextoGuess() {
             if (!joinedRef) return;
 
-            // Always use cookie identity (server will enforce claims anyway)
             const username = (myName || el("username")?.value || "Player").trim();
             const message = (el("guess")?.value || "").trim();
             if (!message) return;
 
-            // IMPORTANT: include required fields so model validation passes,
-            // but keep them aligned with cookie identity to avoid surprises.
             const payload = {
                 roomId: joinedRef,
                 platform: "web",
@@ -473,20 +493,14 @@
                 tsUtc: new Date().toISOString()
             };
 
-            try {
-                await api("/ingest/event", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload)
-                });
+            await api("/ingest/event", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
 
-                const guessEl = el("guess");
-                if (guessEl) guessEl.value = "";
-
-                await refreshAll();
-            } catch (e) {
-                alert(String(e));
-            }
+            el("guess") && (el("guess").value = "");
+            await refreshAll();
         }
 
         async function sendHangmanGuess() {
@@ -494,18 +508,14 @@
             const value = (el("hangmanGuessInput")?.value || "").trim();
             if (!value) return;
 
-            try {
-                await api(`/room/${encodeURIComponent(joinedRef)}/hangman/guess`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ value })
-                });
+            await api(`/rooms/${encodeURIComponent(joinedRef)}/games/hangman/guess`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ value })
+            });
 
-                el("hangmanGuessInput").value = "";
-                await refreshAll();
-            } catch (e) {
-                alert(String(e));
-            }
+            el("hangmanGuessInput") && (el("hangmanGuessInput").value = "");
+            await refreshAll();
         }
 
         function wire() {
@@ -513,11 +523,10 @@
             el("btnLeave") && (el("btnLeave").onclick = leave);
             el("btnRefresh") && (el("btnRefresh").onclick = refreshAll);
 
-
             // Contexto
-            el("btnGuess") && (el("btnGuess").onclick = sendGuess);
+            el("btnGuess") && (el("btnGuess").onclick = sendContextoGuess);
             el("guess")?.addEventListener("keydown", (ev) => {
-                if (ev.key === "Enter") sendGuess();
+                if (ev.key === "Enter") sendContextoGuess();
             });
 
             // Hangman
@@ -534,22 +543,26 @@
             });
         }
 
-        // Init (do everything AFTER DOM is ready)
         window.addEventListener("DOMContentLoaded", async () => {
             try {
                 const me = await refreshMe();
-                if (!me) return; // refreshMe already redirected
+                if (!me) return;
 
                 wire();
 
                 const qs = new URLSearchParams(location.search);
                 const qRoom = qs.get("roomId");
                 const qGame = (qs.get("game") || "contexto").toLowerCase();
-                selectedGame = qGame;
-                showGamePanels(selectedGame);
+
+                // Only accept games we know about
+                selectedGame = GAMES[qGame] ? qGame : "contexto";
+
+                // Show something immediately before join/poll
+                showOnlyPanel(selectedGame);
+                setGameBadge(selectedGame, "No game", "warn");
+
                 if (qRoom) {
-                    const roomRef = el("roomRef");
-                    if (roomRef) roomRef.value = qRoom;
+                    el("roomRef") && (el("roomRef").value = qRoom);
                     await join();
                 }
             } catch {
@@ -557,6 +570,5 @@
             }
         });
     </script>
-
 </body>
 </html>
