@@ -30,7 +30,7 @@
         <div class="grid" style="margin-top:12px;">
             <!-- Game panels: add new games by creating a new section with id panel-<gameId> -->
 
-            <section id="panel-contexto" class="card hidden">
+            <section id="panel-contexto" class="card" hidden>
                 <div class="titleRow">
                     <div>
                         <div style="font-weight:900;">Contexto</div>
@@ -54,7 +54,7 @@
                 </div>
             </section>
 
-            <section id="panel-hangman" class="card hidden">
+            <section id="panel-hangman" class="card" hidden>
                 <div class="titleRow">
                     <div>
                         <div style="font-weight:900;">Hangman</div>
@@ -249,9 +249,16 @@
         }
 
         function showOnlyPanel(gameId) {
-            for (const [id, cfg] of Object.entries(GAMES)) {
-                el(cfg.panelId)?.classList.toggle("hidden", id !== gameId);
+            // Hide all known game panels
+            for (const cfg of Object.values(GAMES)) {
+                const node = el(cfg.panelId);
+                if (node) node.hidden = true;
             }
+
+            // Show selected
+            const cfg = GAMES[gameId];
+            const node = cfg ? el(cfg.panelId) : null;
+            if (node) node.hidden = false;
         }
 
         function setGameBadge(gameId, text, kind = "warn") {
