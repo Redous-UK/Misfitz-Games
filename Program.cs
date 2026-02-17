@@ -153,6 +153,13 @@ public static class Program
             CopyDirectory(seed, dataRoot);
         }
 
+        app.UseRouting();
+
+        app.UseCors("default");
+
+        app.UseAuthentication();
+        app.UseAuthorization();
+
         // ------------- Serve editable site from /data/site -------------
         app.UseStaticFiles(new StaticFileOptions
         {
@@ -169,6 +176,10 @@ public static class Program
 
         // If you also use app.UseStaticFiles() for wwwroot elsewhere, keep it AFTER the /data one,
         // so /data overrides by route priority. (Or remove it if you only want /data.)
+
+
+        app.MapControllers();
+        app.MapHub<RoomHub>("/hubs/room");
 
         // ------------- Admin auth helpers -------------
         bool IsAuthed(HttpContext ctx)
@@ -405,13 +416,6 @@ public static class Program
 
         // ------------- Your existing endpoints/controllers/etc go here -------------
 
-        app.UseRouting();
-
-        app.UseCors("default");
-
-        app.UseAuthentication();
-        app.UseAuthorization();
-
         // Create/migrate DB on startup (simple and effective)
         using (var scope = app.Services.CreateScope())
         {
@@ -444,9 +448,6 @@ public static class Program
 
             return Results.Redirect("/debug.html");
         });
-
-        app.MapControllers();
-        app.MapHub<RoomHub>("/hubs/room");
 
         app.MapGet("/livez", () => Results.Ok(new
         {
