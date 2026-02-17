@@ -199,11 +199,11 @@ public static class Program
             return false;
         }
 
-        IResult RequireAuth(HttpContext ctx)
+        IResult? RequireAuth(HttpContext ctx)
         {
-            if (IsAuthed(ctx)) return Results.Empty;
+            if (IsAuthed(ctx)) return null;
 
-            // If they’re hitting /admin in a browser, show login page
+            // Browser: show login page for /admin
             if (ctx.Request.Path.StartsWithSegments("/admin") && ctx.Request.Method == "GET")
                 return Results.Content(AdminLoginHtml(), "text/html; charset=utf-8");
 
@@ -213,8 +213,8 @@ public static class Program
         // ------------- Admin pages -------------
         app.MapGet("/admin", (HttpContext ctx) =>
         {
-            var auth = RequireAuth(ctx);
-            if (auth != Results.Empty) return auth;
+            var deny = RequireAuth(ctx);
+            if (deny is not null) return deny;
 
             return Results.Content(AdminEditorHtml(), "text/html; charset=utf-8");
         });
@@ -264,8 +264,8 @@ public static class Program
         // ------------- Admin API (file operations) -------------
         app.MapGet("/admin/api/list", (HttpContext ctx) =>
         {
-            var auth = RequireAuth(ctx);
-            if (auth != Results.Empty) return auth;
+            var deny = RequireAuth(ctx);
+            if (deny is not null) return deny;
 
             var files = ListFiles(dataRoot);
             return Results.Json(new { ok = true, root = dataRoot, files });
@@ -273,8 +273,8 @@ public static class Program
 
         app.MapGet("/admin/api/read", (HttpContext ctx, string path) =>
         {
-            var auth = RequireAuth(ctx);
-            if (auth != Results.Empty) return auth;
+            var deny = RequireAuth(ctx);
+            if (deny is not null) return deny;
 
             var full = SafeResolve(dataRoot, path);
             if (full is null) return Results.BadRequest(new { ok = false, error = "Invalid path." });
@@ -288,8 +288,8 @@ public static class Program
 
         app.MapPost("/admin/api/save", async (HttpContext ctx) =>
         {
-            var auth = RequireAuth(ctx);
-            if (auth != Results.Empty) return auth;
+            var deny = RequireAuth(ctx);
+            if (deny is not null) return deny;
 
             using var doc = await JsonDocument.ParseAsync(ctx.Request.Body);
             var rel = doc.RootElement.GetProperty("path").GetString() ?? "";
@@ -310,8 +310,8 @@ public static class Program
 
         app.MapPost("/admin/api/upload", async (HttpContext ctx) =>
         {
-            var auth = RequireAuth(ctx);
-            if (auth != Results.Empty) return auth;
+            var deny = RequireAuth(ctx);
+            if (deny is not null) return deny;
 
             if (!ctx.Request.HasFormContentType) return Results.BadRequest(new { ok = false, error = "Expected multipart/form-data" });
 
@@ -343,8 +343,8 @@ public static class Program
 
         app.MapPost("/admin/api/delete", async (HttpContext ctx) =>
         {
-            var auth = RequireAuth(ctx);
-            if (auth != Results.Empty) return auth;
+            var deny = RequireAuth(ctx);
+            if (deny is not null) return deny;
 
             using var doc = await JsonDocument.ParseAsync(ctx.Request.Body);
             var rel = doc.RootElement.GetProperty("path").GetString() ?? "";
@@ -370,8 +370,8 @@ public static class Program
 
         app.MapGet("/admin/api/backups", (HttpContext ctx, string path) =>
         {
-            var auth = RequireAuth(ctx);
-            if (auth != Results.Empty) return auth;
+            var deny = RequireAuth(ctx);
+            if (deny is not null) return deny;
 
             var safe = SafeResolve(backupsRoot, BackupKey(path));
             if (safe is null) return Results.BadRequest(new { ok = false, error = "Invalid path." });
@@ -388,8 +388,8 @@ public static class Program
 
         app.MapPost("/admin/api/rollback", async (HttpContext ctx) =>
         {
-            var auth = RequireAuth(ctx);
-            if (auth != Results.Empty) return auth;
+            var deny = RequireAuth(ctx);
+            if (deny is not null) return deny;
 
             using var doc = await JsonDocument.ParseAsync(ctx.Request.Body);
             var rel = doc.RootElement.GetProperty("path").GetString() ?? "";
