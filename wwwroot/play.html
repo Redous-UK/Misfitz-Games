@@ -36,7 +36,7 @@
                             <div style="font-weight:900;">Contexto</div>
                             <div class="muted">Send guesses below. They’ll appear in recent guesses.</div>
                         </div>
-                        <span id="gameBadge" class="badge warn">No game</span>
+                        <span id="gameBadgeContexto" class="badge warn">No game</span>
                     </div>
 
                     <div class="row" style="margin-top:12px;">
@@ -48,9 +48,9 @@
                     <div class="sectionTitle">RECENT GUESSES</div>
                     <ul id="recentGuesses"></ul>
 
-                    <div id="debugBlock" class="debug-out">
+                    <div id="debugBlockContexto" class="debug-out">
                         <div class="sectionTitle">DEBUG STATE</div>
-                        <pre id="stateOut" class="debug-out">{}</pre>
+                        <pre id="stateOutContexto" class="debug-out">{}</pre>
                     </div>
                 </div>
             </section>
@@ -67,7 +67,7 @@
                         <div class="muted" style="margin-top:8px;">
                             Guessed: <span id="hangmanGuessed"></span>
                         </div>
-                        <span id="gameBadge" class="badge warn">No game</span>
+                        <span id="gameBadgeHangman" class="badge warn">No game</span>
                     </div>
 
                     <div style="margin-top:12px; display:flex; gap:8px;">
@@ -76,10 +76,12 @@
                     </div>
                     <div class="muted" style="margin-top:6px;">Tip: you can type plain words (no command needed).</div>
 
-                    <div id="debugBlock" class="debug-out">
+                    <div id="debugBlockHangman" class="debug-out">
                         <div class="sectionTitle">DEBUG STATE</div>
-                        <pre id="stateOut" class="debug-out">{}</pre>
+                        <pre id="stateOutHangman" class="debug-out">{}</pre>
                     </div>
+
+                    <div class="muted" style="margin-top:10px;" id="hangmanStatus"></div>
                 </div>
             </section>
 
@@ -157,7 +159,8 @@
         }
 
         function setGame(text, kind = "warn") {
-            const b = el("gameBadge");
+            const id = (selectedGame === "hangman") ? "gameBadgeHangman" : "gameBadgeContexto";
+            const b = el(id);
             if (!b) return;
             b.textContent = text;
             b.className = "badge " + (kind === "ok" ? "ok" : kind === "bad" ? "bad" : "warn");
@@ -285,6 +288,26 @@
             // add dealPanel later
         }
 
+        function renderHangmanPublic(g) {
+            // g should be HangmanView.PublicView output
+            const masked = g?.masked ?? "";
+            const guessed = g?.guessed ?? [];
+            const wrongCount = g?.wrongCount ?? 0;
+            const maxWrong = g?.maxWrong ?? 6;
+
+            el("hangmanMasked").textContent = masked ? masked.split("").join(" ") : "";
+            el("hangmanGuessed").textContent = Array.isArray(guessed) ? guessed.join(", ") : "";
+            el("hangmanWrong").textContent = `${wrongCount}/${maxWrong}`;
+
+            el("hangmanStatus").textContent =
+                g?.isWin ? "✅ Solved!" :
+                    g?.isLose ? "❌ Game Over!" :
+                        "Guess a letter or word…";
+        }
+
+
+
+
         // --- state/polling ---
         let joinedRef = "";
         let pollTimer = null;
@@ -295,30 +318,57 @@
 
             try {
                 const raw = await api(`/rooms/${encodeURIComponent(joinedRef)}/state`);
-                const state = raw?.state ?? raw; // ✅ supports both shapes
+                const state = raw?.state ?? raw;
 
                 const roomName = state.roomName ?? state.RoomName ?? "Room";
-                const activeGame = state.activeGame ?? state.ActiveGame ?? "None";
-                const gs = state.gameState ?? state.GameState ?? null;
+                const activeGameRaw = state.activeGame ?? state.ActiveGame ?? 0;
+                const activeGameId = activeGameToId(activeGameRaw);
 
                 el("roomLine").textContent = `${roomName} (${joinedRef})`;
 
-                if (!activeGame || activeGame === "None" || activeGame === 0) {
-                    setGame("No game", "warn");
-                    renderRecentGuesses(null);
+                // Determine what to render:
+                // - If server has an active game, render that.
+                // - Otherwise render the selected game from querystring (so play.html can prep the chosen game UI).
+                const gameIdToRender = (activeGameId && activeGameId !== "none") ? activeGameId : selectedGame;
+
+                selectedGame = gameIdToRender; // keep in sync
+                showGamePanels(gameIdToRender);
+
+                // Enable/disable guess buttons appropriately
+                if (gameIdToRender === "contexto") {
+                    el("btnGuess") && (el("btnGuess").disabled = !joinedRef);
                 } else {
-                    const endedAt = gs?.endedAtUtc ?? gs?.EndedAtUtc;
-                    setGame(endedAt ? "Round complete" : String(activeGame), "ok");
-                    renderRecentGuesses(gs);
+                    el("btnGuess") && (el("btnGuess").disabled = true);
                 }
 
+                if (activeGameId === "none") {
+                    setGame(`No game (selected: ${gameIdToRender})`, "warn");
+                } else {
+                    setGame(gameIdToRender, "ok");
+                }
+
+                // --- game-specific render ---
+                // Render game-specific UI
+                if (gameIdToRender === "contexto") {
+                    const gs = state.gameState ?? state.GameState ?? null;
+                    renderRecentGuesses(gs);
+                    el("stateOutContexto").textContent = pretty(state);
+                } else if (gameIdToRender === "hangman") {
+                    const g = await api(`/room/${encodeURIComponent(joinedRef)}/hangman/state`);
+                    renderHangmanPublic(g);
+                    el("stateOutHangman").textContent = pretty(g);
+                    const ul = el("recentGuesses");
+                    if (ul) ul.innerHTML = `<li class="small">Hangman doesn’t use recent guesses.</li>`;
+                }
+
+                // Leaderboard/stats (keep as-is)
                 const [lbRaw, statsRaw] = await Promise.all([
                     api(`/rooms/${encodeURIComponent(joinedRef)}/leaderboard`),
                     api(`/rooms/${encodeURIComponent(joinedRef)}/stats`)
                 ]);
 
-                const lb = lbRaw?.leaderboard ?? lbRaw?.data ?? lbRaw;      // optional: if you ever wrap these too
-                const stats = statsRaw?.stats ?? statsRaw?.data ?? statsRaw; // optional
+                const lb = lbRaw?.leaderboard ?? lbRaw?.data ?? lbRaw;
+                const stats = statsRaw?.stats ?? statsRaw?.data ?? statsRaw;
 
                 el("statsOut").textContent = pretty(stats);
                 renderLeaderboard(lb);
@@ -362,7 +412,7 @@
             if (btnGuess) btnGuess.disabled = false;
 
             const overlayLink = el("overlayLink");
-            if (overlayLink) overlayLink.href = `/overlay.html?roomId=${encodeURIComponent(joinedRef)}`;
+            if (overlayLink) overlayLink.href = `/overlay.html?roomId=${encodeURIComponent(joinedRef)}&game=${encodeURIComponent(selectedGame)}`;
 
             await startPresence(joinedRef);
             await refreshAll();
@@ -439,19 +489,45 @@
             }
         }
 
+        async function sendHangmanGuess() {
+            if (!joinedRef) return;
+            const value = (el("hangmanGuessInput")?.value || "").trim();
+            if (!value) return;
+
+            try {
+                await api(`/room/${encodeURIComponent(joinedRef)}/hangman/guess`, {
+                    method: onautocomplete: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ value })
+                });
+
+                el("hangmanGuessInput").value = "";
+                await refreshAll();
+            } catch (e) {
+                alert(String(e));
+            }
+        }
+
         function wire() {
             el("btnJoin") && (el("btnJoin").onclick = join);
             el("btnLeave") && (el("btnLeave").onclick = leave);
             el("btnRefresh") && (el("btnRefresh").onclick = refreshAll);
-            el("btnGuess") && (el("btnGuess").onclick = sendGuess);
 
+
+            // Contexto
+            el("btnGuess") && (el("btnGuess").onclick = sendGuess);
             el("guess")?.addEventListener("keydown", (ev) => {
                 if (ev.key === "Enter") sendGuess();
             });
 
+            // Hangman
+            el("hangmanGuessBtn")?.addEventListener("click", sendHangmanGuess);
+            el("hangmanGuessInput")?.addEventListener("keydown", (ev) => {
+                if (ev.key === "Enter") sendHangmanGuess();
+            });
+
             document.addEventListener("visibilitychange", () => {
                 if (!document.hidden && joinedRef) {
-                    // quick bump when tab comes back
                     startPresence(joinedRef);
                     refreshAll();
                 }
@@ -468,6 +544,9 @@
 
                 const qs = new URLSearchParams(location.search);
                 const qRoom = qs.get("roomId");
+                const qGame = (qs.get("game") || "contexto").toLowerCase();
+                selectedGame = qGame;
+                showGamePanels(selectedGame);
                 if (qRoom) {
                     const roomRef = el("roomRef");
                     if (roomRef) roomRef.value = qRoom;

@@ -1,7 +1,4 @@
-﻿using Misfitz_Games.Services.Games.Hangman;
-
-
-namespace Misfitz_Games.Models;
+﻿namespace Misfitz_Games.Models;
 
 
 public sealed record RoomCreateRequest(
