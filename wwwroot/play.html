@@ -62,9 +62,9 @@
                             <div style="font-weight:900;">Hangman</div>
                             <div style="font-size:32px; letter-spacing:6px;" id="hangmanMasked">_ _ _ _</div>
                         </div>
-                        <div class="muted" style="margin-top:8px;">
+                        <!--<div class="muted" style="margin-top:8px;">
                             Wrong: <span id="hangmanWrong">0/6</span>
-                        </div>
+                        </div>-->
                         <div class="muted" style="margin-top:8px;">
                             Guessed: <span id="hangmanGuessed"></span>
                         </div>
@@ -76,7 +76,7 @@
 
                             <div class="hangman-right">
                                 <div class="row" style="justify-content:space-between; align-items:center;">
-                                    <div id="livesBadge" class="badge">Lives: 6</div>
+                                    <div id="livesBadge" class="badge">Wrong: <span id="hangmanWrong">0/6</span></div>
                                     <div id="statusText" class="muted"></div>
                                 </div>
 
@@ -309,6 +309,11 @@
             const guessed = g?.guessed ?? [];
             const wrongCount = g?.wrongCount ?? 0;
             const maxWrong = g?.maxWrong ?? 6;
+
+            setHangmanStage(wrongCount);
+
+            const livesLeft = Math.max(0, maxWrong - wrongCount);
+            el("livesBadge").textContent = `Lives: ${livesLeft}`;
 
             el("hangmanMasked").textContent = masked ? masked.split("").join(" ") : "";
             el("hangmanGuessed").textContent = Array.isArray(guessed) ? guessed.join(", ") : "";
