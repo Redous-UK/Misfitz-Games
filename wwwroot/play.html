@@ -68,6 +68,25 @@
                         <div class="muted" style="margin-top:8px;">
                             Guessed: <span id="hangmanGuessed"></span>
                         </div>
+
+                        <div class="hangman">
+                            <div class="hangman-left">
+                                <div id="hangmanSprite" class="hangman-sprite" aria-label="Hangman stage"></div>
+                            </div>
+
+                            <div class="hangman-right">
+                                <div class="row" style="justify-content:space-between; align-items:center;">
+                                    <div id="livesBadge" class="badge">Lives: 6</div>
+                                    <div id="statusText" class="muted"></div>
+                                </div>
+
+                                <div id="wordDisplay" class="word-display"></div>
+                                <div id="wrongLetters" class="wrong-letters"></div>
+
+                                <div class="keyboard" id="keyboard"></div>
+                            </div>
+                        </div>
+
                         <span id="gameBadgeHangman" class="badge warn">No game</span>
                     </div>
 
@@ -75,14 +94,15 @@
                         <input id="hangmanGuessInput" maxlength="32" placeholder="Type a letter or word…" />
                         <button id="hangmanGuessBtn">Guess</button>
                     </div>
-                    <div class="muted" style="margin-top:6px;">Tip: you can type plain words (no command needed).</div>
+                    <div class="muted" style="margin-top:10px;" id="hangmanStatus"></div>
+                    <div class="muted" style="margin-top:6px;"></div>
 
                     <div id="debugBlockHangman" class="debug-out">
                         <div class="sectionTitle">DEBUG STATE</div>
                         <pre id="stateOutHangman" class="debug-out">{}</pre>
                     </div>
 
-                    <div class="muted" style="margin-top:10px;" id="hangmanStatus"></div>
+                    
                 </div>
             </section>
 
@@ -237,12 +257,12 @@
                 const li = document.createElement("li");
                 li.className = "item";
                 li.innerHTML = `
-              <div>
-                <div class="who">${escapeHtml(user)}</div>
-                <div class="small">${escapeHtml(guess)}</div>
-              </div>
-              ${right}
-            `;
+                      <div>
+                        <div class="who">${escapeHtml(user)}</div>
+                        <div class="small">${escapeHtml(guess)}</div>
+                      </div>
+                      ${right}
+                    `;
                 ul.appendChild(li);
             }
         }
@@ -269,15 +289,15 @@
                 const li = document.createElement("li");
                 li.className = "item";
                 li.innerHTML = `
-              <div>
-                <div class="who">${escapeHtml(userId)}</div>
-                <div class="small">score</div>
-              </div>
-              <div class="right">
-                <div class="small">&nbsp;</div>
-                <div class="who">${escapeHtml(String(score))}</div>
-              </div>
-            `;
+                      <div>
+                        <div class="who">${escapeHtml(userId)}</div>
+                        <div class="small">score</div>
+                      </div>
+                      <div class="right">
+                        <div class="small">&nbsp;</div>
+                        <div class="who">${escapeHtml(String(score))}</div>
+                      </div>
+                    `;
                 ul.appendChild(li);
             }
         }
@@ -447,6 +467,8 @@
             el("panel-hangman") && (el("panel-hangman").hidden = true);
         }
 
+        //Contexto Specific
+
         async function sendContextoGuess() {
             if (!joinedRef) return;
 
@@ -472,6 +494,97 @@
             }
         }
 
+
+        //Hangman Specific
+
+        function getHangmanMaxWrong() {
+            // default 6 if missing
+            return Number(window.appSettings?.hangmanMaxWrong ?? 6);
+        }
+
+        let maxWrong = getHangmanMaxWrong();
+        let wrongCount = 0;
+
+        function setHangmanStage(stage) {
+            const sprite = document.getElementById("hangmanSprite");
+            if (!sprite) return;
+
+            const clamped = Math.max(0, Math.min(stage, maxWrong));
+
+            // Read frame height from CSS variable --frameH (must be px)
+            const frameH = getFrameHeightPx(sprite);
+            const y = -(clamped * frameH);
+
+            sprite.style.backgroundPosition = `0px ${y}px`;
+
+            const livesLeft = Math.max(0, maxWrong - clamped);
+            const badge = document.getElementById("livesBadge");
+            if (badge) badge.textContent = `Lives: ${livesLeft}`;
+        }
+
+        function shakeSprite() {
+            const el = document.getElementById("hangmanSprite");
+            if (!el) return;
+            el.classList.remove("shake");
+            void el.offsetWidth; // reflow
+            el.classList.add("shake");
+        }
+
+        function onGuessLetter(letter) {
+            // ignore repeats
+            if (guessedSet.has(letter) || wrongSet.has(letter)) return;
+
+            // TODO: replace this with your actual secret word check
+            const secret = window.currentHangmanWord?.toUpperCase() ?? "MISFITZ";
+
+            if (secret.includes(letter)) {
+                guessedSet.add(letter);
+                renderWord(secret, guessedSet);
+            } else {
+                shakeSprite()
+                wrongSet.add(letter);
+                wrongCount++;
+                renderWrongLetters(wrongSet);
+                setHangmanStage(wrongCount);
+
+                if (wrongCount >= maxWrong) {
+                    endGame(false, secret);
+                }
+            }
+
+            disableKey(letter);
+        }
+
+        function getFrameHeightPx(el) {
+            const v = getComputedStyle(el).getPropertyValue("--frameH").trim(); // e.g. "360px"
+            const n = Number(v.replace("px", "").trim());
+            return Number.isFinite(n) && n > 0 ? n : el.getBoundingClientRect().height;
+        }
+
+        function renderWrongLetters(set) {
+            document.getElementById("wrongLetters").textContent =
+                `Wrong: ${Array.from(set).join(", ")}`;
+        }
+
+        function disableKey(letter) {
+            const btn = document.querySelector(`button[data-letter="${letter}"]`);
+            if (btn) btn.disabled = true;
+        }
+
+        function endGame(won, secret) {
+            // lock keyboard, show message, etc
+            [...document.querySelectorAll("#keyboard button")].forEach(b => b.disabled = true);
+            // optional: show modal/toast
+        }
+
+        function renderWord(secret, guessed) {
+            const out = secret.split("").map(ch => (ch === " " ? " " : (guessed.has(ch) ? ch : "_"))).join(" ");
+            document.getElementById("wordDisplay").textContent = out;
+
+            // win check (no underscores)
+            if (!out.includes("_")) endGame(true, secret);
+        }
+
         async function sendHangmanGuess() {
             if (!joinedRef) return;
 
@@ -491,6 +604,16 @@
                 alert(String(e));
             }
         }
+
+        function resetHangmanGame() {
+            maxWrong = getHangmanMaxWrong(); // re-read settings each game
+            wrongCount = 0;
+            setHangmanStage(0);
+
+            // reset other state...
+        }
+
+//Wire up buttons and events
 
         function wire() {
             el("btnJoin") && (el("btnJoin").onclick = join);

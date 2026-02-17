@@ -679,3 +679,83 @@ pre {
     .room-chip.game.idle {
         opacity: .75;
     }
+
+
+/* Hangman Specific */
+.hangman {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 16px;
+    align-items: start;
+}
+
+.hangman-sprite {
+    --frameW: 360px;
+    --frameH: 360px;
+    width: var(--frameW);
+    height: var(--frameH);
+    background-image: url("/assets/Games/Hangman/hangman_sprite.png");
+    background-repeat: no-repeat;
+    background-size: var(--frameW) auto; /* width fixed, height auto */
+    background-position: 0 0;
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    background-color: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.10);
+}
+
+.word-display {
+    font-size: 34px;
+    letter-spacing: 6px;
+    padding: 10px 0;
+}
+
+.wrong-letters {
+    margin-top: 8px;
+    opacity: .9;
+    font-size: 14px;
+}
+
+.badge {
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.12);
+}
+
+.keyboard {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    gap: 8px;
+}
+
+    .keyboard button {
+        padding: 10px 8px;
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,.15);
+        background: rgba(255,255,255,.06);
+        cursor: pointer;
+    }
+
+        .keyboard button:disabled {
+            opacity: .45;
+            cursor: not-allowed;
+        }
+@keyframes hangmanShake {
+    0%, 100% {
+        transform: translateX(0);
+    }
+
+    25% {
+        transform: translateX(-6px);
+    }
+
+    75% {
+        transform: translateX(6px);
+    }
+}
+
+.hangman-sprite.shake {
+    animation: hangmanShake .18s ease;
+}
