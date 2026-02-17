@@ -70,8 +70,6 @@ Desktop.ini
 .env.*
 !.env.example
 
-data/
-
 # appsettings overrides (contain secrets often)
 appsettings.*.json
 !appsettings.json
