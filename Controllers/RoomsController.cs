@@ -5,7 +5,7 @@ using Misfitz_Games.Services.Room;
 namespace Misfitz_Games.Controllers;
 
 [ApiController]
-public class RoomsController(IRoomStateStore store) : ControllerBase
+public class RoomsController(IRoomStateStore store, RoomBroadcastService broadcaster) : ControllerBase
 {
     [HttpPost("/rooms")]
     public async Task<IActionResult> Create([FromBody] RoomCreateRequest req, CancellationToken ct)
@@ -120,16 +120,19 @@ public class RoomsController(IRoomStateStore store) : ControllerBase
     }
 
     [HttpGet("/rooms/{roomRef}/state")]
-    public async Task<IActionResult> GetState(string roomRef, CancellationToken ct)
+    public async Task<IActionResult> State(string roomRef, CancellationToken ct)
     {
         var roomId = await store.ResolveRoomIdAsync(roomRef, ct);
-        if (roomId is null) return NotFound(new { ok = false, error = "Room not found" });
+        if (roomId is null) return NotFound(new { error = "Room not found." });
 
-        var state = await store.GetStateAsync(roomId.Value, ct);
-        if (state is null) return NotFound(new { ok = false, error = "State not found" });
+        var room = await store.GetStateAsync(roomId.Value, ct);
+        if (room is null) return NotFound(new { error = "Room state not found." });
 
-        // ✅ Return the same shape your broadcaster uses
-        return Ok(RoomStateProjector.ToPublic(state));
+        // ✅ Always return the same shape (projected public)
+        var pub = RoomStateProjector.ToPublic(room);
+
+        // If you like wrapper: { state = pub } (your JS supports both)
+        return Ok(new { state = pub });
     }
 
     [HttpGet("/room/resolve/{roomRef}")]
@@ -142,6 +145,30 @@ public class RoomsController(IRoomStateStore store) : ControllerBase
         if (state is null) return NotFound(new { error = "Room state not found." });
 
         return Ok(new { roomId = roomId.Value, state });
+    }
+
+    [HttpPost("/rooms/{roomRef}/games/stop")]
+    public async Task<IActionResult> Stop(string roomRef, CancellationToken ct)
+    {
+        var roomId = await store.ResolveRoomIdAsync(roomRef, ct);
+        if (roomId is null) return NotFound(new { ok = false, error = "Room not found" });
+
+        var state = await store.GetStateAsync(roomId.Value, ct);
+        if (state is null) return NotFound(new { ok = false, error = "Room state not found" });
+
+        var next = state with
+        {
+            ActiveGame = GameType.None,
+            GameState = null,
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        };
+
+        await store.SaveStateAsync(next, ct);
+
+        var pub = RoomStateProjector.ToPublic(next);
+        await broadcaster.BroadcastStateAsync(roomId.Value, pub, ct);
+
+        return Ok(new { ok = true, state = pub });
     }
 
     private static string NormalizeCustomCode(string code)

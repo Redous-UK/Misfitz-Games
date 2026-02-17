@@ -1,94 +1,66 @@
-﻿using Misfitz_Games.Models;
-using System.Text.Json;
+﻿using Misfitz_Games.Controllers;
+using Misfitz_Games.Models;
+using Misfitz_Games.Services.Games.Hangman;
 
 namespace Misfitz_Games.Services.Room;
 
 public static class RoomStateProjector
 {
-    private static readonly JsonSerializerOptions JsonOpts = new()
+    // IMPORTANT: Keep game state public + consistent
+    // This is the room-wide "public state" shape clients consume.
+    public static object ToPublic(RoomState room)
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true
-    };
+        var (gameId, gameStatePublic) = ProjectGame(room);
 
-    public static object ToPublic(RoomState state)
-    {
-        // --- Ensure players key always exists (never null) ---
-        var players = state.Players ?? [];
-
-        // Build a userId -> username lookup (players first, then recent guesses)
-        var nameByUserId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var p in players)
-            if (!string.IsNullOrWhiteSpace(p.UserId) && !string.IsNullOrWhiteSpace(p.Name))
-                nameByUserId[p.UserId] = p.Name;
-
-        // --- Normalize contexto state regardless of storage type (ContextoState or JsonElement) ---
-        ContextoState? cs = null;
-
-        if (state.ActiveGame == GameType.Contexto)
-        {
-            if (state.GameState is ContextoState direct)
-                cs = direct;
-            else if (state.GameState is JsonElement je)
-            {
-                try { cs = je.Deserialize<ContextoState>(JsonOpts); } catch { /* ignore */ }
-            }
-        }
-
-        // Fill gaps from recent guesses (last-known username)
-        if (cs is not null)
-        {
-            foreach (var g in cs.RecentGuesses)
-                if (!string.IsNullOrWhiteSpace(g.UserId) && !string.IsNullOrWhiteSpace(g.Username))
-                    nameByUserId.TryAdd(g.UserId, g.Username);
-        }
-
-        // If contexto, strip SecretWord from the public output
-        object? publicGameState = state.GameState;
-
-        if (cs is not null)
-        {
-            // Build username-aware leaderboard
-            var leaderboard = cs.ScoresByUserId
-                .OrderByDescending(kv => kv.Value)
-                .Select(kv => new
-                {
-                    userId = kv.Key,
-                    username = nameByUserId.TryGetValue(kv.Key, out var u) ? u : kv.Key,
-                    score = kv.Value
-                })
-                .ToArray();
-
-            publicGameState = new
-            {
-                isActive = cs.IsActive,
-                startedAtUtc = cs.StartedAtUtc,
-                endedAtUtc = cs.EndedAtUtc,
-                recentGuesses = cs.RecentGuesses,
-                leaderboard
-            };
-        }
-
-        // Return a controlled public shape so we always include players/hostUserId
         return new
         {
-            roomId = state.RoomId,
-            roomName = state.RoomName,
-            activeGame = state.ActiveGame,
-            gameState = publicGameState,
-            updatedAtUtc = state.UpdatedAtUtc,
+            roomId = room.RoomId,
+            roomName = room.RoomName,
+            activeGame = (int)room.ActiveGame,
+            updatedAtUtc = room.UpdatedAtUtc,
+            players = room.Players ?? [],
+            hostUserId = room.HostUserId,
 
-            hostUserId = state.HostUserId,
-            players = players.Select(p => new
+            // Game block is ALWAYS present, even if none
+            game = new
             {
-                userId = p.UserId,
-                name = p.Name,
-                lastSeenUtc = p.LastSeenUtc,
-                isConnected = p.IsConnected,
-                isReady = p.IsReady,
-                avatarUrl = p.AvatarUrl
-            }).ToArray()
+                id = gameId,
+                state = gameStatePublic
+            },
+
+            utc = DateTimeOffset.UtcNow
         };
+    }
+
+    private static (string gameId, object state) ProjectGame(RoomState room)
+    {
+        // Always return a game object, even if inactive
+        if (room.ActiveGame == GameType.None || room.GameState is null)
+            return ("none", new { isActive = false });
+
+        // Use safe typed extraction (handles JsonElement after persistence)
+        switch (room.ActiveGame)
+        {
+            case GameType.Contexto:
+                {
+                    if (GameStateJson.TryDeserialize(room.GameState, out ContextoState cs))
+                        return ("contexto", ContextoPublic.From(cs));
+
+                    return ("contexto", new { game = "contexto", isActive = false });
+                }
+
+            case GameType.Hangman:
+                {
+                    if (GameStateJson.TryDeserialize(room.GameState, out HangmanState hs))
+                        return ("hangman", HangmanView.PublicView(hs));
+
+                    return ("hangman", new { game = "hangman", isActive = false });
+                }
+
+            case GameType.Deal:
+            default:
+                // Placeholder until Deal has a public projector
+                return (room.ActiveGame.ToString().ToLowerInvariant(), new { isActive = false });
+        }
     }
 }

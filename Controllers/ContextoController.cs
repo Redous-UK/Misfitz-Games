@@ -199,33 +199,6 @@ public sealed class ContextoController(
     }
 
     // ----------------------------
-    // Stop (keep route; broadcast consistent envelope)
-    // ----------------------------
-    [HttpPost("/rooms/{roomRef}/games/stop")]
-    public async Task<IActionResult> Stop(string roomRef, CancellationToken ct)
-    {
-        var loaded = await LoadRoomStateAsync(roomRef, ct);
-        if (loaded is null) return NotFound(new { ok = false, error = "Room not found" });
-
-        var (roomId, room) = loaded.Value;
-
-        var next = room with
-        {
-            ActiveGame = GameType.None,
-            GameState = null,
-            UpdatedAtUtc = DateTimeOffset.UtcNow
-        };
-
-        await SaveRoomStateAsync(roomId, next, ct);
-
-        // Broadcast with a consistent envelope, even for stop
-        await BroadcastAsync(roomId, next.ActiveGame, "none", new { isActive = false }, new { type = "stop" }, ct);
-        await ToastAsync(roomId, "Game stopped.", ct);
-
-        return Ok(new { ok = true });
-    }
-
-    // ----------------------------
     // Internal: apply guess in a typed, consistent way
     // ----------------------------
     private (RoomState nextRoom, ContextoGuess? latest) ContextoApplyGuess(
