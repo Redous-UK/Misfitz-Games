@@ -690,18 +690,14 @@ pre {
 }
 
 .hangman-sprite {
-    --frameW: 360px;
-    --frameH: 360px;
-    width: var(--frameW);
-    height: var(--frameH);
+    width: 360px;
+    height: 360px;
     background-image: url("/assets/Games/Hangman/hangman_sprite.png");
     background-repeat: no-repeat;
-    background-size: var(--frameW) auto; /* width fixed, height auto */
-    background-position: 0 0;
-    border-radius: 14px;
-    box-shadow: 0 10px 30px rgba(0,0,0,.25);
-    background-color: rgba(255,255,255,.06);
-    border: 1px solid rgba(255,255,255,.10);
+    /* Key: lock the sprite width; height scales automatically */
+    background-size: 360px auto;
+    /* Show only one frame (viewport is 360x360) */
+    overflow: hidden;
 }
 
 .word-display {

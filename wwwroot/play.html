@@ -513,7 +513,7 @@
 
             // Read frame height from CSS variable --frameH (must be px)
             const frameH = getFrameHeightPx(sprite);
-            const y = -(clamped * frameH);
+            const y = -(clamped * 360);
 
             sprite.style.backgroundPosition = `0px ${y}px`;
 
