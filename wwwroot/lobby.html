@@ -708,22 +708,23 @@
             await refreshLeaderboard();
         }
 
-        async function stopGame() {
+        async function stopSelectedGame() {
             const code = roomId();
             if (!code) return alert("Pick a room first.");
 
-            const gameId = String(selectedGameId || "contexto").toLowerCase();
-            const g = GAMES_REGISTRY[gameId];
+            try {
+                const r = await api(`/rooms/${encodeURIComponent(code)}/games/stop`, {
+                    method: "POST"
+                });
 
-            // Prefer per-game stop, fallback to global stop
-            const r = g?.stop
-                ? await g.stop(code)
-                : await api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" });
+                const out = el("gameOut");
+                if (out) out.textContent = pretty(r);
 
-            const out = el("gameOut");
-            if (out) out.textContent = pretty(r);
-
-            await refreshState();
+                await refreshState();
+                await refreshLeaderboard();
+            } catch (e) {
+                alert(String(e));
+            }
         }
 
         function goPlay() {
