@@ -505,21 +505,18 @@
         let maxWrong = getHangmanMaxWrong();
         let wrongCount = 0;
 
+        function getFrameHeight(el) {
+            return el.getBoundingClientRect().height;
+        }
+
         function setHangmanStage(stage) {
-            const sprite = document.getElementById("hangmanSprite");
-            if (!sprite) return;
+            const el = document.getElementById("hangmanSprite");
+            const maxWrong = Number(window.appSettings?.hangmanMaxWrong ?? 6);
 
             const clamped = Math.max(0, Math.min(stage, maxWrong));
+            const frameH = getFrameHeight(el);
 
-            // Read frame height from CSS variable --frameH (must be px)
-            const frameH = getFrameHeightPx(sprite);
-            const y = -(clamped * 360);
-
-            sprite.style.backgroundPosition = `0px ${y}px`;
-
-            const livesLeft = Math.max(0, maxWrong - clamped);
-            const badge = document.getElementById("livesBadge");
-            if (badge) badge.textContent = `Lives: ${livesLeft}`;
+            el.style.backgroundPosition = `0px ${-(clamped * frameH)}px`;
         }
 
         function shakeSprite() {
