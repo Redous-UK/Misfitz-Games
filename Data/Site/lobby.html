@@ -588,6 +588,21 @@
                     { key: "word", label: "Word (temp – until random words)", type: "text", default: "" },
                     { key: "maxWrong", label: "Max wrong", type: "number", default: 6 }
                 ]
+            },
+            deal: {
+                title: "Deal or No Deal",
+                controls: [
+                    { key: "difficulty", label: "Difficulty", type: "select", default: "easy", options: ["easy", "medium", "hard"] }
+                ]
+            },
+            trivia: {
+                title: "Daily Trivia",
+                controls: [
+                    { key: "difficulty", label: "Difficulty", type: "select", default: "easy", options: ["easy", "medium", "hard"] },
+                    { key: "roundSeconds", label: "Round seconds", type: "number", default: 20, min: 5, max: 120 },
+                    { key: "autoNext", label: "Auto-next", type: "checkbox", default: false },
+                    { key: "autoNextDelaySeconds", label: "Auto-next delay (s)", type: "number", default: 7, min: 0, max: 30 }
+                ]
             }
         };
 
@@ -641,15 +656,67 @@
                 label.textContent = c.label;
                 wrap.appendChild(label);
 
-                const input = document.createElement("input");
-                input.className = "control-input";
-                input.type = c.type === "number" ? "number" : "text";
-                input.value = String(gameSettings[gameId][c.key] ?? "");
+                const stored = gameSettings[gameId][c.key];
 
-                input.addEventListener("input", () => {
-                    const v = input.value;
-                    gameSettings[gameId][c.key] = (c.type === "number") ? (v === "" ? "" : Number(v)) : v;
-                });
+                let input;
+
+                // ✅ SELECT
+                if (c.type === "select") {
+                    input = document.createElement("select");
+                    input.className = "control-input";
+
+                    const opts = Array.isArray(c.options) ? c.options : [];
+                    for (const opt of opts) {
+                        const o = document.createElement("option");
+                        o.value = String(opt);
+                        o.textContent = String(opt);
+                        input.appendChild(o);
+                    }
+
+                    input.value = String(stored ?? c.default ?? (opts[0] ?? ""));
+
+                    input.addEventListener("change", () => {
+                        gameSettings[gameId][c.key] = input.value;
+                    });
+                }
+                // ✅ CHECKBOX
+                else if (c.type === "checkbox") {
+                    // keep your label layout, but checkbox needs checked instead of value
+                    input = document.createElement("input");
+                    input.className = "control-input";
+                    input.type = "checkbox";
+                    input.checked = Boolean(stored ?? c.default ?? false);
+
+                    // Optional: make checkbox not look weird if your CSS styles .control-input for text
+                    // input.classList.add("control-checkbox");
+
+                    input.addEventListener("change", () => {
+                        gameSettings[gameId][c.key] = input.checked;
+                    });
+                }
+                // NUMBER / TEXT (existing behaviour)
+                else {
+                    input = document.createElement("input");
+                    input.className = "control-input";
+                    input.type = (c.type === "number") ? "number" : "text";
+
+                    // optional min/max/step support
+                    if (c.type === "number") {
+                        if (c.min !== undefined) input.min = String(c.min);
+                        if (c.max !== undefined) input.max = String(c.max);
+                        if (c.step !== undefined) input.step = String(c.step);
+                    }
+
+                    input.value = String(stored ?? "");
+
+                    input.addEventListener("input", () => {
+                        const v = input.value;
+                        gameSettings[gameId][c.key] =
+                            (c.type === "number")
+                                ? (v === "" ? "" : Number(v))
+                                : v;
+                    });
+                }
 
                 wrap.appendChild(input);
                 host.appendChild(wrap);
@@ -696,6 +763,33 @@
                         body: JSON.stringify({ word, maxWrong })
                     });
                 },
+                stop: async (code) => api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" })
+            },
+            trivia: {
+                title: "Daily Trivia",
+                playUrl: (code) => `/play.html?roomId=${encodeURIComponent(code)}&game=trivia`,
+                overlayUrl: (code) => `/overlay.html?roomId=${encodeURIComponent(code)}&game=trivia`,
+                start: async (code) => {
+                    const difficulty = String(gameSettings.trivia?.difficulty ?? "easy").trim().toLowerCase();
+                    const okDiff = (difficulty === "easy" || difficulty === "medium" || difficulty === "hard");
+                    if (!okDiff) throw new Error("Trivia: difficulty must be easy, medium, or hard");
+
+                    const rs = gameSettings.trivia?.roundSeconds;
+                    const roundSeconds = Number.isFinite(rs) && rs > 0 ? rs : 20;
+
+                    const autoNext = !!gameSettings.trivia?.autoNext;
+
+                    const ds = gameSettings.trivia?.autoNextDelaySeconds;
+                    const autoNextDelaySeconds = Number.isFinite(ds) && ds >= 0 ? ds : 7;
+
+                    return await api(`/rooms/${encodeURIComponent(code)}/games/trivia/start`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ difficulty, roundSeconds, autoNext, autoNextDelaySeconds })
+                    });
+                },
+                // optional extra controls if you want buttons later:
+                reveal: async (code) => api(`/rooms/${encodeURIComponent(code)}/games/trivia/reveal`, { method: "POST" }),
                 stop: async (code) => api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" })
             }
         };
