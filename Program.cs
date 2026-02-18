@@ -206,235 +206,108 @@ public static class Program
         app.MapControllers();
         app.MapHub<RoomHub>("/hubs/room");
 
-        // ------------- Admin auth helpers -------------
-        bool IsAuthed(HttpContext ctx)
-        {
-            if (string.IsNullOrWhiteSpace(adminToken)) return false;
 
-            // Header auth (useful for curl/tools)
-            if (ctx.Request.Headers.TryGetValue("X-Admin-Token", out var hv) &&
-                hv.ToString() == adminToken)
-                return true;
-
-            // Cookie auth (browser)
-            if (ctx.Request.Cookies.TryGetValue("mg_admin", out var cv) &&
-                cv == adminToken)
-                return true;
-
-            return false;
-        }
-
-        IResult? RequireAuth(HttpContext ctx)
-        {
-            if (IsAuthed(ctx)) return null;
-
-            // Browser: show login page for /admin
-            if (ctx.Request.Path.StartsWithSegments("/admin") && ctx.Request.Method == "GET")
-                return Results.Content(AdminLoginHtml(), "text/html; charset=utf-8");
-
-            return Results.Unauthorized();
-        }
 
         // ------------- Admin pages -------------
         app.MapGet("/admin", (HttpContext ctx) =>
         {
-            var deny = RequireAuth(ctx);
-            if (deny is not null) return deny;
-
             return Results.Content(AdminEditorHtml(), "text/html; charset=utf-8");
-        });
+        })
+        .RequireAuthorization("AdminOnly");
 
-        app.MapPost("/admin/login", async (HttpContext ctx) =>
+        var adminApi = app.MapGroup("/admin/api").RequireAuthorization("AdminOnly");
+
+        adminApi.MapGet("/list", (HttpContext ctx) =>
         {
-            // Accept token from form or JSON
-            string token = "";
-
-            if (ctx.Request.HasFormContentType)
-            {
-                var form = await ctx.Request.ReadFormAsync();
-                token = form["token"].ToString();
-            }
-            else
-            {
-                try
-                {
-                    using var doc = await JsonDocument.ParseAsync(ctx.Request.Body);
-                    if (doc.RootElement.TryGetProperty("token", out var t))
-                        token = t.GetString() ?? "";
-                }
-                catch { }
-            }
-
-            if (!string.IsNullOrWhiteSpace(adminToken) && token == adminToken)
-            {
-                ctx.Response.Cookies.Append("mg_admin", adminToken, new CookieOptions
-                {
-                    HttpOnly = true,
-                    Secure = true,
-                    SameSite = SameSiteMode.Strict,
-                    Path = "/"
-                });
-                return Results.Redirect("/admin");
-            }
-
-            return Results.Content(AdminLoginHtml("Invalid token."), "text/html; charset=utf-8");
-        });
-
-        app.MapPost("/admin/logout", (HttpContext ctx) =>
-        {
-            ctx.Response.Cookies.Delete("mg_admin", new CookieOptions { Path = "/" });
-            return Results.Redirect("/admin");
-        });
-
-        // ------------- Admin API (file operations) -------------
-        app.MapGet("/admin/api/list", (HttpContext ctx) =>
-        {
-            var deny = RequireAuth(ctx);
-            if (deny is not null) return deny;
-
             var files = ListFiles(dataRoot);
             return Results.Json(new { ok = true, root = dataRoot, files });
         });
 
-        app.MapGet("/admin/api/read", (HttpContext ctx, string path) =>
+        adminApi.MapGet("/read", (HttpContext ctx, string path) =>
         {
-            var deny = RequireAuth(ctx);
-            if (deny is not null) return deny;
-
             var full = SafeResolve(dataRoot, path);
             if (full is null) return Results.BadRequest(new { ok = false, error = "Invalid path." });
             if (!System.IO.File.Exists(full)) return Results.NotFound(new { ok = false, error = "Not found." });
-
             var bytes = System.IO.File.ReadAllBytes(full);
             var text = TryDecode(bytes);
-
             return Results.Json(new { ok = true, path, content = text });
         });
 
-        app.MapPost("/admin/api/save", async (HttpContext ctx) =>
+        adminApi.MapGet("/login", (HttpContext ctx) =>
         {
-            var deny = RequireAuth(ctx);
-            if (deny is not null) return deny;
-
-            using var doc = await JsonDocument.ParseAsync(ctx.Request.Body);
-            var rel = doc.RootElement.GetProperty("path").GetString() ?? "";
-            var content = doc.RootElement.GetProperty("content").GetString() ?? "";
-
-            var full = SafeResolve(dataRoot, rel);
-            if (full is null) return Results.BadRequest(new { ok = false, error = "Invalid path." });
-
-            Directory.CreateDirectory(Path.GetDirectoryName(full)!);
-
-            // Backup existing before overwrite
-            if (System.IO.File.Exists(full))
-                CreateBackup(backupsRoot, rel, System.IO.File.ReadAllBytes(full));
-
-            System.IO.File.WriteAllText(full, content, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-            return Results.Json(new { ok = true, path = rel });
+            return Results.Content(AdminLoginHtml(), "text/html; charset=utf-8");
         });
 
-        app.MapPost("/admin/api/upload", async (HttpContext ctx) =>
+        adminApi.MapPost("/upload", async (HttpContext ctx) =>
         {
-            var deny = RequireAuth(ctx);
-            if (deny is not null) return deny;
-
             if (!ctx.Request.HasFormContentType) return Results.BadRequest(new { ok = false, error = "Expected multipart/form-data" });
-
             var form = await ctx.Request.ReadFormAsync();
+            var token = form["token"].ToString();
+            if (token != adminToken) return Results.Unauthorized();
             var relDir = form["dir"].ToString(); // can be "" for root
             var file = form.Files.GetFile("file");
             if (file is null) return Results.BadRequest(new { ok = false, error = "Missing file." });
-
             var safeDir = string.IsNullOrWhiteSpace(relDir) ? "" : relDir.Trim();
             var targetRel = Path.Combine(safeDir, file.FileName).Replace('\\', '/');
-
             var full = SafeResolve(dataRoot, targetRel);
             if (full is null) return Results.BadRequest(new { ok = false, error = "Invalid path." });
-
             Directory.CreateDirectory(Path.GetDirectoryName(full)!);
-
             // Backup existing
             if (System.IO.File.Exists(full))
             {
                 var existing = System.IO.File.ReadAllBytes(full);
                 CreateBackup(backupsRoot, targetRel, existing);
             }
-
             using var fs = System.IO.File.Create(full);
             await file.CopyToAsync(fs);
-
             return Results.Json(new { ok = true, path = targetRel });
         });
 
-        app.MapPost("/admin/api/delete", async (HttpContext ctx) =>
+        adminApi.MapPost("/delete", async (HttpContext ctx) =>
         {
-            var deny = RequireAuth(ctx);
-            if (deny is not null) return deny;
-
             using var doc = await JsonDocument.ParseAsync(ctx.Request.Body);
             var rel = doc.RootElement.GetProperty("path").GetString() ?? "";
-
             var full = SafeResolve(dataRoot, rel);
             if (full is null) return Results.BadRequest(new { ok = false, error = "Invalid path." });
-
             if (System.IO.File.Exists(full))
             {
                 CreateBackup(backupsRoot, rel, System.IO.File.ReadAllBytes(full));
                 System.IO.File.Delete(full);
                 return Results.Json(new { ok = true });
             }
-
             if (Directory.Exists(full))
             {
                 Directory.Delete(full, recursive: true);
                 return Results.Json(new { ok = true });
             }
-
             return Results.NotFound(new { ok = false, error = "Not found." });
         });
-
-        app.MapGet("/admin/api/backups", (HttpContext ctx, string path) =>
+        adminApi.MapGet("/backups", (HttpContext ctx, string path) =>
         {
-            var deny = RequireAuth(ctx);
-            if (deny is not null) return deny;
-
             var safe = SafeResolve(backupsRoot, BackupKey(path));
             if (safe is null) return Results.BadRequest(new { ok = false, error = "Invalid path." });
-
             if (!Directory.Exists(safe)) return Results.Json(new { ok = true, items = Array.Empty<string>() });
-
             var items = Directory.EnumerateFiles(safe, "*.bak")
                 .Select(Path.GetFileName)
                 .OrderByDescending(x => x)
                 .ToArray();
-
             return Results.Json(new { ok = true, items });
         });
-
-        app.MapPost("/admin/api/rollback", async (HttpContext ctx) =>
+        adminApi.MapPost("/rollback", async (HttpContext ctx) =>
         {
-            var deny = RequireAuth(ctx);
-            if (deny is not null) return deny;
-
             using var doc = await JsonDocument.ParseAsync(ctx.Request.Body);
             var rel = doc.RootElement.GetProperty("path").GetString() ?? "";
             var bak = doc.RootElement.GetProperty("backupFile").GetString() ?? "";
-
             var bakDir = SafeResolve(backupsRoot, BackupKey(rel));
             if (bakDir is null) return Results.BadRequest(new { ok = false, error = "Invalid path." });
-
             var bakFull = Path.Combine(bakDir, bak);
             if (!System.IO.File.Exists(bakFull)) return Results.NotFound(new { ok = false, error = "Backup not found." });
-
             var target = SafeResolve(dataRoot, rel);
             if (target is null) return Results.BadRequest(new { ok = false, error = "Invalid path." });
-
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-
             // Backup current before rollback
             if (System.IO.File.Exists(target))
                 CreateBackup(backupsRoot, rel, System.IO.File.ReadAllBytes(target));
-
             System.IO.File.WriteAllBytes(target, System.IO.File.ReadAllBytes(bakFull));
             return Results.Json(new { ok = true });
         });
