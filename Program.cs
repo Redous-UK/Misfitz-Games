@@ -1,14 +1,10 @@
 ﻿using Humanizer;
-using Microsoft.AspNetCore.StaticFiles;
-using Microsoft.Extensions.FileProviders;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
-using static System.Net.Mime.MediaTypeNames;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Misfitz_Games.Data;
 using Misfitz_Games.Hubs;
 using Misfitz_Games.Services;
@@ -18,6 +14,11 @@ using Misfitz_Games.Services.Infrastructure.Redis;
 using Misfitz_Games.Services.Room;
 using Misfitz_Games.Services.Tuya;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using static System.Net.Mime.MediaTypeNames;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Misfitz_Games;
 
@@ -147,11 +148,14 @@ public static class Program
         Directory.CreateDirectory(dataRoot);
         Directory.CreateDirectory(backupsRoot);
 
-        var seed = Path.Combine(app.Environment.ContentRootPath, "Data", "Site");
-        if (Directory.Exists(seed) && !Directory.EnumerateFileSystemEntries(dataRoot).Any())
-        {
-            CopyDirectory(seed, dataRoot);
-        }
+        var seedRoot = Path.Combine(app.Environment.ContentRootPath, "Data", "Site");
+
+        BootstrapSite(seedRoot, dataRoot, requiredFiles:
+        [
+            "*.html",
+            "*.css",
+            "*.png"
+        ]);
 
         app.UseRouting();
 
@@ -177,6 +181,27 @@ public static class Program
         // If you also use app.UseStaticFiles() for wwwroot elsewhere, keep it AFTER the /data one,
         // so /data overrides by route priority. (Or remove it if you only want /data.)
 
+        app.UseExceptionHandler(errApp =>
+        {
+            errApp.Run(async context =>
+            {
+                var feature = context.Features.Get<IExceptionHandlerPathFeature>();
+                var ex = feature?.Error;
+
+                Console.WriteLine($"[500] Path={feature?.Path}\n{ex}");
+
+                context.Response.StatusCode = 500;
+                context.Response.ContentType = "application/json; charset=utf-8";
+
+                await context.Response.WriteAsync(JsonSerializer.Serialize(new
+                {
+                    ok = false,
+                    path = feature?.Path,
+                    error = ex?.Message,
+                    detail = ex?.ToString()
+                }));
+            });
+        });
 
         app.MapControllers();
         app.MapHub<RoomHub>("/hubs/room");
@@ -552,25 +577,51 @@ public static class Program
             app.UseSwaggerUI();
         }
 
-        app.Run();
+
 
 
         // ===================== Helpers =====================
 
-        static void CopyDirectory(string sourceDir, string destinationDir)
+        static void BootstrapSite(string seedRoot, string dataRoot, string[] requiredFiles)
         {
-            Directory.CreateDirectory(destinationDir);
+            if (!Directory.Exists(seedRoot))
+            {
+                Console.WriteLine($"[site] Seed folder missing: {seedRoot}");
+                return;
+            }
+
+            // Decide if we need to seed
+            var hasAny = Directory.EnumerateFileSystemEntries(dataRoot).Any();
+            var missingRequired = requiredFiles.Any(pattern =>
+                !Directory.EnumerateFiles(dataRoot, pattern, SearchOption.AllDirectories).Any());
+
+            if (hasAny && !missingRequired)
+            {
+                Console.WriteLine($"[site] /data/site already populated; skipping seed.");
+                return;
+            }
+
+            Console.WriteLine($"[site] Seeding /data/site from: {seedRoot}");
+
+            CopyDirectory(seedRoot, dataRoot, overwrite: true);
+
+            Console.WriteLine($"[site] Seed complete.");
+        }
+
+        static void CopyDirectory(string sourceDir, string destDir, bool overwrite)
+        {
+            Directory.CreateDirectory(destDir);
 
             foreach (var file in Directory.GetFiles(sourceDir))
             {
-                var dest = Path.Combine(destinationDir, Path.GetFileName(file));
-                System.IO.File.Copy(file, dest, overwrite: true);
+                var destFile = Path.Combine(destDir, Path.GetFileName(file));
+                File.Copy(file, destFile, overwrite);
             }
 
             foreach (var dir in Directory.GetDirectories(sourceDir))
             {
-                var dest = Path.Combine(destinationDir, Path.GetFileName(dir));
-                CopyDirectory(dir, dest);
+                var destSub = Path.Combine(destDir, Path.GetFileName(dir));
+                CopyDirectory(dir, destSub, overwrite);
             }
         }
 
@@ -922,5 +973,6 @@ loadList();
 </html>
 """;
 
+        app.Run();
     }
 }
