@@ -208,7 +208,7 @@ public sealed class ContextoController(
     // ----------------------------
     private (RoomState nextRoom, ContextoGuess? latest) ContextoApplyGuess(
         RoomState room,
-        ContextoState current,
+        ContextoState _,
         string userId,
         string username,
         string guess)

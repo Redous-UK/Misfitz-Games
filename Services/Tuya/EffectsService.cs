@@ -1,4 +1,4 @@
-﻿namespace Misfitz_Games.Services;
+﻿namespace Misfitz_Games.Services.Tuya;
 
 public class EffectsService(TuyaPlugService tuya)
 {

@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Misfitz_Games.Data;
 using Misfitz_Games.Models.Effects;
 
-namespace Misfitz_Games.Services;
+namespace Misfitz_Games.Services.Tuya;
 
 public class EffectsEngine(AppDbContext db, TuyaPlugService tuya)
 {

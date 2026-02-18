@@ -1,12 +1,12 @@
 ﻿using System.Text.Json;
 
-namespace Misfitz_Games.Services;
+namespace Misfitz_Games.Services.Tuya;
 
 public class WebhookIngestService(EffectsService effects, ILogger<WebhookIngestService> log)
 {
     public record IngestResult(bool Handled, string Message);
 
-    public async Task<IngestResult> ProcessAsync(string source, JsonElement payload, CancellationToken ct)
+    public async Task<IngestResult> ProcessAsync(string source, JsonElement payload, CancellationToken _)
     {
         // Minimal “gift trigger” normalization:
         // We try to extract:
