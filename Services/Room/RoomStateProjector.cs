@@ -4,13 +4,12 @@ using Misfitz_Games.Models;
 using Misfitz_Games.Models.Games;
 using Misfitz_Games.Services.Games;
 using Misfitz_Games.Services.Games.Hangman;
+using Misfitz_Games.Services.Games.Trivia;
 
 namespace Misfitz_Games.Services.Room;
 
 public static class RoomStateProjector
 {
-    // IMPORTANT: Keep game state public + consistent
-    // This is the room-wide "public state" shape clients consume.
     public static object ToPublic(RoomState room)
     {
         var (gameId, gameStatePublic) = ProjectGame(room);
@@ -23,47 +22,39 @@ public static class RoomStateProjector
             updatedAtUtc = room.UpdatedAtUtc,
             players = room.Players ?? [],
             hostUserId = room.HostUserId,
-
-            // Game block is ALWAYS present, even if none
-            game = new
-            {
-                id = gameId,
-                state = gameStatePublic
-            },
-
+            game = new { id = gameId, state = gameStatePublic },
             utc = DateTimeOffset.UtcNow
         };
     }
 
-    private static (string gameId, object state) ProjectGame(RoomState room)
+    private static (string gameId, object gameStatePublic) ProjectGame(RoomState room) => room.ActiveGame switch
     {
-        // Always return a game object, even if inactive
-        if (room.ActiveGame == GameType.None || room.GameState is null)
-            return ("none", new { isActive = false });
+        GameType.Contexto => ("contexto", ProjectContexto(room.GameState)),
+        GameType.Hangman => ("hangman", ProjectHangman(room.GameState)),
+        GameType.Trivia => ("trivia", ProjectTrivia(room.GameState)),
+        GameType.Deal => ("deal", ProjectPlaceholder("deal")),
+        _ => ("none", ProjectNone()),
+    };
 
-        // Use safe typed extraction (handles JsonElement after persistence)
-        switch (room.ActiveGame)
-        {
-            case GameType.Contexto:
-                {
-                    if (GameStateJson.TryDeserialize(room.GameState, out ContextoState cs))
-                        return ("contexto", ContextoPublic.From(cs));
+    private static object ProjectNone() => new { active = false, isActive = false };
+    private static object ProjectPlaceholder(string id) => new { active = false, isActive = false, comingSoon = true, id };
 
-                    return ("contexto", new { game = "contexto", isActive = false });
-                }
-
-            case GameType.Hangman:
-                {
-                    if (GameStateJson.TryDeserialize(room.GameState, out HangmanState hs))
-                        return ("hangman", HangmanView.PublicView(hs));
-
-                    return ("hangman", new { game = "hangman", isActive = false });
-                }
-
-            case GameType.Deal:
-            default:
-                // Placeholder until Deal has a public projector
-                return (room.ActiveGame.ToString().ToLowerInvariant(), new { isActive = false });
-        }
+    private static object ProjectContexto(object? gameState)
+    {
+        if (gameState is not ContextoState cs)
+            return ProjectNone();
+        return ContextoPublic.From(cs);
+    }
+    private static object ProjectHangman(object? gameState)
+    {
+        if (gameState is not HangmanState hs)
+            return ProjectNone();
+        return HangmanView.PublicView(hs);
+    }
+    private static object ProjectTrivia(object? gameState)
+    {
+        if (gameState is not TriviaRoundState round)
+            return ProjectNone();
+        return TriviaView.PublicView(round);
     }
 }

@@ -1,14 +1,4 @@
-﻿// Your current TriviaController is *almost* correct. Below are the final tweaks to remove warnings and
-// ensure positional-record state always includes timer fields.
-//
-// 1) Remove unused using: Misfitz_Games.Controllers; (you already inherit RoomGameControllerBase via Rooms namespace)
-// 2) In Start/Stop/Reveal, use 'now' consistently for AskedAtUtc/UpdatedAtUtc to avoid minor analyzer nags.
-// 3) In Stop, construct TriviaRoundState including the new timer/automation fields (so you don't rely on optional
-//    defaults that may not exist depending on your record definition).
-// 4) In Answer/Status, your TryAutoProgressAsync call is now non-nullable and correct.
-// 5) secondsLeft is correctly typed as int?.
-
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Misfitz_Games.Controllers.Rooms;
 using Misfitz_Games.Models;
 using Misfitz_Games.Models.Games;
@@ -84,7 +74,7 @@ public sealed class TriviaController(
         await SaveRoomStateAsync(roomId, updated, ct);
         await Store.IncrementGamesPlayedAsync(roomId, 1, ct);
 
-        var publicState = TriviaPublic.From((TriviaRoundState)updated.GameState!);
+        var publicState = TriviaView.PublicView((TriviaRoundState)updated.GameState!);
 
         await BroadcastAsync(roomId, updated.ActiveGame, "trivia", publicState, new { type = "start" }, ct);
         await ToastAsync(roomId, "Daily Trivia started!", ct);
@@ -154,7 +144,7 @@ public sealed class TriviaController(
 
         await SaveRoomStateAsync(roomId, updated, ct);
 
-        var publicState = TriviaPublic.From((TriviaRoundState)updated.GameState!);
+        var publicState = TriviaView.PublicView((TriviaRoundState)updated.GameState!);
 
         await BroadcastAsync(roomId, updated.ActiveGame, "trivia", publicState, new
         {
@@ -194,7 +184,7 @@ public sealed class TriviaController(
 
         await SaveRoomStateAsync(roomId, updated, ct);
 
-        var publicState = TriviaPublic.From((TriviaRoundState)updated.GameState!);
+        var publicState = TriviaView.PublicView((TriviaRoundState)updated.GameState!);
 
         await BroadcastAsync(roomId, updated.ActiveGame, "trivia", publicState, new { type = "reveal" }, ct);
         await ToastAsync(roomId, "Answer revealed!", ct);
@@ -235,7 +225,7 @@ public sealed class TriviaController(
 
         await SaveRoomStateAsync(roomId, updated, ct);
 
-        var publicState = TriviaPublic.From(stopped);
+        var publicState = TriviaView.PublicView(stopped);
 
         await BroadcastAsync(roomId, GameType.Trivia, "trivia", publicState, new { type = "stop" }, ct);
         await ToastAsync(roomId, "Trivia stopped.", ct);
@@ -259,7 +249,7 @@ public sealed class TriviaController(
         var progressed = await TryAutoProgressAsync(roomId, room, round, difficulty, ct);
         var (_, updatedRound) = progressed;
 
-        return Ok(new { state = TriviaPublic.From(updatedRound) });
+        return Ok(new { state = TriviaView.PublicView(updatedRound) });
     }
 
     private async Task<(RoomState updatedRoom, TriviaRoundState updatedRound)> TryAutoProgressAsync(
@@ -288,7 +278,7 @@ public sealed class TriviaController(
 
             await SaveRoomStateAsync(roomId, revealedRoom, ct);
 
-            var revealPublic = TriviaPublic.From((TriviaRoundState)revealedRoom.GameState!);
+            var revealPublic = TriviaView.PublicView((TriviaRoundState)revealedRoom.GameState!);
             await BroadcastAsync(roomId, revealedRoom.ActiveGame, "trivia", revealPublic, new { type = "reveal" }, ct);
 
             room = revealedRoom;
@@ -323,7 +313,7 @@ public sealed class TriviaController(
 
             await SaveRoomStateAsync(roomId, nextRoom, ct);
 
-            var startPublic = TriviaPublic.From((TriviaRoundState)nextRoom.GameState!);
+            var startPublic = TriviaView.PublicView((TriviaRoundState)nextRoom.GameState!);
             await BroadcastAsync(roomId, nextRoom.ActiveGame, "trivia", startPublic, new { type = "start" }, ct);
 
             await ToastAsync(roomId, "Next question!", ct);
@@ -334,46 +324,5 @@ public sealed class TriviaController(
         return (room, round);
     }
 
-    internal static class TriviaPublic
-    {
-        public static object From(TriviaRoundState cs)
-        {
-            if (cs.Current is null)
-                return new { active = false };
 
-            var answers = cs.Current.ShuffledAnswers
-                .Select((text, i) => new { key = "ABCD"[i].ToString(), text });
-
-            return new
-            {
-                active = cs.Active,
-                revealed = cs.Revealed,
-                askedAtUtc = cs.AskedAtUtc,
-                category = cs.Current.Category,
-                difficulty = cs.Current.Difficulty,
-                question = cs.Current.Question,
-                answers,
-
-                correct = cs.Revealed ? cs.Current.CorrectAnswer : null,
-                correctKey = cs.Revealed ? GetCorrectKey(cs.Current) : null,
-
-                scores = cs.ScoresByUserId,
-
-                endsAtUtc = cs.EndsAtUtc,
-                nextStartsAtUtc = cs.NextStartsAtUtc,
-                autoNext = cs.AutoNext,
-                autoNextDelaySeconds = cs.AutoNextDelaySeconds,
-                roundSeconds = cs.RoundSeconds,
-                secondsLeft = cs.EndsAtUtc is null
-                    ? (int?)null
-                    : (int)Math.Max(0, (cs.EndsAtUtc.Value - DateTimeOffset.UtcNow).TotalSeconds)
-            };
-        }
-
-        private static string? GetCorrectKey(TriviaQuestion q)
-        {
-            var idx = q.ShuffledAnswers.FindIndex(a => a == q.CorrectAnswer);
-            return idx >= 0 ? "ABCD"[idx].ToString() : null;
-        }
-    }
 }

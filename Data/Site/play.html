@@ -1,4 +1,5 @@
-﻿<!doctype html>
+﻿﻿
+<!doctype html>
 <html>
 <head>
     <meta charset="utf-8" />
@@ -63,8 +64,8 @@
                             <div style="font-size:32px; letter-spacing:6px;" id="hangmanMasked">_ _ _ _</div>
                         </div>
                         <!--<div class="muted" style="margin-top:8px;">
-                    Wrong: <span id="hangmanWrong">0/6</span>
-                </div>-->
+                            Wrong: <span id="hangmanWrong">0/6</span>
+                        </div>-->
                         <div class="muted" style="margin-top:8px;">
                             Guessed: <span id="hangmanGuessed"></span>
                         </div>
@@ -106,6 +107,16 @@
                 </div>
             </section>
 
+            <!-- Contexto panel -->
+            <section id="panel-deal" class="card" hidden>
+                <div class="card">
+                    <div id="debugBlockDeala" class="debug-out">
+                        <div class="sectionTitle">DEBUG STATE</div>
+                        <pre id="stateOutDeal" class="debug-out">{}</pre>
+                    </div>
+                </div>
+            </section>
+
             <!-- Trivia panel -->
             <section id="panel-trivia" class="card" hidden>
                 <div class="card">
@@ -128,7 +139,7 @@
                                     <div id="triviaSeconds" class="badge"></div>
                                     <div class="timerBar"><div id="triviaTimerFill" class="timerFill"></div></div>
                                 </div>
-                                
+
                             </div>
                         </div>
 
@@ -140,9 +151,9 @@
                         <ul id="triviaAnswers" class="answersList"></ul>
                     </div>
 
-                    <div id="debugBlockTrivia" class="debug-out">
+                    <div id="debugBlockTrivia">
                         <div class="sectionTitle">DEBUG STATE</div>
-                        <pre id="stateOutTrivia" class="debug-out">{}</pre>
+                        <pre id="stateOutTrivia">{}</pre>
                     </div>
                 </div>
             </section>
@@ -173,7 +184,7 @@
         const el = (id) => document.getElementById(id);
         const pretty = (o) => JSON.stringify(o, null, 2);
 
-        const POLL_MS = 1200;
+        const POLL_MS = 2200;
         const PRESENCE_MS = 7000;
 
         async function api(path, opts = {}) {
@@ -217,6 +228,22 @@
             localStorage.setItem("myRole", myRole);
 
             return me;
+        }
+
+        function setText(id, text) {
+            const node = el(id);
+            if (node) node.textContent = text;
+        }
+
+        function panelExists(gameId) {
+            return !!document.getElementById(`panel-${gameId}`);
+        }
+
+        // Optional: normalize server ids to your panel ids
+        function normalizeGameId(id) {
+            id = String(id ?? "none").trim().toLowerCase();
+            if (id === "dailytrivia" || id === "daily_trivia") return "trivia";
+            return id;
         }
 
         // --- badges ---
@@ -263,13 +290,44 @@
 
         // --- panels (use hidden attribute so they ACTUALLY disappear) ---
         function showOnlyPanel(gameId) {
-            // If you add more games later, just add to this set.
-            const panels = ["contexto", "hangman", "deal", "trivia"];
-            for (const id of panels) {
-                const node = el(`panel-${id}`);
-                if (node) node.hidden = (id !== gameId);
-            }
+            const target = String(gameId ?? "").toLowerCase();
+            document.querySelectorAll('[id^="panel-"]').forEach(node => {
+                const id = node.id.replace("panel-", "").toLowerCase();
+                node.hidden = (id !== target);
+            });
         }
+
+        // Game Render
+
+        const GAME_RENDERERS = {
+            contexto: {
+                render: (gs, state) => {
+                    renderRecentGuesses(gs);
+                    setText("stateOutContexto", pretty(state));
+                }
+            },
+            hangman: {
+                render: (gs, state) => {
+                    renderHangmanPublic(gs);
+                    setText("stateOutHangman", pretty(state));
+                }
+            },
+            trivia: {
+                render: (gs, state) => {
+                    renderTriviaPublic(gs);
+                    setText("stateOutTrivia", pretty(state));
+                }
+            },
+            deal: {
+                // If deal isn’t implemented yet, this won’t crash.
+                render: (gs, state) => {
+                    setText("stateOutDeal", pretty(state));
+                }
+            }
+        };
+
+
+
 
         // --- render (Contexto) ---
         function renderRecentGuesses(gs) {
@@ -304,12 +362,12 @@
                 const li = document.createElement("li");
                 li.className = "item";
                 li.innerHTML = `
-                      <div>
-                        <div class="who">${escapeHtml(user)}</div>
-                        <div class="small">${escapeHtml(guess)}</div>
-                      </div>
-                      ${right}
-                    `;
+                                  <div>
+                                    <div class="who">${escapeHtml(user)}</div>
+                                    <div class="small">${escapeHtml(guess)}</div>
+                                  </div>
+                                  ${right}
+                                `;
                 ul.appendChild(li);
             }
         }
@@ -336,26 +394,26 @@
                 const li = document.createElement("li");
                 li.className = "item";
                 li.innerHTML = `
-                      <div>
-                        <div class="who">${escapeHtml(userId)}</div>
-                        <div class="small">score</div>
-                      </div>
-                      <div class="right">
-                        <div class="small">&nbsp;</div>
-                        <div class="who">${escapeHtml(String(score))}</div>
-                      </div>
-                    `;
+                                  <div>
+                                    <div class="who">${escapeHtml(userId)}</div>
+                                    <div class="small">score</div>
+                                  </div>
+                                  <div class="right">
+                                    <div class="small">&nbsp;</div>
+                                    <div class="who">${escapeHtml(String(score))}</div>
+                                  </div>
+                                `;
                 ul.appendChild(li);
             }
         }
 
         // --- render (Hangman) ---
-        function renderHangmanPublic(g) {
-            // g should be HangmanView.PublicView output (or projector state.game.state)
-            const masked = g?.masked ?? "";
-            const guessed = g?.guessed ?? [];
-            const wrongCount = g?.wrongCount ?? 0;
-            const maxWrong = g?.maxWrong ?? 6;
+        function renderHangmanPublic(gs) {
+            // gs should be HangmanView.PublicView output (or projector state.game.state)
+            const masked = gs?.masked ?? "";
+            const guessed = gs?.guessed ?? [];
+            const wrongCount = gs?.wrongCount ?? 0;
+            const maxWrong = gs?.maxWrong ?? 6;
 
             setHangmanStage(wrongCount);
 
@@ -367,83 +425,146 @@
             el("hangmanWrong").textContent = `${wrongCount}/${maxWrong}`;
 
             el("hangmanStatus").textContent =
-                g?.isWin ? "✅ Solved!" :
-                    g?.isLose ? "❌ Game Over!" :
-                        (g?.isActive === false ? "No active hangman round." : "Guess a letter or word…");
+                gs?.isWin ? "✅ Solved!" :
+                    gs?.isLose ? "❌ Game Over!" :
+                        (gs?.isActive === false ? "No active hangman round." : "Guess a letter or word…");
         }
-
-
 
 
         // --- render (Trivia) ---
-
         function renderTriviaPublic(gs) {
-
-            li.innerHTML = `
-          <div>
-            <div class="who">${escapeHtml(key)}</div>
-            <div class="small">${escapeHtml(text)}</div>
-          </div>
-          <div class="right">
-            <div class="small">&nbsp;</div>
-            <div class="who">&nbsp;</div>
-          </div>
-        `;
-
-            // Optional: click-to-answer (web play)
-            // Only allow while active + not revealed
-            if (gs?.active && !gs?.revealed && joinedRef) {
-                li.style.cursor = "pointer";
-                li.addEventListener("click", async () => {
-                    try {
-                        await api(`/rooms/${encodeURIComponent(joinedRef)}/games/trivia/answer`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ userId: myUserId, choice: key })
-                        });
-                        await refreshAll();
-                    } catch (e) {
-                        alert(String(e));
-                    }
-                });
+            // Badges / meta
+            const badge = el("gameBadgeTrivia");
+            if (badge) {
+                badge.textContent = gs?.active ? (gs?.revealed ? "Revealed" : "Active") : "No game";
+                badge.className = "badge " + (gs?.active ? "ok" : "warn");
             }
 
-            ul.appendChild(li);
-        }
- 
+            const meta = el("triviaMeta");
+            if (meta) {
+                const cat = gs?.category ?? "";
+                const diff = gs?.difficulty ?? "";
+                meta.textContent = [cat, diff].filter(Boolean).join(" • ");
+            }
 
-        // Scores
-        const scoresUl = el("triviaScores");
-        if (scoresUl) {
-            scoresUl.innerHTML = "";
-            const scores = gs?.scores ?? {};
+            const qEl = el("triviaQuestion");
+            if (qEl) qEl.textContent = gs?.question ?? "";
 
-            const entries = Object.entries(scores)
-                .map(([k, v]) => ({ k: String(k), v: Number(v) || 0 }))
-                .sort((a, b) => b.v - a.v)
-                .slice(0, 10);
+            // Reveal text
+            const revealEl = el("triviaReveal");
+            if (revealEl) {
+                const correct = gs?.correct ?? null;
+                const correctKey = gs?.correctKey ?? null;
 
-            if (entries.length === 0) {
-                scoresUl.innerHTML = `<li class="small">No scores yet…</li>`;
-            } else {
-                for (const e of entries) {
-                    const li = document.createElement("li");
-                    li.className = "item";
-                    li.innerHTML = `
-          <div>
-            <div class="who">${escapeHtml(e.k)}</div>
-            <div class="small">score</div>
-          </div>
-          <div class="right">
-            <div class="small">&nbsp;</div>
-            <div class="who">${escapeHtml(String(e.v))}</div>
-          </div>
-        `;
-                    scoresUl.appendChild(li);
+                if (gs?.revealed && correct) {
+                    revealEl.classList.remove("hidden");
+                    revealEl.innerHTML = `✅ Correct: <b>${escapeHtml(String(correctKey ?? ""))}</b> — ${escapeHtml(String(correct))}`;
+                } else {
+                    revealEl.classList.add("hidden");
+                    revealEl.textContent = "";
+                }
+            }
+
+            // Answers list
+            const ul = el("triviaAnswers");
+            if (ul) {
+                ul.innerHTML = "";
+
+                const answers = Array.isArray(gs?.answers) ? gs.answers : [];
+                if (!gs?.active || answers.length === 0) {
+                    ul.innerHTML = `<li class="small">No question yet…</li>`;
+                } else {
+                    for (const a of answers) {
+                        const key = (a?.key ?? "").toString();
+                        const text = (a?.text ?? "").toString();
+
+                        const li = document.createElement("li");
+                        li.className = "item";
+                        li.innerHTML = `
+                              <div>
+                                <div class="who">${escapeHtml(key)}</div>
+                                <div class="small">${escapeHtml(text)}</div>
+                              </div>
+                              <div class="right">
+                                <div class="small">&nbsp;</div>
+                                <div class="who">&nbsp;</div>
+                              </div>
+                            `;
+
+                        // Click-to-answer (web play)
+                        if (gs?.active && !gs?.revealed && joinedRef) {
+                            li.style.cursor = "pointer";
+                            li.addEventListener("click", async () => {
+                                try {
+                                    await api(`/rooms/${encodeURIComponent(joinedRef)}/games/trivia/answer`, {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ userId: myUserId, choice: key })
+                                    });
+                                    await refreshAll();
+                                } catch (e) {
+                                    alert(String(e));
+                                }
+                            });
+                        }
+
+                        ul.appendChild(li);
+                    }
+                }
+            }
+
+            // Scores / leaderboard
+            const scoresUl = el("triviaScores");
+            if (scoresUl) {
+                scoresUl.innerHTML = "";
+
+                const scores = gs?.scores && typeof gs.scores === "object" ? gs.scores : {};
+                const entries = Object.entries(scores)
+                    .map(([k, v]) => ({ k: String(k), v: Number(v) || 0 }))
+                    .sort((a, b) => b.v - a.v)
+                    .slice(0, 10);
+
+                if (entries.length === 0) {
+                    scoresUl.innerHTML = `<li class="small">No scores yet…</li>`;
+                } else {
+                    for (const e of entries) {
+                        const li = document.createElement("li");
+                        li.className = "item";
+                        li.innerHTML = `
+                              <div>
+                                <div class="who">${escapeHtml(e.k)}</div>
+                                <div class="small">score</div>
+                              </div>
+                              <div class="right">
+                                <div class="small">&nbsp;</div>
+                                <div class="who">${escapeHtml(String(e.v))}</div>
+                              </div>
+                            `;
+                        scoresUl.appendChild(li);
+                    }
+                }
+            }
+
+            // Timer (optional, if you’re using these ids)
+            const secondsBadge = el("triviaSeconds");
+            if (secondsBadge) {
+                const left = gs?.secondsLeft;
+                secondsBadge.textContent = Number.isFinite(left) ? `${left}s` : "";
+                secondsBadge.hidden = !(gs?.active && Number.isFinite(left));
+            }
+
+            const fill = el("triviaTimerFill");
+            if (fill) {
+                const left = gs?.secondsLeft;
+                const total = gs?.roundSeconds;
+                if (gs?.active && Number.isFinite(left) && Number.isFinite(total) && total > 0) {
+                    const pct = Math.max(0, Math.min(1, left / total));
+                    fill.style.width = `${pct * 100}%`;
+                } else {
+                    fill.style.width = "0%";
                 }
             }
         }
-
 
         // --- state/polling ---
         let joinedRef = "";
@@ -482,19 +603,30 @@
                 }
 
                 // --- game-specific render using ONLY the projected state ---
-                if (gameIdToRender === "contexto") {
-                         renderRecentGuesses(gs);
-                         el("stateOutContexto").textContent = pretty(state);
-                     } else if (gameIdToRender === "hangman") {
-                         renderHangmanPublic(gs);
-                         el("stateOutHangman").textContent = pretty(state);
-                     } else if (gameIdToRender === "trivia") {
-                         renderTriviaPublic(gs);
-                         el("stateOutTrivia").textContent = pretty(state);
-                     } else {
-                         const ul = el("recentGuesses");
-                         if (ul) ul.innerHTML = `<li class="small">No active game.</li>`;
-                     }
+                const gameKey = normalizeGameId(gameIdToRender);
+
+                // Only try to show + render games that actually have a panel in DOM.
+                // If the server says "deal" but you don't have panel-deal yet, we fallback.
+                let keyToUse = gameKey;
+
+                if (!panelExists(keyToUse)) {
+                    // fallback to selectedGame if that panel exists, else contexto if exists
+                    if (panelExists(selectedGame)) keyToUse = selectedGame;
+                    else if (panelExists("contexto")) keyToUse = "contexto";
+                }
+
+                // Show the panel
+                showOnlyPanel(keyToUse);
+
+                // Render via registry if we have a renderer
+                const renderer = GAME_RENDERERS[keyToUse]?.render;
+                if (renderer) {
+                    renderer(gs, state);
+                } else {
+                    // Generic fallback (won't crash)
+                    const ul = el("recentGuesses");
+                    if (ul) ul.innerHTML = `<li class="small">No renderer for: ${escapeHtml(String(keyToUse))}</li>`;
+                }
 
                 // Stats/leaderboard (unchanged)
                 const [lbRaw, statsRaw] = await Promise.all([
@@ -734,7 +866,7 @@
             // reset other state...
         }
 
-//Wire up buttons and events
+        //Wire up buttons and events
 
         function wire() {
             el("btnJoin") && (el("btnJoin").onclick = join);
