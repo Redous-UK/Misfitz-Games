@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Misfitz_Games.Models;
 using Misfitz_Games.Services.Room;
 
-namespace Misfitz_Games.Controllers;
+namespace Misfitz_Games.Controllers.Admin;
 
 [ApiController]
 public class AdminMaintenanceController(IRoomStateStore store) : ControllerBase

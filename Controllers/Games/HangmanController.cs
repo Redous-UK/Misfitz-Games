@@ -1,10 +1,16 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Misfitz_Games.Controllers;
+using Misfitz_Games.Controllers.Rooms;
 using Misfitz_Games.Models;
+using Misfitz_Games.Models.Games;
 using Misfitz_Games.Services.Games.Hangman;
 using Misfitz_Games.Services.Room;
+using System.Security.Claims;
 
-namespace Misfitz_Games.Controllers;
+namespace Misfitz_Games.Controllers.Games;
 
+[ApiController]
 public sealed class HangmanController(
     IRoomStateStore store,
     RoomGameBroadcaster bus

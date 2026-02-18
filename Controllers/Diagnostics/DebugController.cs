@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 
-namespace Misfitz_Games.Controllers;
+namespace Misfitz_Games.Controllers.Diagnostics;
 
 [ApiController]
 public class DebugController(IConfiguration config) : ControllerBase

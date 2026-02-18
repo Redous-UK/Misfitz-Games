@@ -1,4 +1,5 @@
 ﻿using Misfitz_Games.Models;
+using Misfitz_Games.Models.Games;
 using System.Text.Json;
 
 namespace Misfitz_Games.Services.Games.Contexto;

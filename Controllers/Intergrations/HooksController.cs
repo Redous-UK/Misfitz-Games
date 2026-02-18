@@ -2,7 +2,7 @@
 using Misfitz_Games.Services;
 using System.Text.Json;
 
-namespace Misfitz_Games.Controllers;
+namespace Misfitz_Games.Controllers.Integrations;
 
 [ApiController]
 [Route("api/hooks")]

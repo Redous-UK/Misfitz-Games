@@ -1,6 +1,5 @@
 ﻿namespace Misfitz_Games.Models;
 
-
 public sealed record RoomCreateRequest(
     string Name,
     string? RoomCode = null
@@ -49,4 +48,3 @@ public sealed record IdleRoomCandidate(
     string ActiveGame,
     string Reason
 );
-

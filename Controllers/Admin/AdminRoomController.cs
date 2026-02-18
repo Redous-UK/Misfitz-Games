@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Misfitz_Games.Services.Room;
 
-namespace Misfitz_Games.Controllers;
+namespace Misfitz_Games.Controllers.Admin;
 
 [ApiController]
 public class AdminRoomsController(IRoomStateStore store, RoomBroadcastService broadcaster) : ControllerBase

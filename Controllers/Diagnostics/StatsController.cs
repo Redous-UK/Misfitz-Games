@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Misfitz_Games.Services.Room;
 
-namespace Misfitz_Games.Controllers;
+namespace Misfitz_Games.Controllers.Diagnostics;
 
 [ApiController]
 public class StatsController(IRoomStateStore store) : ControllerBase

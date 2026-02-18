@@ -6,11 +6,13 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Misfitz_Games.Controllers;
 using Misfitz_Games.Data;
+using Misfitz_Games.Models;
 using Misfitz_Games.Models.Effects;
 using Misfitz_Games.Services;
 
-namespace Misfitz_Games.Controllers;
+namespace Misfitz_Games.Controllers.Effects;
 
 [ApiController]
 [Route("api/effects")]

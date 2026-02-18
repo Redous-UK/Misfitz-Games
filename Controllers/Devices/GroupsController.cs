@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Misfitz_Games.Data;
 using Misfitz_Games.Models.Effects;
 
-namespace Misfitz_Games.Controllers;
+namespace Misfitz_Games.Controllers.Devices;
 
 [ApiController]
 [Route("api/effects/v2/groups")]

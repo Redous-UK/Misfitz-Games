@@ -2,7 +2,7 @@
 using Misfitz_Games.Services.Infrastructure.Redis;
 using Npgsql;
 
-namespace Misfitz_Games.Controllers;
+namespace Misfitz_Games.Controllers.Diagnostics;
 
 [ApiController]
 public class HealthController(IConfiguration config, RedisMuxFactory muxFactory) : ControllerBase

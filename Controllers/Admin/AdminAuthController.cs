@@ -5,7 +5,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 
-namespace Misfitz_Games.Controllers;
+namespace Misfitz_Games.Controllers.Admin;
 
 public sealed record AdminLoginRequest(string Password);
 

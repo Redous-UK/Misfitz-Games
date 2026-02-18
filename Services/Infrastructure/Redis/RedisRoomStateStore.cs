@@ -1,4 +1,5 @@
 ﻿using Misfitz_Games.Models;
+using Misfitz_Games.Models.Games;
 using Misfitz_Games.Services.Room;
 using StackExchange.Redis;
 using System.Text.Json;

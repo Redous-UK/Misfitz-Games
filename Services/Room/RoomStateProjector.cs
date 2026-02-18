@@ -1,5 +1,8 @@
 ﻿using Misfitz_Games.Controllers;
+using Misfitz_Games.Controllers.Games;
 using Misfitz_Games.Models;
+using Misfitz_Games.Models.Games;
+using Misfitz_Games.Services.Games;
 using Misfitz_Games.Services.Games.Hangman;
 
 namespace Misfitz_Games.Services.Room;

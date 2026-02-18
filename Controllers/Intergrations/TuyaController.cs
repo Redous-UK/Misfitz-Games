@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Misfitz_Games.Services.Tuya;
 using System.Security.Claims;
 
-namespace Misfitz_Games.Controllers;
+namespace Misfitz_Games.Controllers.Integrations;
 
 [ApiController]
 [Route("api/tuya")]

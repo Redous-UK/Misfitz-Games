@@ -1,4 +1,4 @@
-﻿using Misfitz_Games.Models;
+﻿using Misfitz_Games.Models.Games;
 
 namespace Misfitz_Games.Services.Games.Hangman;
 

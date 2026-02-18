@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Misfitz_Games.Data;
 
-namespace Misfitz_Games.Controllers;
+namespace Misfitz_Games.Controllers.Admin;
 
 [ApiController]
 public class BootstrapAdminController(AppDbContext db, IConfiguration cfg, IWebHostEnvironment env) : ControllerBase

@@ -8,7 +8,7 @@ using Misfitz_Games.Services.Room;
 using Misfitz_Games.Services.Shared.Security;
 using System.Security.Claims;
 
-namespace Misfitz_Games.Controllers;
+namespace Misfitz_Games.Controllers.Members;
 
 [ApiController]
 public class MemberController(AppDbContext db, IRoomStateStore store) : ControllerBase

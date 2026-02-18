@@ -1,11 +1,14 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Misfitz_Games.Controllers;
+using Misfitz_Games.Controllers.Rooms;
 using Misfitz_Games.Models;
+using Misfitz_Games.Models.Games;
 using Misfitz_Games.Services.Games.Contexto;
 using Misfitz_Games.Services.Room;
 using System.Security.Claims;
 
-namespace Misfitz_Games.Controllers;
+namespace Misfitz_Games.Controllers.Games;
 
 [ApiController]
 public sealed class ContextoController(
@@ -15,6 +18,8 @@ public sealed class ContextoController(
     ContextoEngine contexto
 ) : RoomGameControllerBase(store, bus)
 {
+    public sealed record ContextoStartRequest(string SecretWord);
+
     public sealed record GuessReq(string Guess);
 
     // ----------------------------
