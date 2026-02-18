@@ -1,4 +1,4 @@
-﻿﻿
+﻿﻿﻿
 <!doctype html>
 <html>
 <head>
@@ -31,12 +31,14 @@
             <!-- Contexto panel -->
             <section id="panel-contexto" class="card" hidden>
                 <div class="card">
-                    <div class="titleRow">
-                        <div>
-                            <div style="font-weight:900;">Contexto</div>
-                            <div class="muted">Send guesses below. They’ll appear in recent guesses.</div>
+                    <div class="mg-header">
+                        <div class="mg-header-left">
+                            <div class="mg-title">Contexto</div>
+                            <div class="mg-sub">Send guesses below. They’ll appear in recent guesses.</div>
                         </div>
-                        <span id="gameBadgeContexto" class="badge warn">No game</span>
+                        <div class="mg-header-right">
+                            <span id="gameBadgeContexto" class="badge warn">No game</span>
+                        </div>
                     </div>
 
                     <div class="row" style="margin-top:12px;">
@@ -58,14 +60,26 @@
             <!-- Hangman panel -->
             <section id="panel-hangman" class="card" hidden>
                 <div class="card">
+
+                    <div class="mg-header">
+                        <div class="mg-header-left">
+                            <div class="mg-title">Hangman</div>
+                            <div class="mg-sub">Guess letters or the full word.</div>
+                        </div>
+                        <div class="mg-header-right">
+                            <span id="gameBadgeHangman" class="badge warn">No game</span>
+                        </div>
+                    </div>
+
+
                     <div class="titleRow">
                         <div>
                             <span id="gameBadgeHangman" class="badge warn">No game</span>
                             <div style="font-size:32px; letter-spacing:6px;" id="hangmanMasked">_ _ _ _</div>
                         </div>
                         <!--<div class="muted" style="margin-top:8px;">
-                            Wrong: <span id="hangmanWrong">0/6</span>
-                        </div>-->
+            Wrong: <span id="hangmanWrong">0/6</span>
+        </div>-->
                         <div class="muted" style="margin-top:8px;">
                             Guessed: <span id="hangmanGuessed"></span>
                         </div>
@@ -107,7 +121,7 @@
                 </div>
             </section>
 
-            <!-- Contexto panel -->
+            <!-- Deal panel -->
             <section id="panel-deal" class="card" hidden>
                 <div class="card">
                     <div id="debugBlockDeala" class="debug-out">
@@ -120,10 +134,21 @@
             <!-- Trivia panel -->
             <section id="panel-trivia" class="card" hidden>
                 <div class="card">
-                    <div class="titleRow">
-                        <div>
+
+                    <div class="mg-header">
+                        <div class="mg-header-left">
+                            <div class="mg-title">Trivia</div>
+                            <div class="mg-sub">Pick A/B/C/D. Scores update live.</div>
+                        </div>
+
+                        <div class="mg-header-right">
                             <span id="gameBadgeTrivia" class="badge warn">No game</span>
                         </div>
+                    </div>
+
+
+
+                    <div class="titleRow">
                         <div id="triviaMeta" class="muted" style="margin-bottom:6px;"></div>
 
                         <div class="trivia">
@@ -143,20 +168,25 @@
                             </div>
                         </div>
 
+
+
+                        <div style="margin-top:12px; display:flex; gap:8px;">
+                            <ul id="triviaAnswers" class="answersList"></ul>
+                        </div>
+
+                        <div id="debugBlockTrivia" class="debug-out">
+                            <div class="sectionTitle">DEBUG STATE</div>
+                            <pre id="stateOutTrivia" class="debug-out">{}</pre>
+                        </div>
+                    </div>
+
+                    <div class="card">
                         <div class="sectionTitle" style="margin-top:10px;">LEADERBOARD</div>
                         <ul id="triviaScores" class="scoresList"></ul>
                     </div>
-
-                    <div style="margin-top:12px; display:flex; gap:8px;">
-                        <ul id="triviaAnswers" class="answersList"></ul>
-                    </div>
-
-                    <div id="debugBlockTrivia">
-                        <div class="sectionTitle">DEBUG STATE</div>
-                        <pre id="stateOutTrivia">{}</pre>
-                    </div>
                 </div>
-            </section>
+
+</section>
 
             <!-- Room panel -->
             <div class="card">
@@ -184,8 +214,8 @@
         const el = (id) => document.getElementById(id);
         const pretty = (o) => JSON.stringify(o, null, 2);
 
-        const POLL_MS = 2200;
-        const PRESENCE_MS = 7000;
+        const POLL_MS = 1200;
+        const PRESENCE_MS = 5000;
 
         async function api(path, opts = {}) {
             const res = await fetch(path, { credentials: "include", ...opts });
@@ -362,12 +392,12 @@
                 const li = document.createElement("li");
                 li.className = "item";
                 li.innerHTML = `
-                                  <div>
-                                    <div class="who">${escapeHtml(user)}</div>
-                                    <div class="small">${escapeHtml(guess)}</div>
-                                  </div>
-                                  ${right}
-                                `;
+                                      <div>
+                                        <div class="who">${escapeHtml(user)}</div>
+                                        <div class="small">${escapeHtml(guess)}</div>
+                                      </div>
+                                      ${right}
+                                    `;
                 ul.appendChild(li);
             }
         }
@@ -394,15 +424,15 @@
                 const li = document.createElement("li");
                 li.className = "item";
                 li.innerHTML = `
-                                  <div>
-                                    <div class="who">${escapeHtml(userId)}</div>
-                                    <div class="small">score</div>
-                                  </div>
-                                  <div class="right">
-                                    <div class="small">&nbsp;</div>
-                                    <div class="who">${escapeHtml(String(score))}</div>
-                                  </div>
-                                `;
+                                      <div>
+                                        <div class="who">${escapeHtml(userId)}</div>
+                                        <div class="small">score</div>
+                                      </div>
+                                      <div class="right">
+                                        <div class="small">&nbsp;</div>
+                                        <div class="who">${escapeHtml(String(score))}</div>
+                                      </div>
+                                    `;
                 ul.appendChild(li);
             }
         }
@@ -433,6 +463,15 @@
 
         // --- render (Trivia) ---
         function renderTriviaPublic(gs) {
+
+            if (gs?.active && !gs?.revealed) {
+                const revealEl = el("triviaReveal");
+                if (revealEl) {
+                    revealEl.classList.add("hidden");
+                    revealEl.textContent = "";
+                }
+            }
+
             // Badges / meta
             const badge = el("gameBadgeTrivia");
             if (badge) {
@@ -481,15 +520,15 @@
                         const li = document.createElement("li");
                         li.className = "item";
                         li.innerHTML = `
-                              <div>
-                                <div class="who">${escapeHtml(key)}</div>
-                                <div class="small">${escapeHtml(text)}</div>
-                              </div>
-                              <div class="right">
-                                <div class="small">&nbsp;</div>
-                                <div class="who">&nbsp;</div>
-                              </div>
-                            `;
+                                  <div>
+                                    <div class="who">${escapeHtml(key)}</div>
+                                    <div class="small">${escapeHtml(text)}</div>
+                                  </div>
+                                  <div class="right">
+                                    <div class="small">&nbsp;</div>
+                                    <div class="who">&nbsp;</div>
+                                  </div>
+                                `;
 
                         // Click-to-answer (web play)
                         if (gs?.active && !gs?.revealed && joinedRef) {
@@ -503,7 +542,17 @@
                                     });
                                     await refreshAll();
                                 } catch (e) {
-                                    alert(String(e));
+                                    const msg = String(e);
+
+                                    if (msg.includes("already answered")) {
+                                        showTriviaMessage("You already answered this question.", "warn");
+                                    }
+                                    else if (msg.includes("No active trivia question")) {
+                                        showTriviaMessage("Question is no longer active.", "warn");
+                                    }
+                                    else {
+                                        showTriviaMessage("Failed to submit answer.", "bad");
+                                    }
                                 }
                             });
                         }
@@ -531,15 +580,15 @@
                         const li = document.createElement("li");
                         li.className = "item";
                         li.innerHTML = `
-                              <div>
-                                <div class="who">${escapeHtml(e.k)}</div>
-                                <div class="small">score</div>
-                              </div>
-                              <div class="right">
-                                <div class="small">&nbsp;</div>
-                                <div class="who">${escapeHtml(String(e.v))}</div>
-                              </div>
-                            `;
+                                  <div>
+                                    <div class="who">${escapeHtml(e.k)}</div>
+                                    <div class="small">score</div>
+                                  </div>
+                                  <div class="right">
+                                    <div class="small">&nbsp;</div>
+                                    <div class="who">${escapeHtml(String(e.v))}</div>
+                                  </div>
+                                `;
                         scoresUl.appendChild(li);
                     }
                 }
@@ -564,6 +613,22 @@
                     fill.style.width = "0%";
                 }
             }
+        }
+
+        function showTriviaMessage(text, type = "info") {
+            const elMsg = el("triviaReveal");
+            if (!elMsg) return;
+
+            elMsg.classList.remove("hidden");
+
+            // Optional styling by type
+            elMsg.classList.remove("ok", "bad", "warn");
+
+            if (type === "ok") elMsg.classList.add("ok");
+            else if (type === "bad") elMsg.classList.add("bad");
+            else elMsg.classList.add("warn");
+
+            elMsg.textContent = text;
         }
 
         // --- state/polling ---

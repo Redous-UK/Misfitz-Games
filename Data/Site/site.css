@@ -807,3 +807,42 @@ pre {
     .answersList li.dim {
         opacity: .65;
     }
+
+#gameBadgeTrivia {
+    margin-left: auto;
+    display: inline-block;
+}
+
+.mg-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.mg-header-left {
+    min-width: 0;
+    flex: 1;
+}
+
+.mg-header-right {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.mg-title {
+    font-weight: 900;
+    line-height: 1.1;
+}
+
+.mg-sub {
+    margin-top: 2px;
+    opacity: .8;
+    font-size: 13px;
+}
+
+
