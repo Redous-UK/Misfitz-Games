@@ -4,6 +4,7 @@ using Misfitz_Games.Models;
 using Misfitz_Games.Models.Games;
 using Misfitz_Games.Services.Games.Trivia;
 using Misfitz_Games.Services.Room;
+using System.Text.Json;
 
 namespace Misfitz_Games.Controllers.Games;
 
@@ -13,6 +14,34 @@ public sealed class TriviaController(
     TriviaService trivia
 ) : RoomGameControllerBase(store, bus)
 {
+
+    private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web)
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    private static bool TryGetRound(object? gameState, out TriviaRoundState round)
+    {
+        if (gameState is TriviaRoundState r)
+        {
+            round = r;
+            return true;
+        }
+
+        if (gameState is JsonElement je)
+        {
+            var typed = je.Deserialize<TriviaRoundState>(JsonOpts);
+            if (typed is not null)
+            {
+                round = typed;
+                return true;
+            }
+        }
+
+        round = default!;
+        return false;
+    }
+
     public sealed class TriviaStartRequest
     {
         public string? Difficulty { get; set; }
@@ -93,7 +122,7 @@ public sealed class TriviaController(
         if (room.ActiveGame != GameType.Trivia)
             return BadRequest(new { error = "Trivia is not the active game." });
 
-        if (room.GameState is not TriviaRoundState round || !round.Active || round.Current is null)
+        if (!TryGetRound(room.GameState, out var round) || !round.Active || round.Current is null)
             return BadRequest(new { error = "No active trivia question." });
 
         var difficulty = round.Current.Difficulty;
@@ -171,7 +200,7 @@ public sealed class TriviaController(
         if (room.ActiveGame != GameType.Trivia)
             return BadRequest(new { error = "Trivia is not the active game." });
 
-        if (room.GameState is not TriviaRoundState round || !round.Active || round.Current is null)
+        if (!TryGetRound(room.GameState, out var round) || !round.Active || round.Current is null)
             return BadRequest(new { error = "No active trivia question." });
 
         var nextRound = round with { Revealed = true };
@@ -241,7 +270,7 @@ public sealed class TriviaController(
 
         var (roomId, room) = loaded.Value;
 
-        if (room.ActiveGame != GameType.Trivia || room.GameState is not TriviaRoundState round)
+        if (room.ActiveGame != GameType.Trivia || !TryGetRound(room.GameState, out var round))
             return Ok(new { state = new { active = false } });
 
         var difficulty = round.Current?.Difficulty ?? "easy";
