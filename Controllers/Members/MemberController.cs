@@ -83,7 +83,7 @@ public class MemberController(AppDbContext db, IRoomStateStore store) : Controll
             return BadRequest(new { ok = false, error = "Password must be 6+ chars." });
 
         var nameUpper = name.ToUpperInvariant();
-        var exists = await _db.Users.AnyAsync(u => u.Username.Equals(nameUpper, StringComparison.CurrentCultureIgnoreCase), ct);
+        var exists = await _db.Users.AnyAsync(u => u.Username.ToUpper() == nameUpper, ct);
         if (exists) return Conflict(new { ok = false, error = "Username already exists." });
 
         var (hash, salt) = PasswordHasher.HashPassword(req.Password);
@@ -109,7 +109,7 @@ public class MemberController(AppDbContext db, IRoomStateStore store) : Controll
         var name = (req.Name ?? "").Trim();
         var nameUpper = name.ToUpperInvariant();
 
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Username.Equals(nameUpper, StringComparison.CurrentCultureIgnoreCase), ct);
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Username.ToUpper() == nameUpper, ct);
         if (user == null) return Unauthorized(new { ok = false, error = "Invalid credentials." });
 
         if (!PasswordHasher.Verify(req.Password ?? "", user.PasswordHash, user.PasswordSalt))
