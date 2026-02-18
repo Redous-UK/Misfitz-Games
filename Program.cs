@@ -9,6 +9,7 @@ using Misfitz_Games.Hubs;
 using Misfitz_Games.Services;
 using Misfitz_Games.Services.Games.Contexto;
 using Misfitz_Games.Services.Games.Hangman;
+using Misfitz_Games.Services.Games.Trivia;
 using Misfitz_Games.Services.Infrastructure.Redis;
 using Misfitz_Games.Services.Room;
 using Misfitz_Games.Services.Tuya;
@@ -100,9 +101,17 @@ public static class Program
         builder.Services.AddSingleton<ContextoEngine>();
         builder.Services.AddSingleton<RoomBroadcastService>();
         builder.Services.AddSingleton<RoomGameBroadcaster>();
+
+
+        // Game Services
+        // Contexto
         builder.Services.AddSingleton<ContextoWordProvider>();
         builder.Services.AddSingleton<WordVectorStore>();
         builder.Services.AddSingleton<ContextoRankIndexStore>();
+        // Hangman
+        builder.Services.AddSingleton<HangmanService>();
+        // Trivia
+        builder.Services.AddHttpClient<TriviaService>();       
 
         // Effects / hardware services
         builder.Services.AddHttpClient<TuyaPlugService>();

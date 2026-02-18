@@ -14,6 +14,7 @@ namespace Misfitz_Games.Controllers.Games;
 public sealed class HangmanController(
     IRoomStateStore store,
     RoomGameBroadcaster bus
+    //HangmanService hangman
 ) : RoomGameControllerBase(store, bus)
 {
     [HttpPost("/rooms/{roomIdOrCode}/games/hangman/start")]

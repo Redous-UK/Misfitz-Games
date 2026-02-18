@@ -2,7 +2,7 @@
 
 namespace Misfitz_Games.Services.Games.Hangman;
 
-public static class HangmanService
+public sealed class HangmanService
 {
     public static HangmanState StartNew(string word, int maxWrong = 6)
     {
