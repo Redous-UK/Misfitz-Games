@@ -5,11 +5,17 @@ using Misfitz_Games.Models.Games;
 using Misfitz_Games.Services.Games;
 using Misfitz_Games.Services.Games.Hangman;
 using Misfitz_Games.Services.Games.Trivia;
+using System.Text.Json;
 
 namespace Misfitz_Games.Services.Room;
 
 public static class RoomStateProjector
 {
+    private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web)
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     public static object ToPublic(RoomState room)
     {
         var (gameId, gameStatePublic) = ProjectGame(room);
@@ -41,20 +47,46 @@ public static class RoomStateProjector
 
     private static object ProjectContexto(object? gameState)
     {
-        if (gameState is not ContextoState cs)
-            return ProjectNone();
-        return ContextoPublic.From(cs);
+        if (gameState is ContextoState cs)
+            return ContextoPublic.From(cs);
+
+        if (gameState is JsonElement je)
+        {
+            var typed = je.Deserialize<ContextoState>(JsonOpts);
+            if (typed is not null)
+                return ContextoPublic.From(typed);
+        }
+
+        return ProjectNone();
     }
+
     private static object ProjectHangman(object? gameState)
     {
-        if (gameState is not HangmanState hs)
-            return ProjectNone();
-        return HangmanView.PublicView(hs);
+        if (gameState is HangmanState hs)
+            return HangmanView.PublicView(hs);
+
+        if (gameState is JsonElement je)
+        {
+            var typed = je.Deserialize<HangmanState>(JsonOpts);
+            if (typed is not null)
+                return HangmanView.PublicView(typed);
+        }
+
+        return ProjectNone();
     }
+
     private static object ProjectTrivia(object? gameState)
     {
-        if (gameState is not TriviaRoundState round)
-            return ProjectNone();
-        return TriviaView.PublicView(round);
+        if (gameState is TriviaRoundState round)
+            return TriviaView.PublicView(round);
+
+        if (gameState is JsonElement je)
+        {
+            var typed = je.Deserialize<TriviaRoundState>(JsonOpts);
+            if (typed is not null)
+                return TriviaView.PublicView(typed);
+        }
+
+        return ProjectNone();
     }
 }
