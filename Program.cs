@@ -1,6 +1,5 @@
 ﻿using Humanizer;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
@@ -17,8 +16,6 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using static System.Net.Mime.MediaTypeNames;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Misfitz_Games;
 
@@ -26,8 +23,6 @@ public static class Program
 {
     public static void Main(string[] args)
     {
-
-
         var builder = WebApplication.CreateBuilder(args);
 
         builder.Services.AddControllers();
@@ -41,9 +36,6 @@ public static class Program
             o.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
         });
 
-
-        // CORS: if your frontend is served from the SAME origin as the API,
-        // you do NOT need AllowCredentials+CORS at all. But leaving this is fine.
         builder.Services.AddCors(options =>
         {
             options.AddPolicy("default", p =>
@@ -56,16 +48,14 @@ public static class Program
                 p.WithOrigins("http://localhost:5173", "http://localhost:8080")
                  .AllowAnyHeader()
                  .AllowAnyMethod()
-                 .AllowCredentials()
-                 );
+                 .AllowCredentials());
         });
 
         // --- EF Core (SQLite) for user accounts ---
-        // Use Render disk path if you have one (recommended):
-        // set env var DB_PATH=/data/misfitz.db
         var dbPath =
             builder.Configuration["DB_PATH"]
             ?? (builder.Environment.IsProduction() ? "/data/misfitz.db" : "Data/misfitz.db");
+
         var dbDir = Path.GetDirectoryName(dbPath);
         if (!string.IsNullOrWhiteSpace(dbDir))
             Directory.CreateDirectory(dbDir);
@@ -74,7 +64,7 @@ public static class Program
             opt.UseSqlite($"Data Source={dbPath}")
         );
 
-        // --- Auth: Cookie auth (recommended for your HTML + JS pages) ---
+        // --- Auth: Cookie auth ---
         builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
             .AddCookie(o =>
             {
@@ -82,14 +72,10 @@ public static class Program
                 o.Cookie.HttpOnly = true;
                 o.SlidingExpiration = true;
 
-                // Render is HTTPS in production, force secure cookies
+                // Render is HTTPS in production
                 o.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-
-                // If everything is same-site (same domain), Lax is perfect.
-                // If you split frontend and API across domains, change this to None and ensure HTTPS.
                 o.Cookie.SameSite = SameSiteMode.Lax;
 
-                // Optional redirects (nice for normal browser navigation)
                 o.LoginPath = "/user.html";
                 o.AccessDeniedPath = "/user.html";
             });
@@ -106,7 +92,7 @@ public static class Program
                     ctx.User.HasClaim(ClaimTypes.Role, "admin")))
             .AddPolicy("AdminOnly", p => p.RequireClaim(ClaimTypes.Role, "admin"));
 
-        // Redis factory (lazy, async)
+        // Redis
         builder.Services.AddSingleton<RedisMuxFactory>();
 
         // App services
@@ -125,141 +111,129 @@ public static class Program
         builder.Services.AddDataProtection();
         builder.Services.AddScoped<TuyaOAuthService>();
 
-        //TikFinity / Spotify / Streamer
+        // TikFinity / Spotify / Streamer
         builder.Services.AddSingleton<WebhookIngestService>();
 
         // Logging
         builder.Logging.ClearProviders();
         builder.Logging.AddConsole();
-
-        // Suppress EF Core SQL command logs
         builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
-
-        // Optional: quiet general EF noise too
         builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);
 
         var app = builder.Build();
 
-        var adminToken = builder.Configuration["ADMIN_TOKEN"] ?? "";
+        // ===================== Site roots =====================
         var dataRoot = "/data/site";
         var backupsRoot = "/data/backups";
 
-        // ------------- First-run bootstrap: copy wwwroot -> /data/site (only if empty) -------------
         Directory.CreateDirectory(dataRoot);
         Directory.CreateDirectory(backupsRoot);
 
+        // Seed packaged defaults -> /data/site when needed (fresh disk / missing essentials)
         var seedRoot = Path.Combine(app.Environment.ContentRootPath, "Data", "Site");
 
-        BootstrapSite(seedRoot, dataRoot, requiredFiles:
+        // Wildcard-friendly requirements (prevents clobbering existing edits)
+        BootstrapSite(seedRoot, dataRoot, requiredPatterns:
         [
             "*.html",
             "*.css",
-            "*.png"
+            "*.js"
+            // add "*.png" if you want, but not required for a working site
         ]);
 
+        // ===================== Pipeline =====================
         app.UseRouting();
-
         app.UseCors("default");
-
         app.UseAuthentication();
         app.UseAuthorization();
 
-        // ------------- Serve editable site from /data/site -------------
+        // Serve editable site from /data/site
         app.UseStaticFiles(new StaticFileOptions
         {
             FileProvider = new PhysicalFileProvider(dataRoot),
             RequestPath = "",
             OnPrepareResponse = ctx =>
             {
-                // Helpful during frequent edits. You can relax later.
+                // Helpful during frequent edits. Relax later.
                 ctx.Context.Response.Headers.CacheControl = "no-cache, no-store, must-revalidate";
                 ctx.Context.Response.Headers.Pragma = "no-cache";
                 ctx.Context.Response.Headers.Expires = "0";
             }
         });
 
-        // If you also use app.UseStaticFiles() for wwwroot elsewhere, keep it AFTER the /data one,
-        // so /data overrides by route priority. (Or remove it if you only want /data.)
-
-        app.UseExceptionHandler(errApp =>
-        {
-            errApp.Run(async context =>
-            {
-                var feature = context.Features.Get<IExceptionHandlerPathFeature>();
-                var ex = feature?.Error;
-
-                Console.WriteLine($"[500] Path={feature?.Path}\n{ex}");
-
-                context.Response.StatusCode = 500;
-                context.Response.ContentType = "application/json; charset=utf-8";
-
-                await context.Response.WriteAsync(JsonSerializer.Serialize(new
-                {
-                    ok = false,
-                    path = feature?.Path,
-                    error = ex?.Message,
-                    detail = ex?.ToString()
-                }));
-            });
-        });
-
         app.MapControllers();
         app.MapHub<RoomHub>("/hubs/room");
 
+        // ===================== Admin editor (uses existing cookie auth) =====================
+        app.MapGet("/admin", () =>
+            Results.Content(AdminEditorHtml(), "text/html; charset=utf-8")
+        ).RequireAuthorization("AdminOnly");
 
+        var adminApi = app.MapGroup("/admin/api")
+            .RequireAuthorization("AdminOnly");
 
-        // ------------- Admin pages -------------
-        app.MapGet("/admin", (HttpContext ctx) =>
-        {
-            return Results.Content(AdminEditorHtml(), "text/html; charset=utf-8");
-        })
-        .RequireAuthorization("AdminOnly");
-
-        var adminApi = app.MapGroup("/admin/api").RequireAuthorization("AdminOnly");
-
-        adminApi.MapGet("/list", (HttpContext ctx) =>
+        adminApi.MapGet("/list", () =>
         {
             var files = ListFiles(dataRoot);
             return Results.Json(new { ok = true, root = dataRoot, files });
         });
 
-        adminApi.MapGet("/read", (HttpContext ctx, string path) =>
+        adminApi.MapGet("/read", (string path) =>
         {
             var full = SafeResolve(dataRoot, path);
             if (full is null) return Results.BadRequest(new { ok = false, error = "Invalid path." });
-            if (!System.IO.File.Exists(full)) return Results.NotFound(new { ok = false, error = "Not found." });
-            var bytes = System.IO.File.ReadAllBytes(full);
+            if (!File.Exists(full)) return Results.NotFound(new { ok = false, error = "Not found." });
+
+            var bytes = File.ReadAllBytes(full);
             var text = TryDecode(bytes);
+
             return Results.Json(new { ok = true, path, content = text });
         });
 
-        adminApi.MapGet("/login", (HttpContext ctx) =>
+        adminApi.MapPost("/save", async (HttpContext ctx) =>
         {
-            return Results.Content(AdminLoginHtml(), "text/html; charset=utf-8");
+            using var doc = await JsonDocument.ParseAsync(ctx.Request.Body);
+            var rel = doc.RootElement.GetProperty("path").GetString() ?? "";
+            var content = doc.RootElement.GetProperty("content").GetString() ?? "";
+
+            var full = SafeResolve(dataRoot, rel);
+            if (full is null) return Results.BadRequest(new { ok = false, error = "Invalid path." });
+
+            Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+
+            // Backup existing before overwrite
+            if (File.Exists(full))
+                CreateBackup(backupsRoot, rel, File.ReadAllBytes(full));
+
+            File.WriteAllText(full, content, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            return Results.Json(new { ok = true, path = rel });
         });
 
         adminApi.MapPost("/upload", async (HttpContext ctx) =>
         {
-            if (!ctx.Request.HasFormContentType) return Results.BadRequest(new { ok = false, error = "Expected multipart/form-data" });
+            if (!ctx.Request.HasFormContentType)
+                return Results.BadRequest(new { ok = false, error = "Expected multipart/form-data" });
+
             var form = await ctx.Request.ReadFormAsync();
-            var token = form["token"].ToString();
-            if (token != adminToken) return Results.Unauthorized();
             var relDir = form["dir"].ToString(); // can be "" for root
             var file = form.Files.GetFile("file");
             if (file is null) return Results.BadRequest(new { ok = false, error = "Missing file." });
+
             var safeDir = string.IsNullOrWhiteSpace(relDir) ? "" : relDir.Trim();
             var targetRel = Path.Combine(safeDir, file.FileName).Replace('\\', '/');
+
             var full = SafeResolve(dataRoot, targetRel);
             if (full is null) return Results.BadRequest(new { ok = false, error = "Invalid path." });
+
             Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+
             // Backup existing
-            if (System.IO.File.Exists(full))
-            {
-                var existing = System.IO.File.ReadAllBytes(full);
-                CreateBackup(backupsRoot, targetRel, existing);
-            }
-            using var fs = System.IO.File.Create(full);
+            if (File.Exists(full))
+                CreateBackup(backupsRoot, targetRel, File.ReadAllBytes(full));
+
+            using var fs = File.Create(full);
             await file.CopyToAsync(fs);
+
             return Results.Json(new { ok = true, path = targetRel });
         });
 
@@ -267,66 +241,90 @@ public static class Program
         {
             using var doc = await JsonDocument.ParseAsync(ctx.Request.Body);
             var rel = doc.RootElement.GetProperty("path").GetString() ?? "";
+
             var full = SafeResolve(dataRoot, rel);
             if (full is null) return Results.BadRequest(new { ok = false, error = "Invalid path." });
-            if (System.IO.File.Exists(full))
+
+            if (File.Exists(full))
             {
-                CreateBackup(backupsRoot, rel, System.IO.File.ReadAllBytes(full));
-                System.IO.File.Delete(full);
+                CreateBackup(backupsRoot, rel, File.ReadAllBytes(full));
+                File.Delete(full);
                 return Results.Json(new { ok = true });
             }
+
             if (Directory.Exists(full))
             {
                 Directory.Delete(full, recursive: true);
                 return Results.Json(new { ok = true });
             }
+
             return Results.NotFound(new { ok = false, error = "Not found." });
         });
-        adminApi.MapGet("/backups", (HttpContext ctx, string path) =>
+
+        adminApi.MapGet("/backups", (string path) =>
         {
             var safe = SafeResolve(backupsRoot, BackupKey(path));
             if (safe is null) return Results.BadRequest(new { ok = false, error = "Invalid path." });
-            if (!Directory.Exists(safe)) return Results.Json(new { ok = true, items = Array.Empty<string>() });
+
+            if (!Directory.Exists(safe))
+                return Results.Json(new { ok = true, items = Array.Empty<string>() });
+
             var items = Directory.EnumerateFiles(safe, "*.bak")
                 .Select(Path.GetFileName)
                 .OrderByDescending(x => x)
                 .ToArray();
+
             return Results.Json(new { ok = true, items });
         });
+
         adminApi.MapPost("/rollback", async (HttpContext ctx) =>
         {
             using var doc = await JsonDocument.ParseAsync(ctx.Request.Body);
             var rel = doc.RootElement.GetProperty("path").GetString() ?? "";
             var bak = doc.RootElement.GetProperty("backupFile").GetString() ?? "";
+
             var bakDir = SafeResolve(backupsRoot, BackupKey(rel));
             if (bakDir is null) return Results.BadRequest(new { ok = false, error = "Invalid path." });
+
             var bakFull = Path.Combine(bakDir, bak);
-            if (!System.IO.File.Exists(bakFull)) return Results.NotFound(new { ok = false, error = "Backup not found." });
+            if (!File.Exists(bakFull)) return Results.NotFound(new { ok = false, error = "Backup not found." });
+
             var target = SafeResolve(dataRoot, rel);
             if (target is null) return Results.BadRequest(new { ok = false, error = "Invalid path." });
+
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+
             // Backup current before rollback
-            if (System.IO.File.Exists(target))
-                CreateBackup(backupsRoot, rel, System.IO.File.ReadAllBytes(target));
-            System.IO.File.WriteAllBytes(target, System.IO.File.ReadAllBytes(bakFull));
+            if (File.Exists(target))
+                CreateBackup(backupsRoot, rel, File.ReadAllBytes(target));
+
+            File.WriteAllBytes(target, File.ReadAllBytes(bakFull));
             return Results.Json(new { ok = true });
         });
 
-        // ------------- Your existing endpoints/controllers/etc go here -------------
-
-        // Create/migrate DB on startup (simple and effective)
+        // ===================== DB migrate =====================
         using (var scope = app.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             db.Database.Migrate();
         }
 
+        // ===================== Debug endpoints =====================
         app.MapGet("/debug/static", () =>
         {
-            var dataRoot = "/data/site";
             var exists = Directory.Exists(dataRoot);
-            var count = exists ? Directory.EnumerateFileSystemEntries(dataRoot, "*", SearchOption.AllDirectories).Count() : 0;
-            return Results.Ok(new { dataRoot, exists, count });
+            var count = exists
+                ? Directory.EnumerateFileSystemEntries(dataRoot, "*", SearchOption.AllDirectories).Count()
+                : 0;
+
+            return Results.Ok(new
+            {
+                dataRoot,
+                seedRoot,
+                seedExists = Directory.Exists(seedRoot),
+                exists,
+                count
+            });
         });
 
         app.MapGet("/", context =>
@@ -343,7 +341,6 @@ public static class Program
                 user?.Claims?.Any(c => (c.Type == "role" || c.Type.EndsWith("/role")) && c.Value == "admin") == true;
 
             if (!isAdmin) return Results.NotFound();
-
             return Results.Redirect("/debug.html");
         });
 
@@ -356,7 +353,7 @@ public static class Program
 
         app.MapGet("/debug/tuya", async (TuyaPlugService tuya) =>
         {
-            await tuya.SetSwitchAsync(tuya.DeviceId1, false); // or create a GetTokenAsync method
+            await tuya.SetSwitchAsync(tuya.DeviceId1, false);
             return Results.Ok(new { ok = true, utc = DateTimeOffset.UtcNow });
         });
 
@@ -401,11 +398,11 @@ public static class Program
 
         app.MapGet("/debug/env", (IConfiguration cfg) =>
         {
-            var dbPath = cfg["DB_PATH"];
+            var dbPath2 = cfg["DB_PATH"];
             return Results.Ok(new
             {
                 ok = true,
-                dbPath = dbPath ?? "(null)",
+                dbPath = dbPath2 ?? "(null)",
                 dataDirExists = Directory.Exists("/data"),
                 dataDirFiles = Directory.Exists("/data") ? Directory.GetFiles("/data") : [],
                 cwd = Directory.GetCurrentDirectory()
@@ -414,18 +411,18 @@ public static class Program
 
         app.MapGet("/debug/dbpath", (IConfiguration cfg, IWebHostEnvironment env) =>
         {
-            var dbPath =
+            var dbPath3 =
                 cfg["DB_PATH"]
                 ?? (env.IsProduction() ? "/data/misfitz.db" : "Data/misfitz.db");
 
             return Results.Ok(new
             {
                 env = env.EnvironmentName,
-                dbPath,
-                exists = System.IO.File.Exists(dbPath),
-                dirExists = System.IO.Directory.Exists(System.IO.Path.GetDirectoryName(dbPath)!),
-                filesInDir = System.IO.Directory.Exists(System.IO.Path.GetDirectoryName(dbPath)!)
-                    ? System.IO.Directory.GetFiles(System.IO.Path.GetDirectoryName(dbPath)!).Select(Path.GetFileName).ToArray()
+                dbPath = dbPath3,
+                exists = File.Exists(dbPath3),
+                dirExists = Directory.Exists(Path.GetDirectoryName(dbPath3)!),
+                filesInDir = Directory.Exists(Path.GetDirectoryName(dbPath3)!)
+                    ? Directory.GetFiles(Path.GetDirectoryName(dbPath3)!).Select(Path.GetFileName).ToArray()
                     : []
             });
         });
@@ -442,7 +439,6 @@ public static class Program
             return Results.Ok(new { ok = true, count, last });
         });
 
-
         if (app.Environment.IsDevelopment())
         {
             app.UseDeveloperExceptionPage();
@@ -450,158 +446,128 @@ public static class Program
             app.UseSwaggerUI();
         }
 
+        app.Run();
+    }
 
+    // ===================== Helpers =====================
 
-
-        // ===================== Helpers =====================
-
-        static void BootstrapSite(string seedRoot, string dataRoot, string[] requiredFiles)
+    // Wildcard-aware bootstrap:
+    // Seeds /data/site from Data/Site only if /data/site is empty OR missing any required patterns.
+    private static void BootstrapSite(string seedRoot, string dataRoot, string[] requiredPatterns)
+    {
+        if (!Directory.Exists(seedRoot))
         {
-            if (!Directory.Exists(seedRoot))
-            {
-                Console.WriteLine($"[site] Seed folder missing: {seedRoot}");
-                return;
-            }
-
-            // Decide if we need to seed
-            var hasAny = Directory.EnumerateFileSystemEntries(dataRoot).Any();
-            var missingRequired = requiredFiles.Any(pattern =>
-                !Directory.EnumerateFiles(dataRoot, pattern, SearchOption.AllDirectories).Any());
-
-            if (hasAny && !missingRequired)
-            {
-                Console.WriteLine($"[site] /data/site already populated; skipping seed.");
-                return;
-            }
-
-            Console.WriteLine($"[site] Seeding /data/site from: {seedRoot}");
-
-            CopyDirectory(seedRoot, dataRoot, overwrite: true);
-
-            Console.WriteLine($"[site] Seed complete.");
+            Console.WriteLine($"[site] Seed folder missing: {seedRoot}");
+            return;
         }
 
-        static void CopyDirectory(string sourceDir, string destDir, bool overwrite)
-        {
-            Directory.CreateDirectory(destDir);
+        Directory.CreateDirectory(dataRoot);
 
-            foreach (var file in Directory.GetFiles(sourceDir))
+        var hasAny = Directory.EnumerateFileSystemEntries(dataRoot).Any();
+
+        bool PatternExists(string pattern) =>
+            Directory.EnumerateFiles(dataRoot, pattern, SearchOption.AllDirectories).Any();
+
+        var missingRequired = requiredPatterns.Any(p => !PatternExists(p));
+
+        if (hasAny && !missingRequired)
+        {
+            Console.WriteLine("[site] /data/site already populated; skipping seed.");
+            return;
+        }
+
+        Console.WriteLine($"[site] Seeding /data/site from: {seedRoot}");
+        CopyDirectory(seedRoot, dataRoot, overwrite: true);
+        Console.WriteLine("[site] Seed complete.");
+    }
+
+    private static void CopyDirectory(string sourceDir, string destDir, bool overwrite)
+    {
+        Directory.CreateDirectory(destDir);
+
+        foreach (var file in Directory.GetFiles(sourceDir))
+        {
+            var destFile = Path.Combine(destDir, Path.GetFileName(file));
+            File.Copy(file, destFile, overwrite);
+        }
+
+        foreach (var dir in Directory.GetDirectories(sourceDir))
+        {
+            var destSub = Path.Combine(destDir, Path.GetFileName(dir));
+            CopyDirectory(dir, destSub, overwrite);
+        }
+    }
+
+    private static string? SafeResolve(string root, string relative)
+    {
+        relative = (relative ?? "").Replace('\\', '/').TrimStart('/');
+        if (relative.Contains("..")) return null;
+
+        var combined = Path.GetFullPath(Path.Combine(root, relative));
+        var rootFull = Path.GetFullPath(root);
+
+        if (!combined.StartsWith(rootFull, StringComparison.Ordinal)) return null;
+        return combined;
+    }
+
+    private static object[] ListFiles(string root)
+    {
+        var list = new List<object>();
+        foreach (var path in Directory.EnumerateFileSystemEntries(root, "*", SearchOption.AllDirectories))
+        {
+            var rel = Path.GetRelativePath(root, path).Replace('\\', '/');
+            var isDir = Directory.Exists(path);
+            long size = 0;
+
+            if (!isDir)
             {
-                var destFile = Path.Combine(destDir, Path.GetFileName(file));
-                File.Copy(file, destFile, overwrite);
+                try { size = new FileInfo(path).Length; } catch { }
             }
 
-            foreach (var dir in Directory.GetDirectories(sourceDir))
-            {
-                var destSub = Path.Combine(destDir, Path.GetFileName(dir));
-                CopyDirectory(dir, destSub, overwrite);
-            }
+            list.Add(new { path = rel, isDir, size });
         }
 
-        static string? SafeResolve(string root, string relative)
+        // dirs first then files
+        return [.. list
+            .OrderByDescending(x => (bool)x.GetType().GetProperty("isDir")!.GetValue(x)!)
+            .ThenBy(x => (string)x.GetType().GetProperty("path")!.GetValue(x)!)];
+    }
+
+    private static void CreateBackup(string backupsRoot, string relPath, byte[] bytes)
+    {
+        var dir = Path.Combine(backupsRoot, BackupKey(relPath));
+        Directory.CreateDirectory(dir);
+
+        var stamp = DateTimeOffset.UtcNow.ToString("yyyyMMdd-HHmmssfff");
+        var name = $"{stamp}.bak";
+        var full = Path.Combine(dir, name);
+
+        File.WriteAllBytes(full, bytes);
+    }
+
+    private static string BackupKey(string relPath)
+    {
+        relPath = (relPath ?? "").Replace('\\', '/').TrimStart('/');
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(relPath));
+        return Convert.ToHexString(hash);
+    }
+
+    private static string TryDecode(byte[] bytes)
+    {
+        try
         {
-            relative = (relative ?? "").Replace('\\', '/').TrimStart('/');
-            if (relative.Contains("..")) return null;
-
-            var combined = Path.GetFullPath(Path.Combine(root, relative));
-            var rootFull = Path.GetFullPath(root);
-
-            if (!combined.StartsWith(rootFull, StringComparison.Ordinal)) return null;
-            return combined;
+            var text = Encoding.UTF8.GetString(bytes);
+            if (text.Any(ch => ch == '\0'))
+                return $"/* Binary file (not editable here). Size: {bytes.Length} bytes */";
+            return text;
         }
-
-        static object[] ListFiles(string root)
+        catch
         {
-            var list = new List<object>();
-            foreach (var path in Directory.EnumerateFileSystemEntries(root, "*", SearchOption.AllDirectories))
-            {
-                var rel = Path.GetRelativePath(root, path).Replace('\\', '/');
-                var isDir = Directory.Exists(path);
-                long size = 0;
-                if (!isDir)
-                {
-                    try { size = new FileInfo(path).Length; } catch { }
-                }
-
-                list.Add(new
-                {
-                    path = rel,
-                    isDir,
-                    size
-                });
-            }
-
-            // Sort: dirs first then files
-            return [..list
-        .OrderByDescending(x => (bool)x.GetType().GetProperty("isDir")!.GetValue(x)!)
-        .ThenBy(x => (string)x.GetType().GetProperty("path")!.GetValue(x)!)];
+            return $"/* Could not decode as UTF-8. Size: {bytes.Length} bytes */";
         }
+    }
 
-        static void CreateBackup(string backupsRoot, string relPath, byte[] bytes)
-        {
-            var dir = Path.Combine(backupsRoot, BackupKey(relPath));
-            Directory.CreateDirectory(dir);
-
-            var stamp = DateTimeOffset.UtcNow.ToString("yyyyMMdd-HHmmssfff");
-            var name = $"{stamp}.bak";
-            var full = Path.Combine(dir, name);
-
-            System.IO.File.WriteAllBytes(full, bytes);
-        }
-
-        static string BackupKey(string relPath)
-        {
-            // Turn "pages/overlay.html" into a safe folder key
-            relPath = (relPath ?? "").Replace('\\', '/').TrimStart('/');
-            var hash = SHA256.HashData(Encoding.UTF8.GetBytes(relPath));
-            return Convert.ToHexString(hash);
-        }
-
-        static string TryDecode(byte[] bytes)
-        {
-            // assume UTF-8 if possible, else fall back to base64 notice
-            try
-            {
-                var text = Encoding.UTF8.GetString(bytes);
-                // Rough “binary?” heuristic
-                if (text.Any(ch => ch == '\0'))
-                    return $"/* Binary file (not editable here). Size: {bytes.Length} bytes */";
-                return text;
-            }
-            catch
-            {
-                return $"/* Could not decode as UTF-8. Size: {bytes.Length} bytes */";
-            }
-        }
-
-        static string AdminLoginHtml(string? error = null) => $@"<!doctype html>
-<html>
-<head>
-  <meta charset=""utf-8"" />
-  <meta name=""viewport"" content=""width=device-width,initial-scale=1"" />
-  <title>Misfitz Admin Login</title>
-  <style>
-    body {{ font-family: system-ui, sans-serif; background:#0b0f14; color:#e6edf3; display:flex; min-height:100vh; align-items:center; justify-content:center; }}
-    .card {{ width:min(420px, 92vw); background:#111826; border:1px solid #22304a; border-radius:16px; padding:18px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }}
-    h1 {{ margin:0 0 10px; font-size:18px; }}
-    .muted {{ color:#9fb0c5; font-size:13px; margin-bottom:12px; }}
-    input {{ width:100%; padding:10px 12px; border-radius:12px; border:1px solid #22304a; background:#0b1220; color:#e6edf3; }}
-    button {{ width:100%; margin-top:10px; padding:10px 12px; border-radius:12px; border:0; background:#2f81f7; color:white; font-weight:600; cursor:pointer; }}
-    .err {{ margin-top:10px; color:#ff7b72; font-size:13px; }}
-  </style>
-</head>
-<body>
-  <form class=""card"" method=""post"" action=""/admin/login"">
-    <h1>Misfitz Games — Admin</h1>
-    <div class=""muted"">Enter your admin token to edit live pages served from <code>/data/site</code>.</div>
-    <input name=""token"" type=""password"" placeholder=""ADMIN_TOKEN"" autocomplete=""current-password"" />
-    <button type=""submit"">Login</button>
-    {(string.IsNullOrWhiteSpace(error) ? "" : $@"<div class=""err"">{System.Net.WebUtility.HtmlEncode(error)}</div>")}
-  </form>
-</body>
-</html>";
-
-        static string AdminEditorHtml() => """
+    private static string AdminEditorHtml() => """
 <!doctype html>
 <html>
 <head>
@@ -634,9 +600,7 @@ public static class Program
       <div class="badge" id="status">Loading…</div>
       <div class="muted">Edits save into <code>/data/site</code> (no rebuild)</div>
     </div>
-    <form method="post" action="/admin/logout">
-      <button class="btn" type="submit">Logout</button>
-    </form>
+    <a class="btn" href="/user.html">Account</a>
   </div>
 
   <div class="wrap">
@@ -683,7 +647,14 @@ let allFiles = [];
 function setStatus(t){ el('status').textContent = t; }
 
 async function api(url, opts){
-  const r = await fetch(url, opts);
+  const r = await fetch(url, { credentials:'include', ...opts });
+
+  // ✅ If not logged in as admin, bounce to normal login
+  if (r.status === 401 || r.status === 403){
+    location.href = '/user.html';
+    return { ok:false, error:'not authorized' };
+  }
+
   const text = await r.text();
   try { return JSON.parse(text); } catch { return { ok:false, error:text || ('HTTP '+r.status) }; }
 }
@@ -765,7 +736,6 @@ function preview(){
   if(!path || path.endsWith('/')){ alert('Pick an HTML file to preview'); return; }
   const bust = Date.now();
 
-  // FIXED: strip leading slashes correctly
   const clean = path.replace(/^\/+/, '');
   el('preview').src = '/' + clean + '?v=' + bust;
 }
@@ -823,7 +793,13 @@ async function upload(){
   fd.append('dir', dir);
 
   setStatus('Uploading…');
-  const r = await fetch('/admin/api/upload', { method:'POST', body: fd });
+  const r = await fetch('/admin/api/upload', { method:'POST', credentials:'include', body: fd });
+
+  if (r.status === 401 || r.status === 403){
+    location.href = '/user.html';
+    return;
+  }
+
   const text = await r.text();
   let j; try{ j = JSON.parse(text);}catch{ j={ok:false,error:text}; }
   if(!j.ok){ setStatus('Error'); alert(j.error || 'Upload failed'); return; }
@@ -845,7 +821,4 @@ loadList();
 </body>
 </html>
 """;
-
-        app.Run();
-    }
 }
