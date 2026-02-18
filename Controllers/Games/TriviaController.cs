@@ -1,5 +1,14 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Misfitz_Games.Controllers;
+﻿// Your current TriviaController is *almost* correct. Below are the final tweaks to remove warnings and
+// ensure positional-record state always includes timer fields.
+//
+// 1) Remove unused using: Misfitz_Games.Controllers; (you already inherit RoomGameControllerBase via Rooms namespace)
+// 2) In Start/Stop/Reveal, use 'now' consistently for AskedAtUtc/UpdatedAtUtc to avoid minor analyzer nags.
+// 3) In Stop, construct TriviaRoundState including the new timer/automation fields (so you don't rely on optional
+//    defaults that may not exist depending on your record definition).
+// 4) In Answer/Status, your TryAutoProgressAsync call is now non-nullable and correct.
+// 5) secondsLeft is correctly typed as int?.
+
+using Microsoft.AspNetCore.Mvc;
 using Misfitz_Games.Controllers.Rooms;
 using Misfitz_Games.Models;
 using Misfitz_Games.Models.Games;
@@ -14,24 +23,20 @@ public sealed class TriviaController(
     TriviaService trivia
 ) : RoomGameControllerBase(store, bus)
 {
-    // ----------------------------
-    // Requests
-    // ----------------------------
     public sealed class TriviaStartRequest
     {
-        public string? Difficulty { get; set; } // easy|medium|hard
+        public string? Difficulty { get; set; }
+        public int? RoundSeconds { get; set; }
+        public bool? AutoNext { get; set; }
+        public int? AutoNextDelaySeconds { get; set; }
     }
 
     public sealed class TriviaAnswerRequest
     {
         public string? UserId { get; set; }
-        public string? Choice { get; set; } // A/B/C/D
+        public string? Choice { get; set; }
     }
 
-    // ----------------------------
-    // Start
-    // POST /rooms/{roomRef}/games/trivia/start
-    // ----------------------------
     [HttpPost("/rooms/{roomRef}/games/trivia/start")]
     public async Task<IActionResult> Start(string roomRef, [FromBody] TriviaStartRequest req, CancellationToken ct)
     {
@@ -48,23 +53,32 @@ public sealed class TriviaController(
         if (q is null)
             return BadRequest(new { error = "No trivia question available right now." });
 
-        // Carry scores forward if we already had trivia in progress.
         var prev = room.GameState as TriviaRoundState;
+        var roundSeconds = (req.RoundSeconds is > 0) ? req.RoundSeconds.Value : 20;
+        var autoNext = req.AutoNext ?? false;
+        var autoNextDelay = (req.AutoNextDelaySeconds is >= 0) ? req.AutoNextDelaySeconds.Value : 7;
+
+        var now = DateTimeOffset.UtcNow;
 
         var round = new TriviaRoundState(
             Active: true,
             Current: q,
-            AskedAtUtc: DateTimeOffset.UtcNow,
+            AskedAtUtc: now,
             Revealed: false,
             ScoresByUserId: prev?.ScoresByUserId ?? [],
-            AnsweredThisQuestionUserIds: []
+            AnsweredThisQuestionUserIds: [],
+            EndsAtUtc: now.AddSeconds(roundSeconds),
+            AutoNext: autoNext,
+            AutoNextDelaySeconds: autoNextDelay,
+            NextStartsAtUtc: null,
+            RoundSeconds: roundSeconds
         );
 
         var updated = room with
         {
             ActiveGame = GameType.Trivia,
             GameState = round,
-            UpdatedAtUtc = DateTimeOffset.UtcNow
+            UpdatedAtUtc = now
         };
 
         await SaveRoomStateAsync(roomId, updated, ct);
@@ -78,10 +92,6 @@ public sealed class TriviaController(
         return Ok(new { state = publicState });
     }
 
-    // ----------------------------
-    // Answer
-    // POST /rooms/{roomRef}/games/trivia/answer
-    // ----------------------------
     [HttpPost("/rooms/{roomRef}/games/trivia/answer")]
     public async Task<IActionResult> Answer(string roomRef, [FromBody] TriviaAnswerRequest req, CancellationToken ct)
     {
@@ -96,6 +106,10 @@ public sealed class TriviaController(
         if (room.GameState is not TriviaRoundState round || !round.Active || round.Current is null)
             return BadRequest(new { error = "No active trivia question." });
 
+        var difficulty = round.Current.Difficulty;
+        var progressed = await TryAutoProgressAsync(roomId, room, round, difficulty, ct);
+        (room, round) = progressed;
+
         if (round.Revealed)
             return BadRequest(new { error = "Question already revealed." });
 
@@ -108,17 +122,19 @@ public sealed class TriviaController(
         if (idx < 0)
             return BadRequest(new { error = "Choice must be A, B, C or D." });
 
-        if (round.Current.ShuffledAnswers.Count < 4 || idx >= round.Current.ShuffledAnswers.Count)
+        var current = round.Current;
+        if (current is null)
+            return BadRequest(new { error = "No active trivia question." });
+
+        if (current.ShuffledAnswers.Count < 4 || idx >= current.ShuffledAnswers.Count)
             return BadRequest(new { error = "Invalid answers mapping." });
 
-        // Positional records are init-only, so update via a new state.
-        // Clone collections to avoid mutating shared references.
         var answered = new HashSet<string>(round.AnsweredThisQuestionUserIds);
         if (!answered.Add(userId))
             return BadRequest(new { error = "You already answered this question." });
 
-        var chosen = round.Current.ShuffledAnswers[idx];
-        var correct = string.Equals(chosen, round.Current.CorrectAnswer, StringComparison.Ordinal);
+        var chosen = current.ShuffledAnswers[idx];
+        var correct = string.Equals(chosen, current.CorrectAnswer, StringComparison.Ordinal);
 
         var scores = new Dictionary<string, int>(round.ScoresByUserId);
         if (correct)
@@ -154,10 +170,6 @@ public sealed class TriviaController(
         return Ok(new { state = publicState, correct });
     }
 
-    // ----------------------------
-    // Reveal
-    // POST /rooms/{roomRef}/games/trivia/reveal
-    // ----------------------------
     [HttpPost("/rooms/{roomRef}/games/trivia/reveal")]
     public async Task<IActionResult> Reveal(string roomRef, CancellationToken ct)
     {
@@ -190,10 +202,6 @@ public sealed class TriviaController(
         return Ok(new { state = publicState });
     }
 
-    // ----------------------------
-    // Stop
-    // POST /rooms/{roomRef}/games/trivia/stop
-    // ----------------------------
     [HttpPost("/rooms/{roomRef}/games/trivia/stop")]
     public async Task<IActionResult> Stop(string roomRef, CancellationToken ct)
     {
@@ -204,14 +212,18 @@ public sealed class TriviaController(
 
         var prev = room.GameState as TriviaRoundState;
 
-        // Keep scores if you want (matches "carry forward" behaviour).
         var stopped = new TriviaRoundState(
             Active: false,
             Current: null,
             AskedAtUtc: null,
             Revealed: false,
             ScoresByUserId: prev?.ScoresByUserId ?? [],
-            AnsweredThisQuestionUserIds: []
+            AnsweredThisQuestionUserIds: [],
+            EndsAtUtc: null,
+            AutoNext: false,
+            AutoNextDelaySeconds: 7,
+            NextStartsAtUtc: null,
+            RoundSeconds: prev?.RoundSeconds ?? 20
         );
 
         var updated = room with
@@ -231,27 +243,97 @@ public sealed class TriviaController(
         return Ok(new { ok = true });
     }
 
-    // ----------------------------
-    // Status
-    // GET /rooms/{roomRef}/games/trivia/status
-    // ----------------------------
     [HttpGet("/rooms/{roomRef}/games/trivia/status")]
     public async Task<IActionResult> Status(string roomRef, CancellationToken ct)
     {
         var loaded = await LoadRoomStateAsync(roomRef, ct);
         if (loaded is null) return RoomNotFound();
 
-        var (_, room) = loaded.Value;
+        var (roomId, room) = loaded.Value;
 
         if (room.ActiveGame != GameType.Trivia || room.GameState is not TriviaRoundState round)
             return Ok(new { state = new { active = false } });
 
-        return Ok(new { state = TriviaPublic.From(round) });
+        var difficulty = round.Current?.Difficulty ?? "easy";
+
+        var progressed = await TryAutoProgressAsync(roomId, room, round, difficulty, ct);
+        var (_, updatedRound) = progressed;
+
+        return Ok(new { state = TriviaPublic.From(updatedRound) });
     }
 
-    // ----------------------------
-    // Public projection (Contexto-style)
-    // ----------------------------
+    private async Task<(RoomState updatedRoom, TriviaRoundState updatedRound)> TryAutoProgressAsync(
+        Guid roomId,
+        RoomState room,
+        TriviaRoundState round,
+        string difficulty,
+        CancellationToken ct
+    )
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        if (round.Active && !round.Revealed && round.EndsAtUtc is not null && now >= round.EndsAtUtc.Value)
+        {
+            var revealed = round with
+            {
+                Revealed = true,
+                NextStartsAtUtc = round.AutoNext ? now.AddSeconds(round.AutoNextDelaySeconds) : null
+            };
+
+            var revealedRoom = room with
+            {
+                GameState = revealed,
+                UpdatedAtUtc = now
+            };
+
+            await SaveRoomStateAsync(roomId, revealedRoom, ct);
+
+            var revealPublic = TriviaPublic.From((TriviaRoundState)revealedRoom.GameState!);
+            await BroadcastAsync(roomId, revealedRoom.ActiveGame, "trivia", revealPublic, new { type = "reveal" }, ct);
+
+            room = revealedRoom;
+            round = revealed;
+        }
+
+        if (round.Active && round.Revealed && round.AutoNext && round.NextStartsAtUtc is not null && now >= round.NextStartsAtUtc.Value)
+        {
+            var q = await trivia.GetOneAsync(difficulty, ct);
+            if (q is null) return (room, round);
+
+            var next = new TriviaRoundState(
+                Active: true,
+                Current: q,
+                AskedAtUtc: now,
+                Revealed: false,
+                ScoresByUserId: round.ScoresByUserId,
+                AnsweredThisQuestionUserIds: [],
+                EndsAtUtc: now.AddSeconds(round.RoundSeconds),
+                AutoNext: round.AutoNext,
+                AutoNextDelaySeconds: round.AutoNextDelaySeconds,
+                NextStartsAtUtc: null,
+                RoundSeconds: round.RoundSeconds
+            );
+
+            var nextRoom = room with
+            {
+                ActiveGame = GameType.Trivia,
+                GameState = next,
+                UpdatedAtUtc = now
+            };
+
+            await SaveRoomStateAsync(roomId, nextRoom, ct);
+
+            var startPublic = TriviaPublic.From((TriviaRoundState)nextRoom.GameState!);
+            await BroadcastAsync(roomId, nextRoom.ActiveGame, "trivia", startPublic, new { type = "start" }, ct);
+
+            await ToastAsync(roomId, "Next question!", ct);
+
+            return (nextRoom, next);
+        }
+
+        return (room, round);
+    }
+
     internal static class TriviaPublic
     {
         public static object From(TriviaRoundState cs)
@@ -275,7 +357,16 @@ public sealed class TriviaController(
                 correct = cs.Revealed ? cs.Current.CorrectAnswer : null,
                 correctKey = cs.Revealed ? GetCorrectKey(cs.Current) : null,
 
-                scores = cs.ScoresByUserId
+                scores = cs.ScoresByUserId,
+
+                endsAtUtc = cs.EndsAtUtc,
+                nextStartsAtUtc = cs.NextStartsAtUtc,
+                autoNext = cs.AutoNext,
+                autoNextDelaySeconds = cs.AutoNextDelaySeconds,
+                roundSeconds = cs.RoundSeconds,
+                secondsLeft = cs.EndsAtUtc is null
+                    ? (int?)null
+                    : (int)Math.Max(0, (cs.EndsAtUtc.Value - DateTimeOffset.UtcNow).TotalSeconds)
             };
         }
 

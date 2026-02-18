@@ -11,6 +11,7 @@ using Misfitz_Games.Data;
 using Misfitz_Games.Models;
 using Misfitz_Games.Models.Effects;
 using Misfitz_Games.Services;
+using Misfitz_Games.Services.Tuya;
 
 namespace Misfitz_Games.Controllers.Effects;
 
