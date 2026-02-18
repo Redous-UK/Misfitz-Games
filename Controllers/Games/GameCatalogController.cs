@@ -15,7 +15,7 @@ public sealed class GameCatalogController : ControllerBase
                 new { id = "contexto", name = "Contexto", description = "Guess the secret word. Chat submits guesses.", enabled = true, image = "/assets/Games/contexto.png"},
                 new { id = "deal_or_no_deal", name = "Deal or No Deal", description = "Pick cases, eliminate amounts, and decide: Deal… or No Deal?", enabled = true, image = "/assets/Games/deal.png"},
                 new { id = "hangman", name = "Hangman", description = "Guess the hidden word one letter at a time. Too many wrong guesses and it’s game over!", enabled = true, image = "/assets/Games/Hangman/hangman.png"},
-                new { id = "trivia", name = "Daily Trivia", description = "Coming soon.", enabled = false, image = "/assets/Games/trivia.png"},
+                new { id = "trivia", name = "Daily Trivia", description = "Daily Trivia can you answer all questions correctly!", enabled = true, image = "/assets/Games/trivia.png"},
                 new { id = "twenty_one", name = "21", description = "Coming soon.", enabled = false, image = "/assets/Games/21.png"},
                 new { id = "higher_or_lower", name = "Higher or Lower", description = "Coming soon.", enabled = false, image = "/assets/Games/higher_or_lower.png"},
                 new { id = "connect_four", name = "Connect Four", description = "Coming soon.", enabled = false, image = "/assets/Games/connect_four.png"},
