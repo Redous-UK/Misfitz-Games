@@ -755,3 +755,55 @@ pre {
 .hangman-sprite.shake {
     animation: hangmanShake .18s ease;
 }
+
+/* Trivia Specific */
+
+.timerBar {
+    flex: 1;
+    height: 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.10);
+    overflow: hidden;
+}
+
+.timerFill {
+    height: 100%;
+    width: 0%;
+    background: rgba(255,255,255,.70);
+    transition: width .2s linear;
+}
+
+.answersList {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0 0 0;
+    display: grid;
+    gap: 6px;
+}
+
+    .answersList li {
+        padding: 8px 10px;
+        border-radius: 12px;
+        background: rgba(255,255,255,.08);
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+    }
+
+    .answersList .k {
+        font-weight: 800;
+        width: 22px;
+        opacity: .9;
+    }
+
+    .answersList .t {
+        flex: 1;
+    }
+
+    .answersList li.correct {
+        outline: 2px solid rgba(0,255,140,.55);
+    }
+
+    .answersList li.dim {
+        opacity: .65;
+    }
