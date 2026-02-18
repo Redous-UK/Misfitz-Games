@@ -228,7 +228,12 @@
         }
 
         function setGame(text, kind = "warn") {
-            const id = (selectedGame === "hangman") ? "gameBadgeHangman" : "gameBadgeContexto";
+            const id = (selectedGame === "hangman")
+                ? "gameBadgeHangman"
+                : (selectedGame === "trivia")
+                    ? "gameBadgeTrivia"
+                    : "gameBadgeContexto";
+
             const b = el(id);
             if (!b) return;
             b.textContent = text;
@@ -259,7 +264,7 @@
         // --- panels (use hidden attribute so they ACTUALLY disappear) ---
         function showOnlyPanel(gameId) {
             // If you add more games later, just add to this set.
-            const panels = ["contexto", "hangman"];
+            const panels = ["contexto", "hangman", "deal", "trivia"];
             for (const id of panels) {
                 const node = el(`panel-${id}`);
                 if (node) node.hidden = (id !== gameId);
@@ -367,6 +372,79 @@
                         (g?.isActive === false ? "No active hangman round." : "Guess a letter or word…");
         }
 
+
+
+
+        // --- render (Trivia) ---
+
+        function renderTriviaPublic(gs) {
+
+            li.innerHTML = `
+          <div>
+            <div class="who">${escapeHtml(key)}</div>
+            <div class="small">${escapeHtml(text)}</div>
+          </div>
+          <div class="right">
+            <div class="small">&nbsp;</div>
+            <div class="who">&nbsp;</div>
+          </div>
+        `;
+
+            // Optional: click-to-answer (web play)
+            // Only allow while active + not revealed
+            if (gs?.active && !gs?.revealed && joinedRef) {
+                li.style.cursor = "pointer";
+                li.addEventListener("click", async () => {
+                    try {
+                        await api(`/rooms/${encodeURIComponent(joinedRef)}/games/trivia/answer`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ userId: myUserId, choice: key })
+                        });
+                        await refreshAll();
+                    } catch (e) {
+                        alert(String(e));
+                    }
+                });
+            }
+
+            ul.appendChild(li);
+        }
+ 
+
+        // Scores
+        const scoresUl = el("triviaScores");
+        if (scoresUl) {
+            scoresUl.innerHTML = "";
+            const scores = gs?.scores ?? {};
+
+            const entries = Object.entries(scores)
+                .map(([k, v]) => ({ k: String(k), v: Number(v) || 0 }))
+                .sort((a, b) => b.v - a.v)
+                .slice(0, 10);
+
+            if (entries.length === 0) {
+                scoresUl.innerHTML = `<li class="small">No scores yet…</li>`;
+            } else {
+                for (const e of entries) {
+                    const li = document.createElement("li");
+                    li.className = "item";
+                    li.innerHTML = `
+          <div>
+            <div class="who">${escapeHtml(e.k)}</div>
+            <div class="small">score</div>
+          </div>
+          <div class="right">
+            <div class="small">&nbsp;</div>
+            <div class="who">${escapeHtml(String(e.v))}</div>
+          </div>
+        `;
+                    scoresUl.appendChild(li);
+                }
+            }
+        }
+
+
         // --- state/polling ---
         let joinedRef = "";
         let pollTimer = null;
@@ -405,19 +483,18 @@
 
                 // --- game-specific render using ONLY the projected state ---
                 if (gameIdToRender === "contexto") {
-                    renderRecentGuesses(gs);
-                    el("stateOutContexto").textContent = pretty(state);
-                } else if (gameIdToRender === "hangman") {
-                    renderHangmanPublic(gs);
-                    el("stateOutHangman").textContent = pretty(state);
-
-                    const ul = el("recentGuesses");
-                    if (ul) ul.innerHTML = `<li class="small">Hangman doesn’t use recent guesses.</li>`;
-                } else {
-                    // no game
-                    const ul = el("recentGuesses");
-                    if (ul) ul.innerHTML = `<li class="small">No active game.</li>`;
-                }
+                         renderRecentGuesses(gs);
+                         el("stateOutContexto").textContent = pretty(state);
+                     } else if (gameIdToRender === "hangman") {
+                         renderHangmanPublic(gs);
+                         el("stateOutHangman").textContent = pretty(state);
+                     } else if (gameIdToRender === "trivia") {
+                         renderTriviaPublic(gs);
+                         el("stateOutTrivia").textContent = pretty(state);
+                     } else {
+                         const ul = el("recentGuesses");
+                         if (ul) ul.innerHTML = `<li class="small">No active game.</li>`;
+                     }
 
                 // Stats/leaderboard (unchanged)
                 const [lbRaw, statsRaw] = await Promise.all([
