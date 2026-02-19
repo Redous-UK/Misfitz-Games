@@ -67,19 +67,42 @@ public static class Program
 
         // --- Auth: Cookie auth ---
         builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-            .AddCookie(o =>
+    .AddCookie(o =>
+    {
+        o.Cookie.Name = "misfitz_auth";
+        o.Cookie.HttpOnly = true;
+        o.SlidingExpiration = true;
+
+        o.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        o.Cookie.SameSite = SameSiteMode.Lax;
+
+        o.LoginPath = "/user.html";
+        o.AccessDeniedPath = "/user.html";
+
+        o.Events = new CookieAuthenticationEvents
+        {
+            OnRedirectToLogin = ctx =>
             {
-                o.Cookie.Name = "misfitz_auth";
-                o.Cookie.HttpOnly = true;
-                o.SlidingExpiration = true;
-
-                // Render is HTTPS in production
-                o.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-                o.Cookie.SameSite = SameSiteMode.Lax;
-
-                o.LoginPath = "/user.html";
-                o.AccessDeniedPath = "/user.html";
-            });
+                if (ctx.Request.Path.StartsWithSegments("/api"))
+                {
+                    ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    return Task.CompletedTask;
+                }
+                ctx.Response.Redirect(ctx.RedirectUri);
+                return Task.CompletedTask;
+            },
+            OnRedirectToAccessDenied = ctx =>
+            {
+                if (ctx.Request.Path.StartsWithSegments("/api"))
+                {
+                    ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    return Task.CompletedTask;
+                }
+                ctx.Response.Redirect(ctx.RedirectUri);
+                return Task.CompletedTask;
+            }
+        };
+    });
 
         builder.Services.AddAuthorizationBuilder()
             .AddPolicy("Player", p =>

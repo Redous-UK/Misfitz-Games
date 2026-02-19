@@ -204,6 +204,35 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
         }
     }
 
+    [Authorize(Roles = "admin")]
+    [HttpGet("/api/tuya/link")]
+    public IActionResult GetMyTuyaLink()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(userId)) return Unauthorized();
+
+        if (!Guid.TryParse(userId, out var uid)) return BadRequest("Bad user id");
+        var link = db.TuyaLinks.FirstOrDefault(x => x.UserId == uid);
+        return Ok(new { hasLink = link != null, link });
+    }
+
+    [Authorize(Roles = "admin")]
+    [HttpPost("/admin/db/tuya/seed")]
+    public IActionResult SeedTuya()
+    {
+        var id = Guid.NewGuid();
+        db.TuyaLinks.Add(new TuyaAccountLink
+        {
+            UserId = id,
+            TuyaUid = "TEST_UID",
+            AccessTokenEnc = "TEST",
+            RefreshTokenEnc = "TEST",
+            AccessTokenExpiresUtc = DateTime.UtcNow.AddHours(1)
+        });
+        db.SaveChanges();
+        return Ok(new { ok = true, userId = id });
+    }
+
     // ------------------------------------------------------------------
     // Groups
     // GET  /api/effects/groups
