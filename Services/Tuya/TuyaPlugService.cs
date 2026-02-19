@@ -38,8 +38,8 @@ public class TuyaPlugService(IConfiguration cfg, HttpClient http)
 
     public async Task<object> HealthPingAsync(CancellationToken ct = default)
     {
-        // Option A (best): signed time endpoint
-        var path = "/v1.0/time";
+        // Reuse a known-good endpoint for your setup
+        var path = "/v1.0/token?grant_type=1";
         var method = HttpMethod.Get;
 
         using var req = new HttpRequestMessage(method, _apiBase + path);
@@ -50,24 +50,7 @@ public class TuyaPlugService(IConfiguration cfg, HttpClient http)
 
         EnsureSuccess(res, json);
 
-        // Return a tiny bit of useful info (optional)
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            // Tuya often returns result as timestamp info; keep it flexible
-            return new
-            {
-                ok = true,
-                endpoint = "time",
-                http = (int)res.StatusCode,
-                success = doc.RootElement.TryGetProperty("success", out var s) ? s.GetBoolean() : (bool?)null,
-                t = doc.RootElement.TryGetProperty("t", out var tEl) ? tEl.GetInt64() : (long?)null
-            };
-        }
-        catch
-        {
-            return new { ok = true, endpoint = "time", http = (int)res.StatusCode };
-        }
+        return new { ok = true, endpoint = "token", http = (int)res.StatusCode };
     }
 
     private async Task<string> GetAccessTokenAsync(CancellationToken ct)

@@ -212,7 +212,7 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
     // POST /api/effects/{id}/run
     // DEL  /api/effects/targets/{targetId:guid}
     // ------------------------------------------------------------------
-    [HttpGet("effects")]
+    [HttpGet]
     public async Task<IActionResult> ListEffects(CancellationToken ct)
     {
         var uid = GetAppUserIdOrThrow();
@@ -229,7 +229,7 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
 
     public record CreateEffectRequest(string Name, EffectAction Action = EffectAction.PulseSwitch, int DurationSeconds = 2);
 
-    [HttpPost("effects")]
+    [HttpPost]
     public async Task<IActionResult> CreateEffect([FromBody] CreateEffectRequest req, CancellationToken ct)
     {
         var uid = GetAppUserIdOrThrow();
