@@ -178,7 +178,7 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
         return Ok(new { ok = true, tuyaUid, added, updated, totalTuya = items.Length });
     }
 
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "admin")]
     [HttpGet("tuya")]
     public IActionResult GetTuyaLinks()
     {
