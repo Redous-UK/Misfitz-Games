@@ -263,6 +263,26 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
         return Ok(new { ok = true, deleted = true });
     }
 
+    public record SwitchRequest(Guid DeviceId, bool On);
+
+    [HttpPost("devices/switch")]
+    public async Task<IActionResult> SwitchDevice([FromBody] SwitchRequest req, CancellationToken ct)
+    {
+        var uid = GetAppUserIdOrThrow();
+
+        var dev = await db.Devices.FirstOrDefaultAsync(d => d.OwnerUserId == uid && d.Id == req.DeviceId, ct);
+        if (dev is null) return NotFound(new { ok = false, error = "Device not found" });
+
+        if (dev.Provider != DeviceProvider.Tuya)
+            return BadRequest(new { ok = false, error = "Device is not Tuya" });
+
+        await HttpContext.RequestServices
+            .GetRequiredService<TuyaPlugService>()
+            .SetSwitchAsync(dev.ExternalDeviceId, req.On, ct);
+
+        return Ok(new { ok = true });
+    }
+
 
     // ------------------------------------------------------------------
     // Groups
