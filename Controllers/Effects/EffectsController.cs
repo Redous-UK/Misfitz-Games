@@ -119,6 +119,65 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
         return Ok(new { ok = true });
     }
 
+    [HttpPost("devices/sync")]
+    public async Task<IActionResult> SyncDevicesFromTuya(CancellationToken ct)
+    {
+        var uid = GetAppUserIdOrThrow();
+
+        var tuyaUid = HttpContext.RequestServices
+            .GetRequiredService<IConfiguration>()["TUYA_UID"];
+
+        if (string.IsNullOrWhiteSpace(tuyaUid))
+            return BadRequest(new { ok = false, error = "TUYA_UID not set" });
+
+        // Pull from Tuya
+        var items = await HttpContext.RequestServices
+            .GetRequiredService<TuyaPlugService>()
+            .ListDevicesByUidAsync(tuyaUid, ct);
+
+        var added = 0;
+        var updated = 0;
+
+        foreach (var d in items)
+        {
+            // Common fields from Tuya device list: id + name
+            var externalId = d.GetProperty("id").GetString() ?? "";
+            var name = d.TryGetProperty("name", out var nm) ? (nm.GetString() ?? externalId) : externalId;
+
+            if (string.IsNullOrWhiteSpace(externalId)) continue;
+
+            var existing = await _db.Devices.FirstOrDefaultAsync(
+                x => x.OwnerUserId == uid && x.ExternalDeviceId == externalId, ct);
+
+            if (existing is null)
+            {
+                _db.Devices.Add(new Device
+                {
+                    OwnerUserId = uid,
+                    Name = name.Trim(),
+                    Provider = DeviceProvider.Tuya,
+                    Capability = DeviceCapability.Switch,
+                    ExternalDeviceId = externalId,
+                    IsEnabled = true
+                });
+                added++;
+            }
+            else
+            {
+                // keep user edits (like IsEnabled) but update the name if it changed
+                if (!string.Equals(existing.Name, name, StringComparison.Ordinal))
+                {
+                    existing.Name = name.Trim();
+                    updated++;
+                }
+            }
+        }
+
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new { ok = true, tuyaUid, added, updated, totalTuya = items.Length });
+    }
+
     // ------------------------------------------------------------------
     // Groups
     // GET  /api/effects/groups

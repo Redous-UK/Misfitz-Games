@@ -738,6 +738,7 @@ pre {
             opacity: .45;
             cursor: not-allowed;
         }
+
 @keyframes hangmanShake {
     0%, 100% {
         transform: translateX(0);
@@ -847,57 +848,175 @@ pre {
 
 /* Effects Specific */
 
-.effectsGrid {
+/* ===== Effects Dashboard (full-screen Misfitz style) ===== */
+.fxBody {
+    margin: 0;
+}
+
+.fxTopbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255,255,255,.10);
+    position: sticky;
+    top: 0;
+    backdrop-filter: blur(10px);
+    background: rgba(0,0,0,.35);
+    z-index: 10;
+}
+
+.fxBrand {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.fxLogo {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255,255,255,.12);
+    font-weight: 900;
+}
+
+.fxTitle {
+    font-weight: 900;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.fxTopActions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.fxShell {
     display: grid;
-    grid-template-columns: 360px 1fr;
+    grid-template-columns: 340px 1fr 360px;
     gap: 12px;
-    margin-top: 12px;
+    padding: 12px 16px 24px;
 }
 
-@media (max-width: 980px) {
-    .effectsGrid {
-        grid-template-columns: 1fr;
-    }
+.fxCol {
+    min-width: 0;
 }
 
-.list {
+.fxCard {
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 16px;
+    padding: 12px;
+    background: rgba(0,0,0,.20);
+}
+
+.fxCardFlat {
+    background: rgba(0,0,0,.10);
+}
+
+.fxHeader {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.fxH1 {
+    font-size: 20px;
+    font-weight: 900;
+    letter-spacing: .2px;
+}
+
+.fxChips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.fxActivity {
     display: flex;
     flex-direction: column;
     gap: 8px;
 }
 
-.listItem {
-    width: 100%;
-    text-align: left;
-    background: transparent;
+.fxActItem {
     border: 1px solid rgba(255,255,255,.10);
-    border-radius: 12px;
+    border-radius: 14px;
     padding: 10px;
     cursor: pointer;
 }
 
-    .listItem.selected {
-        border-color: rgba(255,255,255,.30);
+    .fxActItem.ok {
+        border-color: rgba(0,255,140,.25);
     }
 
-.listRow {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    border: 1px solid rgba(255,255,255,.10);
-    border-radius: 12px;
-    padding: 10px;
+    .fxActItem.bad {
+        border-color: rgba(255,80,80,.25);
+    }
+
+.fxActTitle {
+    font-weight: 900;
 }
 
-.code {
-    background: rgba(0,0,0,.25);
-    border: 1px solid rgba(255,255,255,.10);
-    border-radius: 12px;
-    padding: 10px;
-    min-height: 120px;
+.fxActMeta {
+    font-size: 12px;
+    opacity: .75;
+    margin-top: 4px;
+}
+
+/* Drawer */
+.fxBackdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.55);
+    z-index: 50;
+}
+
+.fxDrawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 420px;
+    max-width: 92vw;
+    height: 100vh;
+    background: rgba(10,10,12,.92);
+    border-left: 1px solid rgba(255,255,255,.12);
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+}
+
+.fxDrawerTop {
+    padding: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid rgba(255,255,255,.10);
+}
+
+.fxDrawerTitle {
+    font-weight: 900;
+    font-size: 16px;
+}
+
+.fxDrawerBody {
+    padding: 12px;
     overflow: auto;
 }
 
-.btn.primary {
-    border-color: rgba(255,255,255,.35);
+.hidden {
+    display: none;
+}
+
+.fxNoScroll {
+    overflow: hidden;
+}
+
+/* Responsive */
+@media (max-width: 1100px) {
+    .fxShell {
+        grid-template-columns: 1fr;
+    }
 }

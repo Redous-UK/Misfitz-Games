@@ -129,6 +129,26 @@ public class TuyaPlugService(IConfiguration cfg, HttpClient http)
         return best.Code;
     }
 
+    public async Task<JsonElement[]> ListDevicesByUidAsync(string uid, CancellationToken ct = default)
+    {
+        var path = $"/v1.0/users/{uid}/devices";
+        var method = HttpMethod.Get;
+
+        using var req = new HttpRequestMessage(method, _apiBase + path);
+        SignRequest(req, method, path, body: "", accessToken: null);
+
+        using var res = await _http.SendAsync(req, ct);
+        var json = await res.Content.ReadAsStringAsync(ct);
+
+        EnsureSuccess(res, json);
+
+        using var doc = JsonDocument.Parse(json);
+        var result = doc.RootElement.GetProperty("result");
+
+        // result is typically an array of devices
+        return [.. result.EnumerateArray()];
+    }
+
     private async Task SendSwitchAsync(string accessToken, string deviceId, string switchCode, bool on, CancellationToken ct)
     {
         var path = $"/v1.0/iot-03/devices/{deviceId}/commands";
