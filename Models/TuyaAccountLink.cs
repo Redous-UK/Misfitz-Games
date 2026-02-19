@@ -22,3 +22,10 @@ public class TuyaAccountLink
     public DateTimeOffset CreatedUtc { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedUtc { get; set; } = DateTimeOffset.UtcNow;
 }
+
+public record LinkTuyaRequest(
+    string TuyaUid,
+    string AccessToken,
+    string RefreshToken,
+    DateTime AccessTokenExpiresUtc
+);

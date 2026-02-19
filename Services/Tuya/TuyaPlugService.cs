@@ -131,11 +131,13 @@ public class TuyaPlugService(IConfiguration cfg, HttpClient http)
 
     public async Task<JsonElement[]> ListDevicesByUidAsync(string uid, CancellationToken ct = default)
     {
+        var token = await GetAccessTokenAsync(ct); // ✅ get client token
+
         var path = $"/v1.0/users/{uid}/devices";
         var method = HttpMethod.Get;
 
         using var req = new HttpRequestMessage(method, _apiBase + path);
-        SignRequest(req, method, path, body: "", accessToken: null);
+        SignRequest(req, method, path, body: "", accessToken: token); // ✅ pass token
 
         using var res = await _http.SendAsync(req, ct);
         var json = await res.Content.ReadAsStringAsync(ct);

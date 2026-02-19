@@ -124,11 +124,14 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
     {
         var uid = GetAppUserIdOrThrow();
 
-        var tuyaUid = HttpContext.RequestServices
-            .GetRequiredService<IConfiguration>()["TUYA_UID"];
+        // ✅ get Tuya link for this user from DB (no ENV)
+        var link = await db.TuyaLinks.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.UserId == uid, ct);
 
-        if (string.IsNullOrWhiteSpace(tuyaUid))
-            return BadRequest(new { ok = false, error = "TUYA_UID not set" });
+        if (link is null || string.IsNullOrWhiteSpace(link.TuyaUid))
+            return BadRequest(new { ok = false, error = "No Tuya account linked for this user." });
+
+        var tuyaUid = link.TuyaUid;
 
         // Pull from Tuya
         var items = await HttpContext.RequestServices
@@ -205,27 +208,39 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
     }
 
     [Authorize(Roles = "admin")]
-    [HttpGet("/api/tuya/me")]
+    [HttpGet("/api/tuya/link")]
     public IActionResult GetMyTuyaLink()
     {
-        var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!Guid.TryParse(userIdStr, out var userId))
-            return Unauthorized();
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(userId)) return Unauthorized();
 
-        var link = db.TuyaLinks.FirstOrDefault(x => x.UserId == userId);
-
-        return Ok(new
-        {
-            hasLink = link != null,
-            userId,
-            link = link == null ? null : new
-            {
-                link.TuyaUid,
-                link.AccessTokenExpiresUtc
-            }
-        });
+        if (!Guid.TryParse(userId, out var uid)) return BadRequest("Bad user id");
+        var link = db.TuyaLinks.FirstOrDefault(x => x.UserId == uid);
+        return Ok(new { hasLink = link != null, link });
     }
 
+    public record LinkTuyaUidRequest(string TuyaUid);
+
+    [HttpPost("tuya/link")]
+    public async Task<IActionResult> LinkTuyaUid([FromBody] LinkTuyaUidRequest req, CancellationToken ct)
+    {
+        var uid = GetAppUserIdOrThrow();
+
+        if (string.IsNullOrWhiteSpace(req.TuyaUid))
+            return BadRequest(new { ok = false, error = "TuyaUid required" });
+
+        var link = await db.TuyaLinks.FirstOrDefaultAsync(x => x.UserId == uid, ct);
+        if (link is null)
+        {
+            link = new TuyaAccountLink { UserId = uid };
+            db.TuyaLinks.Add(link);
+        }
+
+        link.TuyaUid = req.TuyaUid.Trim();
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new { ok = true });
+    }
 
 
     // ------------------------------------------------------------------
