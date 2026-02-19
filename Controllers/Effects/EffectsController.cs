@@ -251,6 +251,18 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
         return Ok(new { ok = true });
     }
 
+    [Authorize(Roles = "admin")]
+    [HttpPost("/admin/db/tuya/delete-test")]
+    public IActionResult DeleteTest()
+    {
+        var test = db.TuyaLinks.FirstOrDefault(x => x.TuyaUid == "TEST_UID");
+        if (test == null) return Ok(new { ok = true, deleted = false });
+
+        db.TuyaLinks.Remove(test);
+        db.SaveChanges();
+        return Ok(new { ok = true, deleted = true });
+    }
+
 
     // ------------------------------------------------------------------
     // Groups

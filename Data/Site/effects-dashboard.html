@@ -29,6 +29,33 @@
         <aside class="fxCol fxLeft">
             <div class="fxCard">
                 <div class="row" style="justify-content:space-between;align-items:center;">
+                    <div class="sectionTitle">DEVICES</div>
+                    <button id="btnSyncTuya" class="btn">Sync from Tuya</button>
+                    <button id="btnRefreshDevices" class="btn">Refresh</button>
+                </div>
+                <input id="deviceSearch" class="grow" style="margin-top:10px;" placeholder="Search devices…" />
+                <div id="devicesList" class="list" style="margin-top:10px;"></div>
+            </div>
+
+            <div class="fxCard" style="margin-top:12px;">
+                <div class="row" style="justify-content:space-between;align-items:center;">
+                    <div class="sectionTitle">GROUPS</div>
+                    <button id="btnRefreshGroups" class="btn">Refresh</button>
+                </div>
+                <input id="groupSearch" class="grow" style="margin-top:10px;" placeholder="Search groups…" />
+                <div id="groupsList" class="list" style="margin-top:10px;"></div>
+            </div>
+
+            <div class="fxCard" style="margin-top:12px;">
+                <div class="sectionTitle">OUTPUT</div>
+                <pre id="out" class="code" style="margin-top:10px; min-height: 120px;"></pre>
+            </div>
+        </aside>
+
+        <!-- CENTER -->
+        <main class="fxCol fxCenter">
+            <div class="fxCard">
+                <div class="row" style="justify-content:space-between;align-items:center;">
                     <div class="sectionTitle">EFFECTS</div>
                     <button id="btnRefreshEffects" class="btn">Refresh</button>
                 </div>
@@ -43,10 +70,10 @@
                 </div>
                 <div class="muted" style="margin-top:6px;">Run the selected effect or use the big button.</div>
             </div>
-        </aside>
+        </main>
 
-        <!-- CENTER -->
-        <main class="fxCol fxCenter">
+        <!-- RIGHT (optional info / pickers) -->
+        <aside class="fxCol fxRight">
             <div class="fxCard">
                 <div class="fxHeader">
                     <div class="grow">
@@ -72,33 +99,6 @@
                     <button id="btnClearActivity" class="btn">Clear</button>
                 </div>
                 <div id="activity" class="fxActivity" style="margin-top:10px;"></div>
-            </div>
-        </main>
-
-        <!-- RIGHT (optional info / pickers) -->
-        <aside class="fxCol fxRight">
-            <div class="fxCard">
-                <div class="row" style="justify-content:space-between;align-items:center;">
-                    <div class="sectionTitle">DEVICES</div>
-                    <button id="btnSyncTuya" class="btn">Sync from Tuya</button>
-                    <button id="btnRefreshDevices" class="btn">Refresh</button>
-                </div>
-                <input id="deviceSearch" class="grow" style="margin-top:10px;" placeholder="Search devices…" />
-                <div id="devicesList" class="list" style="margin-top:10px;"></div>
-            </div>
-
-            <div class="fxCard" style="margin-top:12px;">
-                <div class="row" style="justify-content:space-between;align-items:center;">
-                    <div class="sectionTitle">GROUPS</div>
-                    <button id="btnRefreshGroups" class="btn">Refresh</button>
-                </div>
-                <input id="groupSearch" class="grow" style="margin-top:10px;" placeholder="Search groups…" />
-                <div id="groupsList" class="list" style="margin-top:10px;"></div>
-            </div>
-
-            <div class="fxCard" style="margin-top:12px;">
-                <div class="sectionTitle">OUTPUT</div>
-                <pre id="out" class="code" style="margin-top:10px; min-height: 120px;"></pre>
             </div>
         </aside>
     </div>
