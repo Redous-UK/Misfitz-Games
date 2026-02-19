@@ -35,7 +35,7 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
         return Ok(new { ok = true });
     }
 
-    public record PulseRequest(string DeviceName, int Seconds = 5);
+    public record PulseRequest(string DeviceName, int Seconds = 2);
 
     // ------------------------------------------------------------------
     // Devices
