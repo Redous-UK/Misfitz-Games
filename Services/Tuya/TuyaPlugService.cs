@@ -131,13 +131,13 @@ public class TuyaPlugService(IConfiguration cfg, HttpClient http)
 
     public async Task<JsonElement[]> ListDevicesByUidAsync(string uid, CancellationToken ct = default)
     {
-        var token = await GetAccessTokenAsync(ct); // ✅ get client token
+        var token = await GetAccessTokenAsync(ct);
 
         var path = $"/v1.0/users/{uid}/devices";
         var method = HttpMethod.Get;
 
         using var req = new HttpRequestMessage(method, _apiBase + path);
-        SignRequest(req, method, path, body: "", accessToken: token); // ✅ pass token
+        SignRequest(req, method, path, body: "", accessToken: token);
 
         using var res = await _http.SendAsync(req, ct);
         var json = await res.Content.ReadAsStringAsync(ct);
@@ -147,8 +147,8 @@ public class TuyaPlugService(IConfiguration cfg, HttpClient http)
         using var doc = JsonDocument.Parse(json);
         var result = doc.RootElement.GetProperty("result");
 
-        // result is typically an array of devices
-        return [.. result.EnumerateArray()];
+        // ✅ Clone elements so they remain valid after JsonDocument is disposed
+        return [.. result.EnumerateArray().Select(e => e.Clone())];
     }
 
     private async Task SendSwitchAsync(string accessToken, string deviceId, string switchCode, bool on, CancellationToken ct)
