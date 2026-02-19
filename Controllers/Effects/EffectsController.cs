@@ -205,33 +205,28 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
     }
 
     [Authorize(Roles = "admin")]
-    [HttpGet("/api/tuya/link")]
+    [HttpGet("/api/tuya/me")]
     public IActionResult GetMyTuyaLink()
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrWhiteSpace(userId)) return Unauthorized();
+        var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdStr, out var userId))
+            return Unauthorized();
 
-        if (!Guid.TryParse(userId, out var uid)) return BadRequest("Bad user id");
-        var link = db.TuyaLinks.FirstOrDefault(x => x.UserId == uid);
-        return Ok(new { hasLink = link != null, link });
-    }
+        var link = db.TuyaLinks.FirstOrDefault(x => x.UserId == userId);
 
-    [Authorize(Roles = "admin")]
-    [HttpPost("/admin/db/tuya/seed")]
-    public IActionResult SeedTuya()
-    {
-        var id = Guid.NewGuid();
-        db.TuyaLinks.Add(new TuyaAccountLink
+        return Ok(new
         {
-            UserId = id,
-            TuyaUid = "TEST_UID",
-            AccessTokenEnc = "TEST",
-            RefreshTokenEnc = "TEST",
-            AccessTokenExpiresUtc = DateTime.UtcNow.AddHours(1)
+            hasLink = link != null,
+            userId,
+            link = link == null ? null : new
+            {
+                link.TuyaUid,
+                link.AccessTokenExpiresUtc
+            }
         });
-        db.SaveChanges();
-        return Ok(new { ok = true, userId = id });
     }
+
+
 
     // ------------------------------------------------------------------
     // Groups
