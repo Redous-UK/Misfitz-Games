@@ -124,61 +124,70 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
     {
         var uid = GetAppUserIdOrThrow();
 
-        // ✅ get Tuya link for this user from DB (no ENV)
-        var link = await db.TuyaLinks.AsNoTracking()
-            .FirstOrDefaultAsync(x => x.UserId == uid, ct);
-
-        if (link is null || string.IsNullOrWhiteSpace(link.TuyaUid))
-            return BadRequest(new { ok = false, error = "No Tuya account linked for this user." });
-
-        var tuyaUid = link.TuyaUid;
-
-        // Pull from Tuya
-        var items = await HttpContext.RequestServices
-            .GetRequiredService<TuyaPlugService>()
-            .ListDevicesByUidAsync(tuyaUid, ct);
-
-        var added = 0;
-        var updated = 0;
-
-        foreach (var d in items)
+        try
         {
-            // Common fields from Tuya device list: id + name
-            var externalId = d.GetProperty("id").GetString() ?? "";
-            var name = d.TryGetProperty("name", out var nm) ? (nm.GetString() ?? externalId) : externalId;
+            // ✅ Prefer DB link (remove ENV dependency)
+            var link = await db.TuyaLinks.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.UserId == uid, ct);
 
-            if (string.IsNullOrWhiteSpace(externalId)) continue;
+            if (link is null || string.IsNullOrWhiteSpace(link.TuyaUid))
+                return BadRequest(new { ok = false, error = "No Tuya account linked for this user." });
 
-            var existing = await db.Devices.FirstOrDefaultAsync(
-                x => x.OwnerUserId == uid && x.ExternalDeviceId == externalId, ct);
+            var tuyaUid = link.TuyaUid;
 
-            if (existing is null)
+            // Pull from Tuya
+            var items = await HttpContext.RequestServices
+                .GetRequiredService<TuyaPlugService>()
+                .ListDevicesByUidAsync(tuyaUid, ct);
+
+            var added = 0;
+            var updated = 0;
+
+            foreach (var d in items)
             {
-                db.Devices.Add(new Device
+                var externalId = d.GetProperty("id").GetString() ?? "";
+                var name = d.TryGetProperty("name", out var nm) ? (nm.GetString() ?? externalId) : externalId;
+
+                if (string.IsNullOrWhiteSpace(externalId)) continue;
+
+                var existing = await db.Devices.FirstOrDefaultAsync(
+                    x => x.OwnerUserId == uid && x.ExternalDeviceId == externalId, ct);
+
+                if (existing is null)
                 {
-                    OwnerUserId = uid,
-                    Name = name.Trim(),
-                    Provider = DeviceProvider.Tuya,
-                    Capability = DeviceCapability.Switch,
-                    ExternalDeviceId = externalId,
-                    IsEnabled = true
-                });
-                added++;
-            }
-            else
-            {
-                // keep user edits (like IsEnabled) but update the name if it changed
-                if (!string.Equals(existing.Name, name, StringComparison.Ordinal))
+                    db.Devices.Add(new Device
+                    {
+                        OwnerUserId = uid,
+                        Name = name.Trim(),
+                        Provider = DeviceProvider.Tuya,
+                        Capability = DeviceCapability.Switch,
+                        ExternalDeviceId = externalId,
+                        IsEnabled = true
+                    });
+                    added++;
+                }
+                else
                 {
-                    existing.Name = name.Trim();
-                    updated++;
+                    if (!string.Equals(existing.Name, name, StringComparison.Ordinal))
+                    {
+                        existing.Name = name.Trim();
+                        updated++;
+                    }
                 }
             }
+
+            await db.SaveChangesAsync(ct);
+
+            return Ok(new { ok = true, tuyaUid, added, updated, totalTuya = items.Length });
         }
+        catch (Exception ex)
+        {
+            HttpContext.RequestServices
+                .GetRequiredService<ILogger<EffectsController>>()
+                .LogError(ex, "SyncDevicesFromTuya failed. uid={Uid}", uid);
 
-        await db.SaveChangesAsync(ct);
-
-        return Ok(new { ok = true, tuyaUid, added, updated, totalTuya = items.Length });
+            return StatusCode(500, new { ok = false, error = ex.Message, type = ex.GetType().Name });
+        }
     }
 
     [Authorize(Roles = "admin")]
