@@ -205,10 +205,12 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
 
     // ------------------------------------------------------------------
     // Effects
-    // GET  /api/effects/effects
-    // POST /api/effects/effects                 { name, action, durationSeconds }
-    // POST /api/effects/effects/{id}/targets    { targetType, deviceId?, groupId?, durationSecondsOverride?, sortOrder? }
-    // POST /api/effects/effects/{id}/run
+    // GET  /api/effects
+    // POST /api/effects                 { name, action, durationSeconds }
+    // GET  /api/effects/{effectId:guid} list of targets by user
+    // POST /api/effects/{id}/targets    { targetType, deviceId?, groupId?, durationSecondsOverride?, sortOrder? }
+    // POST /api/effects/{id}/run
+    // DEL  /api/effects/targets/{targetId:guid}
     // ------------------------------------------------------------------
     [HttpGet("effects")]
     public async Task<IActionResult> ListEffects(CancellationToken ct)
@@ -332,6 +334,74 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
             return StatusCode(500, new { ok = false, error = ex.Message, type = ex.GetType().Name });
         }
     }
+
+    [HttpGet("{effectId:guid}")]
+    public async Task<IActionResult> GetEffect(Guid effectId, CancellationToken ct)
+    {
+        var uid = GetAppUserIdOrThrow();
+
+        var effect = await _db.Effects
+            .AsNoTracking()
+            .Include(e => e.Targets)
+                .ThenInclude(t => t.Device)
+            .Include(e => e.Targets)
+                .ThenInclude(t => t.Group)
+            .FirstOrDefaultAsync(e => e.OwnerUserId == uid && e.Id == effectId, ct);
+
+        if (effect is null)
+            return NotFound(new { ok = false, error = "Effect not found" });
+
+        var targets = effect.Targets
+            .OrderBy(t => t.SortOrder)
+            .Select(t => new
+            {
+                t.Id,
+                targetType = (int)t.TargetType,
+                t.DeviceId,
+                deviceName = t.Device?.Name,
+                t.GroupId,
+                groupName = t.Group?.Name,
+                t.DurationSecondsOverride,
+                t.SortOrder
+            })
+            .ToList();
+
+        return Ok(new
+        {
+            ok = true,
+            effect = new
+            {
+                effect.Id,
+                effect.Name,
+                action = (int)effect.Action,
+                effect.DurationSeconds,
+                effect.CooldownSeconds,
+                effect.IsEnabled,
+                effect.CreatedUtc,
+                targets
+            }
+        });
+    }
+
+    [HttpDelete("targets/{targetId:guid}")]
+    public async Task<IActionResult> DeleteTarget(Guid targetId, CancellationToken ct)
+    {
+        var uid = GetAppUserIdOrThrow();
+
+        var target = await _db.EffectTargets
+            .Include(t => t.Effect)
+            .FirstOrDefaultAsync(t => t.Id == targetId && t.Effect.OwnerUserId == uid, ct);
+
+        if (target is null)
+            return NotFound(new { ok = false, error = "Target not found" });
+
+        _db.EffectTargets.Remove(target);
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new { ok = true });
+    }
+
+
 
     // ------------------------------------------------------------------
     // Helper: resolve your App user id from claims

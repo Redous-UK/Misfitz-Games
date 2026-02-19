@@ -845,4 +845,59 @@ pre {
     font-size: 13px;
 }
 
+/* Effects Specific */
 
+.effectsGrid {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+@media (max-width: 980px) {
+    .effectsGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.listItem {
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 12px;
+    padding: 10px;
+    cursor: pointer;
+}
+
+    .listItem.selected {
+        border-color: rgba(255,255,255,.30);
+    }
+
+.listRow {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 12px;
+    padding: 10px;
+}
+
+.code {
+    background: rgba(0,0,0,.25);
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 12px;
+    padding: 10px;
+    min-height: 120px;
+    overflow: auto;
+}
+
+.btn.primary {
+    border-color: rgba(255,255,255,.35);
+}

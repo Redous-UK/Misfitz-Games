@@ -83,4 +83,6 @@ public class TuyaController(TuyaOAuthService tuya) : ControllerBase
         var devices = await tuya.GetUserDevicesAsync(GetUserId(), ct);
         return Ok(new { ok = true, devices });
     }
+
+
 }

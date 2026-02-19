@@ -1,12 +1,30 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Misfitz_Games.Services.Infrastructure.Redis;
+using Misfitz_Games.Services.Tuya;
 using Npgsql;
 
 namespace Misfitz_Games.Controllers.Diagnostics;
 
 [ApiController]
-public class HealthController(IConfiguration config, RedisMuxFactory muxFactory) : ControllerBase
+[Route("api/health")]
+public class HealthController(
+    IConfiguration config,
+    RedisMuxFactory muxFactory,
+    TuyaPlugService tuyaPlug,
+    ILogger<HealthController> log
+) : ControllerBase
 {
+    private readonly IConfiguration _config = config;
+    private readonly RedisMuxFactory _muxFactory = muxFactory;
+    private readonly TuyaPlugService _tuyaPlug = tuyaPlug;
+    private readonly ILogger<HealthController> _log = log;
+
+    // GET /api/health/tuya
+    [HttpGet("tuya")]
+    public async Task<IActionResult> Tuya()
+        => await TuyaHealthCore();
+
+    // GET /healthz  (your existing aggregate check)
     [HttpGet("/healthz")]
     public async Task<IActionResult> Healthz()
     {
@@ -14,12 +32,12 @@ public class HealthController(IConfiguration config, RedisMuxFactory muxFactory)
         var ok = true;
 
         // --- Redis check ---
-        var redisUrl = config["REDIS_URL"];
+        var redisUrl = _config["REDIS_URL"];
         if (!string.IsNullOrWhiteSpace(redisUrl))
         {
             try
             {
-                var mux = await muxFactory.GetAsync().ConfigureAwait(false);
+                var mux = await _muxFactory.GetAsync().ConfigureAwait(false);
                 var db = mux.GetDatabase();
                 var pong = await db.PingAsync();
 
@@ -48,7 +66,7 @@ public class HealthController(IConfiguration config, RedisMuxFactory muxFactory)
         }
 
         // --- Postgres check ---
-        var databaseUrl = config["DATABASE_URL"];
+        var databaseUrl = _config["DATABASE_URL"];
         if (!string.IsNullOrWhiteSpace(databaseUrl))
         {
             try
@@ -60,20 +78,12 @@ public class HealthController(IConfiguration config, RedisMuxFactory muxFactory)
                 await using var cmd = new NpgsqlCommand("SELECT 1", conn);
                 var scalar = await cmd.ExecuteScalarAsync();
 
-                results["postgres"] = new
-                {
-                    ok = true,
-                    scalar
-                };
+                results["postgres"] = new { ok = true, scalar };
             }
             catch (Exception ex)
             {
                 ok = false;
-                results["postgres"] = new
-                {
-                    ok = false,
-                    error = ex.Message
-                };
+                results["postgres"] = new { ok = false, error = ex.Message };
             }
         }
         else
@@ -81,14 +91,62 @@ public class HealthController(IConfiguration config, RedisMuxFactory muxFactory)
             results["postgres"] = new { ok = true, skipped = true, reason = "DATABASE_URL not set" };
         }
 
-        results["service"] = new
+        // --- Tuya check ---
+        try
         {
-            ok = true,
-            name = "Misfitz-Games",
-            utc = DateTimeOffset.UtcNow
-        };
+            await _tuyaPlug.HealthPingAsync();
+            results["tuya"] = new { ok = true };
+        }
+        catch (Exception ex)
+        {
+            ok = false;
+            results["tuya"] = new { ok = false, error = ex.Message };
+        }
+
+        results["service"] = new { ok = true, name = "Misfitz-Games", utc = DateTimeOffset.UtcNow };
 
         return ok ? Ok(results) : StatusCode(503, results);
+    }
+
+    // GET /healthz/tuya  (keep this if you already rely on it)
+    [HttpGet("/healthz/tuya")]
+    public async Task<IActionResult> TuyaHealth()
+        => await TuyaHealthCore();
+
+    private async Task<IActionResult> TuyaHealthCore()
+    {
+        try
+        {
+            var result = await TuyaPingResult();
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Tuya health check failed");
+            return StatusCode(503, new
+            {
+                ok = false,
+                service = "tuya",
+                status = "offline",
+                error = ex.Message,
+                atUtc = DateTime.UtcNow
+            });
+        }
+    }
+
+    private async Task<object> TuyaPingResult()
+    {
+        // Use the lightest call you have. Prefer "time" or "token".
+        // Replace PingAsync() with your real method name if different.
+        await _tuyaPlug.HealthPingAsync();
+
+        return new
+        {
+            ok = true,
+            service = "tuya",
+            status = "online",
+            atUtc = DateTime.UtcNow
+        };
     }
 
     private static string ConvertDatabaseUrlToNpgsql(string databaseUrl)
