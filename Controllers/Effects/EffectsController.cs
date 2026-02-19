@@ -316,8 +316,21 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
     {
         var uid = GetAppUserIdOrThrow();
 
-        await _engine.ExecuteEffectAsync(uid, effectId, ct);
-        return Ok(new { ok = true });
+        try
+        {
+            await _engine.ExecuteEffectAsync(uid, effectId, ct);
+            return Ok(new { ok = true });
+        }
+        catch (Exception ex)
+        {
+            // log it so Render logs show full details
+            HttpContext.RequestServices
+                .GetRequiredService<ILogger<EffectsController>>()
+                .LogError(ex, "RunEffect failed. effectId={EffectId} uid={Uid}", effectId, uid);
+
+            // return something parseable to the browser
+            return StatusCode(500, new { ok = false, error = ex.Message, type = ex.GetType().Name });
+        }
     }
 
     // ------------------------------------------------------------------
