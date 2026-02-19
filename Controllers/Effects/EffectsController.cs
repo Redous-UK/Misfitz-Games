@@ -178,6 +178,24 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
         return Ok(new { ok = true, tuyaUid, added, updated, totalTuya = items.Length });
     }
 
+    [Authorize(Roles = "Admin")]
+    [HttpGet("tuya")]
+    public IActionResult GetTuyaLinks()
+    {
+        var data = db.TuyaLinks
+            .Select(x => new
+            {
+                x.UserId,
+                x.TuyaUid,
+                x.AccessTokenEnc,
+                x.RefreshTokenEnc,
+                x.AccessTokenExpiresUtc
+            })
+            .ToList();
+
+        return Ok(data);
+    }
+
     // ------------------------------------------------------------------
     // Groups
     // GET  /api/effects/groups

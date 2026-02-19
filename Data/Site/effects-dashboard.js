@@ -228,10 +228,10 @@ function renderEffects() {
     }
 }
 
-function syncDevices() {
+async function syncDevices() {
     try {
         setOut("Syncing from Tuya…");
-        const r = await api("/api/effects/devices/sync-tuya", { method: "POST" });
+        const r = await api("/api/effects/devices/sync", { method: "POST" });
         setOut(r);
         await loadDevices();
     } catch (e) {
