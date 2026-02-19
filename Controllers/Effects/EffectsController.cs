@@ -20,7 +20,7 @@ namespace Misfitz_Games.Controllers.Effects;
 [Authorize(Policy = "MemberOrAdmin")]
 public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsService legacyEffects) : ControllerBase
 {
-    private readonly AppDbContext _db = db;
+    //private readonly AppDbContext _db = db;
     private readonly EffectsEngine _engine = engine;
     private readonly EffectsService _legacyEffects = legacyEffects; // keeps your existing pulse route alive
 
@@ -48,7 +48,7 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
     {
         var uid = GetAppUserIdOrThrow();
 
-        var devices = await _db.Devices
+        var devices = await db.Devices
             .AsNoTracking()
             .Where(d => d.OwnerUserId == uid)
             .OrderBy(d => d.Name)
@@ -82,7 +82,7 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
         var name = req.Name.Trim();
         var externalId = req.ExternalDeviceId.Trim();
 
-        var exists = await _db.Devices.AnyAsync(d => d.OwnerUserId == uid && d.Name == name, ct);
+        var exists = await db.Devices.AnyAsync(d => d.OwnerUserId == uid && d.Name == name, ct);
         if (exists) return Conflict(new { ok = false, error = "Device name already exists" });
 
         var dev = new Device
@@ -95,8 +95,8 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
             IsEnabled = true
         };
 
-        _db.Devices.Add(dev);
-        await _db.SaveChangesAsync(ct);
+        db.Devices.Add(dev);
+        await db.SaveChangesAsync(ct);
 
         return Ok(new { ok = true, deviceId = dev.Id });
     }
@@ -106,15 +106,15 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
     {
         var uid = GetAppUserIdOrThrow();
 
-        var dev = await _db.Devices.FirstOrDefaultAsync(d => d.OwnerUserId == uid && d.Id == deviceId, ct);
+        var dev = await db.Devices.FirstOrDefaultAsync(d => d.OwnerUserId == uid && d.Id == deviceId, ct);
         if (dev is null) return NotFound(new { ok = false });
 
         // Remove memberships and effect targets referencing this device
-        _db.DeviceGroupMembers.RemoveRange(_db.DeviceGroupMembers.Where(m => m.DeviceId == deviceId));
-        _db.EffectTargets.RemoveRange(_db.EffectTargets.Where(t => t.DeviceId == deviceId));
+        db.DeviceGroupMembers.RemoveRange(db.DeviceGroupMembers.Where(m => m.DeviceId == deviceId));
+        db.EffectTargets.RemoveRange(db.EffectTargets.Where(t => t.DeviceId == deviceId));
 
-        _db.Devices.Remove(dev);
-        await _db.SaveChangesAsync(ct);
+        db.Devices.Remove(dev);
+        await db.SaveChangesAsync(ct);
 
         return Ok(new { ok = true });
     }
@@ -146,12 +146,12 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
 
             if (string.IsNullOrWhiteSpace(externalId)) continue;
 
-            var existing = await _db.Devices.FirstOrDefaultAsync(
+            var existing = await db.Devices.FirstOrDefaultAsync(
                 x => x.OwnerUserId == uid && x.ExternalDeviceId == externalId, ct);
 
             if (existing is null)
             {
-                _db.Devices.Add(new Device
+                db.Devices.Add(new Device
                 {
                     OwnerUserId = uid,
                     Name = name.Trim(),
@@ -173,7 +173,7 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
             }
         }
 
-        await _db.SaveChangesAsync(ct);
+        await db.SaveChangesAsync(ct);
 
         return Ok(new { ok = true, tuyaUid, added, updated, totalTuya = items.Length });
     }
@@ -208,7 +208,7 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
     {
         var uid = GetAppUserIdOrThrow();
 
-        var groups = await _db.DeviceGroups
+        var groups = await db.DeviceGroups
             .AsNoTracking()
             .Where(g => g.OwnerUserId == uid)
             .OrderBy(g => g.Name)
@@ -230,12 +230,12 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
 
         var name = req.Name.Trim();
 
-        var exists = await _db.DeviceGroups.AnyAsync(g => g.OwnerUserId == uid && g.Name == name, ct);
+        var exists = await db.DeviceGroups.AnyAsync(g => g.OwnerUserId == uid && g.Name == name, ct);
         if (exists) return Conflict(new { ok = false, error = "Group name already exists" });
 
         var g = new DeviceGroup { OwnerUserId = uid, Name = name };
-        _db.DeviceGroups.Add(g);
-        await _db.SaveChangesAsync(ct);
+        db.DeviceGroups.Add(g);
+        await db.SaveChangesAsync(ct);
 
         return Ok(new { ok = true, groupId = g.Id });
     }
@@ -247,17 +247,17 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
     {
         var uid = GetAppUserIdOrThrow();
 
-        var group = await _db.DeviceGroups.FirstOrDefaultAsync(g => g.OwnerUserId == uid && g.Id == groupId, ct);
+        var group = await db.DeviceGroups.FirstOrDefaultAsync(g => g.OwnerUserId == uid && g.Id == groupId, ct);
         if (group is null) return NotFound(new { ok = false, error = "Group not found" });
 
-        var dev = await _db.Devices.FirstOrDefaultAsync(d => d.OwnerUserId == uid && d.Id == req.DeviceId, ct);
+        var dev = await db.Devices.FirstOrDefaultAsync(d => d.OwnerUserId == uid && d.Id == req.DeviceId, ct);
         if (dev is null) return NotFound(new { ok = false, error = "Device not found" });
 
-        var exists = await _db.DeviceGroupMembers.AnyAsync(m => m.GroupId == groupId && m.DeviceId == req.DeviceId, ct);
+        var exists = await db.DeviceGroupMembers.AnyAsync(m => m.GroupId == groupId && m.DeviceId == req.DeviceId, ct);
         if (!exists)
         {
-            _db.DeviceGroupMembers.Add(new DeviceGroupMember { GroupId = groupId, DeviceId = req.DeviceId });
-            await _db.SaveChangesAsync(ct);
+            db.DeviceGroupMembers.Add(new DeviceGroupMember { GroupId = groupId, DeviceId = req.DeviceId });
+            await db.SaveChangesAsync(ct);
         }
 
         return Ok(new { ok = true });
@@ -268,14 +268,14 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
     {
         var uid = GetAppUserIdOrThrow();
 
-        var group = await _db.DeviceGroups.AsNoTracking().FirstOrDefaultAsync(g => g.OwnerUserId == uid && g.Id == groupId, ct);
+        var group = await db.DeviceGroups.AsNoTracking().FirstOrDefaultAsync(g => g.OwnerUserId == uid && g.Id == groupId, ct);
         if (group is null) return NotFound(new { ok = false, error = "Group not found" });
 
-        var member = await _db.DeviceGroupMembers.FirstOrDefaultAsync(m => m.GroupId == groupId && m.DeviceId == deviceId, ct);
+        var member = await db.DeviceGroupMembers.FirstOrDefaultAsync(m => m.GroupId == groupId && m.DeviceId == deviceId, ct);
         if (member is null) return Ok(new { ok = true });
 
-        _db.DeviceGroupMembers.Remove(member);
-        await _db.SaveChangesAsync(ct);
+        db.DeviceGroupMembers.Remove(member);
+        await db.SaveChangesAsync(ct);
 
         return Ok(new { ok = true });
     }
@@ -294,7 +294,7 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
     {
         var uid = GetAppUserIdOrThrow();
 
-        var effects = await _db.Effects
+        var effects = await db.Effects
             .AsNoTracking()
             .Where(e => e.OwnerUserId == uid)
             .OrderBy(e => e.Name)
@@ -316,7 +316,7 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
 
         var name = req.Name.Trim();
 
-        var exists = await _db.Effects.AnyAsync(e => e.OwnerUserId == uid && e.Name == name, ct);
+        var exists = await db.Effects.AnyAsync(e => e.OwnerUserId == uid && e.Name == name, ct);
         if (exists) return Conflict(new { ok = false, error = "Effect name already exists" });
 
         var effect = new Effect
@@ -328,8 +328,8 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
             IsEnabled = true
         };
 
-        _db.Effects.Add(effect);
-        await _db.SaveChangesAsync(ct);
+        db.Effects.Add(effect);
+        await db.SaveChangesAsync(ct);
 
         return Ok(new { ok = true, effectId = effect.Id });
     }
@@ -346,17 +346,17 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
     {
         var uid = GetAppUserIdOrThrow();
 
-        var effect = await _db.Effects.FirstOrDefaultAsync(e => e.OwnerUserId == uid && e.Id == effectId, ct);
+        var effect = await db.Effects.FirstOrDefaultAsync(e => e.OwnerUserId == uid && e.Id == effectId, ct);
         if (effect is null) return NotFound(new { ok = false, error = "Effect not found" });
 
         if (req.TargetType == EffectTargetType.Device)
         {
             if (req.DeviceId is null) return BadRequest(new { ok = false, error = "DeviceId required" });
 
-            var devExists = await _db.Devices.AnyAsync(d => d.OwnerUserId == uid && d.Id == req.DeviceId, ct);
+            var devExists = await db.Devices.AnyAsync(d => d.OwnerUserId == uid && d.Id == req.DeviceId, ct);
             if (!devExists) return NotFound(new { ok = false, error = "Device not found" });
 
-            _db.EffectTargets.Add(new EffectTarget
+            db.EffectTargets.Add(new EffectTarget
             {
                 EffectId = effectId,
                 TargetType = EffectTargetType.Device,
@@ -369,10 +369,10 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
         {
             if (req.GroupId is null) return BadRequest(new { ok = false, error = "GroupId required" });
 
-            var grpExists = await _db.DeviceGroups.AnyAsync(g => g.OwnerUserId == uid && g.Id == req.GroupId, ct);
+            var grpExists = await db.DeviceGroups.AnyAsync(g => g.OwnerUserId == uid && g.Id == req.GroupId, ct);
             if (!grpExists) return NotFound(new { ok = false, error = "Group not found" });
 
-            _db.EffectTargets.Add(new EffectTarget
+            db.EffectTargets.Add(new EffectTarget
             {
                 EffectId = effectId,
                 TargetType = EffectTargetType.Group,
@@ -386,7 +386,7 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
             return BadRequest(new { ok = false, error = "Invalid TargetType" });
         }
 
-        await _db.SaveChangesAsync(ct);
+        await db.SaveChangesAsync(ct);
         return Ok(new { ok = true });
     }
 
@@ -417,7 +417,7 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
     {
         var uid = GetAppUserIdOrThrow();
 
-        var effect = await _db.Effects
+        var effect = await db.Effects
             .AsNoTracking()
             .Include(e => e.Targets)
                 .ThenInclude(t => t.Device)
@@ -465,15 +465,15 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
     {
         var uid = GetAppUserIdOrThrow();
 
-        var target = await _db.EffectTargets
+        var target = await db.EffectTargets
             .Include(t => t.Effect)
             .FirstOrDefaultAsync(t => t.Id == targetId && t.Effect.OwnerUserId == uid, ct);
 
         if (target is null)
             return NotFound(new { ok = false, error = "Target not found" });
 
-        _db.EffectTargets.Remove(target);
-        await _db.SaveChangesAsync(ct);
+        db.EffectTargets.Remove(target);
+        await db.SaveChangesAsync(ct);
 
         return Ok(new { ok = true });
     }
