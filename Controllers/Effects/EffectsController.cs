@@ -262,7 +262,7 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
         int? DurationSecondsOverride = null,
         int SortOrder = 0);
 
-    [HttpPost("effects/{effectId:guid}/targets")]
+    [HttpPost("{effectId:guid}/targets")]
     public async Task<IActionResult> AddEffectTarget(Guid effectId, [FromBody] AddTargetRequest req, CancellationToken ct)
     {
         var uid = GetAppUserIdOrThrow();
@@ -311,7 +311,7 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
         return Ok(new { ok = true });
     }
 
-    [HttpPost("effects/{effectId:guid}/run")]
+    [HttpPost("{effectId:guid}/run")]
     public async Task<IActionResult> RunEffect(Guid effectId, CancellationToken ct)
     {
         var uid = GetAppUserIdOrThrow();
