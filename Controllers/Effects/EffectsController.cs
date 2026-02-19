@@ -182,18 +182,26 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
     [HttpGet("tuya")]
     public IActionResult GetTuyaLinks()
     {
-        var data = db.TuyaLinks
-            .Select(x => new
-            {
-                x.UserId,
-                x.TuyaUid,
-                x.AccessTokenEnc,
-                x.RefreshTokenEnc,
-                x.AccessTokenExpiresUtc
-            })
-            .ToList();
+        try
+        {
+            var data = db.TuyaLinks
+                .Select(x => new
+                {
+                    x.UserId,
+                    x.TuyaUid,
+                    x.AccessTokenEnc,
+                    x.RefreshTokenEnc,
+                    x.AccessTokenExpiresUtc
+                })
+                .ToList();
 
-        return Ok(data);
+            return Ok(data);
+        }
+        catch (Exception ex)
+        {
+            // log ex in your logger if you have it
+            return Problem(detail: ex.Message);
+        }
     }
 
     // ------------------------------------------------------------------
