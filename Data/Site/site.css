@@ -1020,3 +1020,76 @@ pre {
         grid-template-columns: 1fr;
     }
 }
+
+.tableWrap {
+    overflow: auto;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.10);
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+    .table thead th {
+        position: sticky;
+        top: 0;
+        background: rgba(0,0,0,0.25);
+        backdrop-filter: blur(6px);
+        z-index: 1;
+    }
+
+        .table thead th[data-sort] {
+            cursor: pointer;
+            user-select: none;
+        }
+
+            .table thead th[data-sort]::after {
+                content: " ↕";
+                opacity: .35;
+                font-size: 12px;
+            }
+
+        .table thead th.sortAsc::after {
+            content: " ↑";
+            opacity: .9;
+        }
+
+        .table thead th.sortDesc::after {
+            content: " ↓";
+            opacity: .9;
+        }
+
+    .table tbody tr.isSelected {
+        background: rgba(255,255,255,0.06);
+    }
+
+    .table tbody tr:hover {
+        background: rgba(255,255,255,0.04);
+    }
+
+/* Tight action buttons */
+.btn.btnTiny {
+    padding: 6px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+}
+
+/* Simple pill for hotkeys/info */
+.chip.subtle {
+    opacity: .9;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    white-space: nowrap;
+    border: 0;
+}

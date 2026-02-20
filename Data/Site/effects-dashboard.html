@@ -30,10 +30,15 @@
             <div class="fxCard">
                 <div class="row" style="justify-content:space-between;align-items:center;">
                     <div class="sectionTitle">DEVICES</div>
-                    <button id="btnSyncTuya" class="btn">Sync from Tuya</button>
-                    <button id="btnRefreshDevices" class="btn">Refresh</button>
+                    <div class="row" style="gap:8px;">
+                        <button id="btnSyncTuya" class="btn">Sync from Tuya</button>
+                        <button id="btnRefreshDevices" class="btn">Refresh</button>
+                    </div>
                 </div>
+
+                <label class="sr-only" for="deviceSearch">Search devices</label>
                 <input id="deviceSearch" class="grow" style="margin-top:10px;" placeholder="Search devices…" />
+
                 <div id="devicesList" class="list" style="margin-top:10px;"></div>
             </div>
 
@@ -42,7 +47,10 @@
                     <div class="sectionTitle">GROUPS</div>
                     <button id="btnRefreshGroups" class="btn">Refresh</button>
                 </div>
+
+                <label class="sr-only" for="groupSearch">Search groups</label>
                 <input id="groupSearch" class="grow" style="margin-top:10px;" placeholder="Search groups…" />
+
                 <div id="groupsList" class="list" style="margin-top:10px;"></div>
             </div>
 
@@ -57,12 +65,47 @@
             <div class="fxCard">
                 <div class="row" style="justify-content:space-between;align-items:center;">
                     <div class="sectionTitle">EFFECTS</div>
-                    <button id="btnRefreshEffects" class="btn">Refresh</button>
-                </div>
-                <input id="effectSearch" class="grow" style="margin-top:10px;" placeholder="Search effects…" />
-                <div id="effectsList" class="list" style="margin-top:10px;"></div>
-            </div>
 
+                    <div class="row" style="gap:8px;align-items:center;">
+                        <span id="effectsCount" class="chip subtle">0</span>
+                        <button id="btnRefreshEffects" class="btn">Refresh</button>
+                    </div>
+                </div>
+
+                <div class="row" style="gap:8px;margin-top:10px;align-items:center;">
+                    <label class="sr-only" for="effectSearch">Search effects</label>
+                    <input id="effectSearch" class="grow" placeholder="Search effects… ( / )" />
+
+                    <button id="btnClearEffectSearch" class="btn">Clear</button>
+                    <button id="btnRunSelectedMini" class="btn primary" disabled>Run</button>
+                </div>
+
+                <div class="muted" style="margin-top:6px;">
+                    Keys: <span class="chip subtle">↑/↓</span> select, <span class="chip subtle">Enter</span> load, <span class="chip subtle">R</span> run
+                </div>
+
+                <div class="tableWrap" style="margin-top:10px;">
+                    <table class="table" id="effectsTable">
+                        <thead>
+                            <tr>
+                                <th style="width:34px;" data-sort="index">#</th>
+                                <th data-sort="name">Name</th>
+                                <th style="width:140px;" data-sort="action">Action</th>
+                                <th style="width:90px;" data-sort="duration">Duration</th>
+                                <th style="width:90px;" data-sort="cooldown">Cooldown</th>
+                                <th style="width:90px;" data-sort="enabled">Enabled</th>
+                                <th style="width:160px;"></th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="effectsTbody">
+                            <tr><td colspan="7" class="muted">Loading…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="effectLoadedBadge" class="muted" style="margin-top:10px;"></div>
+            </div>
             <div class="fxCard" style="margin-top:12px;">
                 <div class="row" style="justify-content:space-between;align-items:center;">
                     <div class="sectionTitle">QUICK RUN</div>
@@ -72,7 +115,7 @@
             </div>
         </main>
 
-        <!-- RIGHT (optional info / pickers) -->
+        <!-- RIGHT -->
         <aside class="fxCol fxRight">
             <div class="fxCard">
                 <div class="fxHeader">
@@ -120,21 +163,28 @@
                 <div class="sectionTitle">CREATE EFFECT</div>
 
                 <div class="row" style="gap:8px; margin-top:10px;">
-                    <input id="newEffectName" class="grow" placeholder="Effect name (e.g., Hype Lights)" />
-                    <select id="newEffectAction">
-                        <option value="1">Pulse Switch</option>
-                        <option value="2">Switch On</option>
-                        <option value="3">Switch Off</option>
-                    </select>
+                    <div class="field grow">
+                        <label for="newEffectName">Effect name</label>
+                        <input id="newEffectName" class="grow" placeholder="Effect name (e.g., Hype Lights)" />
+                    </div>
+
+                    <div class="field" style="min-width:180px;">
+                        <label for="newEffectAction">Action</label>
+                        <select id="newEffectAction">
+                            <option value="1">Pulse Switch</option>
+                            <option value="2">Switch On</option>
+                            <option value="3">Switch Off</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="row" style="gap:8px; margin-top:10px;">
                     <div class="field grow">
-                        <label>Duration</label>
+                        <label for="newEffectDuration">Duration</label>
                         <input id="newEffectDuration" type="number" min="1" max="30" value="2" />
                     </div>
                     <div class="field grow">
-                        <label>Cooldown</label>
+                        <label for="newEffectCooldown">Cooldown</label>
                         <input id="newEffectCooldown" type="number" min="0" max="600" value="2" />
                     </div>
                 </div>
@@ -150,7 +200,7 @@
 
                 <div class="row" style="gap:8px; margin-top:10px;">
                     <div class="field" style="width:140px;">
-                        <label>Type</label>
+                        <label for="targetType">Type</label>
                         <select id="targetType">
                             <option value="1">Device</option>
                             <option value="2">Group</option>
@@ -158,19 +208,19 @@
                     </div>
 
                     <div class="field grow">
-                        <label>Pick</label>
+                        <label for="targetPicker">Pick</label>
                         <select id="targetPicker"></select>
                     </div>
                 </div>
 
                 <div class="row" style="gap:8px; margin-top:10px;">
                     <div class="field grow">
-                        <label>Override</label>
+                        <label for="targetDurationOverride">Override</label>
                         <input id="targetDurationOverride" type="number" min="1" max="30" placeholder="Optional" />
                     </div>
 
                     <div class="field" style="width:120px;">
-                        <label>Sort</label>
+                        <label for="targetSort">Sort</label>
                         <input id="targetSort" type="number" value="0" />
                     </div>
                 </div>
