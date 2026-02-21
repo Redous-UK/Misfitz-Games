@@ -804,9 +804,7 @@ function startPolling() {
 async function init() {
     wireSettingsPanel();
 
-    onClick("btnBack", () => (location.href = "/user.html"));
-
-    onClick("btnLogout", async () => {
+   /* onClick("btnLogout", async () => {
         try {
             const r = await api("/member/logout", { method: "POST" });
             const out = el("authOut");
@@ -814,7 +812,7 @@ async function init() {
         } finally {
             location.href = "/user.html";
         }
-    });
+    }); 
 
     onClick("btnAdmin", () => (location.href = "/admin.html"));
     onClick("btnMe", () => refreshMe().catch(e => console.warn("btnMe failed", e)));
@@ -837,7 +835,7 @@ async function init() {
     onClick("btnPlay", goPlay);
     onClick("btnStart", () => startSelectedGame().catch(e => alert(String(e))));
     onClick("btnStop", () => stopSelectedGame().catch(e => alert(String(e))));
-    onClick("btnLeaderboard", () => refreshLeaderboard().catch(e => alert(String(e))));
+    onClick("btnLeaderboard", () => refreshLeaderboard().catch(e => alert(String(e))));*/
 
     // Auth must be valid
     let me;
