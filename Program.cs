@@ -689,15 +689,24 @@ public static class Program
 <script>
 const el = (id) => document.getElementById(id);
 
-let currentPath = ""; // "" = root
-let lastEntries = []; // cached entries for filtering
+let currentPath = "";         // "" = root
+let lastEntries = [];
+let allPathsCache = null;     // cache for /admin/api/list
+let currentFilePath = null;   // currently opened file (relative)
+
+function setStatus(text) {
+  const s = el("status");
+  if (s) s.textContent = text;
+}
+
+window.addEventListener("error", (e) => console.error("[error]", e.message, e.filename, e.lineno, e.error));
+window.addEventListener("unhandledrejection", (e) => console.error("[unhandled]", e.reason));
 
 async function api(url, opts) {
-  // Always use absolute paths (leading slash) to avoid /admin/admin/... issues
   const r = await fetch(url, opts);
   const txt = await r.text();
   let json = null;
-  try { json = txt ? JSON.parse(txt) : null; } catch { /* ignore */ }
+  try { json = txt ? JSON.parse(txt) : null; } catch { /* non-json */ }
   if (!r.ok) throw new Error(`HTTP ${r.status}${json ? ": " + JSON.stringify(json) : ""}`);
   return json ?? {};
 }
@@ -715,28 +724,21 @@ function parentPath(path) {
   return idx === -1 ? "" : p.slice(0, idx);
 }
 
-let allPathsCache = null;
-
 async function listAll() {
-  // returns { ok:true, root, files:[{path,isDir,size}] }
   return await api("/admin/api/list");
 }
 
 async function listFolder(path) {
-  // Use cached full list (refresh when needed)
   if (!allPathsCache) allPathsCache = await listAll();
 
   const prefix = (path || "").replace(/^\/+|\/+$/g, "");
   const wantPrefix = prefix ? (prefix + "/") : "";
 
-  const entriesMap = new Map(); // name -> entry
+  const entriesMap = new Map();
 
   for (const item of (allPathsCache.files || [])) {
     const p = (item.path || "").replace(/^\/+/, "");
     if (wantPrefix && !p.startsWith(wantPrefix)) continue;
-    if (!wantPrefix && p.includes("/") === false) {
-      // root direct file/dir handled below
-    }
 
     const rest = wantPrefix ? p.slice(wantPrefix.length) : p;
     if (!rest) continue;
@@ -744,9 +746,7 @@ async function listFolder(path) {
     const parts = rest.split("/");
     const name = parts[0];
 
-    // Only show direct children (no subfolder contents)
     if (parts.length === 1) {
-      // direct file
       if (!entriesMap.has(name)) {
         entriesMap.set(name, {
           name,
@@ -755,88 +755,42 @@ async function listFolder(path) {
         });
       }
     } else {
-      // something inside a subfolder -> show the subfolder as a dir entry
       if (!entriesMap.has(name)) {
         entriesMap.set(name, { name, type: "dir", size: null });
       }
     }
   }
 
-  // Also handle root direct folders/files properly:
-  // (The loop above already does; this is just returning a consistent shape)
-  return {
-    ok: true,
-    path: prefix,
-    entries: [...entriesMap.values()]
-  };
+  return { ok: true, path: prefix, entries: [...entriesMap.values()] };
 }
 
 function syncUploadDir() {
   const up = el("uploadDir");
-  if (!up) return;
-  up.value = currentPath || "";
+  if (up) up.value = currentPath || "";
 }
 
 function normalizeEntries(out) {
-  // Most likely: { ok:true, path:"", entries:[...] }
-  if (Array.isArray(out.entries)) return out.entries.map(mapEntry).filter(Boolean);
-
-  // Common alternative: { ok:true, dirs:[...], files:[...] }
-  if (Array.isArray(out.dirs) || Array.isArray(out.files)) {
-    const dirs = (out.dirs || []).map(d => ({
-      name: d.name ?? d,
-      type: "dir",
-      size: null,
-      updatedUtc: d.updatedUtc ?? d.lastWriteTimeUtc ?? null
-    }));
-
-    const files = (out.files || []).map(f => ({
-      name: f.name ?? f,
-      type: "file",
-      size: f.size ?? f.length ?? null,
-      updatedUtc: f.updatedUtc ?? f.lastWriteTimeUtc ?? null
-    }));
-
-    return [...dirs, ...files].filter(e => e.name);
-  }
-
-  // Another alternative: { items:[...] } or { files:[...] } where entries are mixed
-  const mixed = out.items ?? out.files ?? [];
-  if (Array.isArray(mixed)) return mixed.map(mapEntry).filter(Boolean);
-
-  return [];
-
-  function mapEntry(e) {
-    if (!e) return null;
-
-    const name = e.name ?? e.fileName ?? (e.path ? e.path.split("/").pop() : null);
-    if (!name) return null;
-
-    const typeRaw = e.type ?? e.kind ?? (e.isDir ? "dir" : "file");
-    const type = String(typeRaw).toLowerCase();
-
-    return {
-      name,
-      type: (type === "directory") ? "dir" : type,
-      size: e.size ?? e.length ?? null,
-      updatedUtc: e.updatedUtc ?? e.lastWriteTimeUtc ?? null
-    };
-  }
+  return Array.isArray(out.entries) ? out.entries : [];
 }
 
 async function openFile(path) {
   currentFilePath = path;
+
   const pathBox = el("path");
-if (pathBox) pathBox.value = path;
+  if (pathBox) pathBox.value = path;
+
+  // IMPORTANT: use the working read endpoint
   const r = await api(`/admin/api/read?path=${encodeURIComponent(path)}`);
-  el("content").value = r.content ?? "";
-  el("content").focus();
+
+  const ta = el("content");
+  ta.value = r.content ?? "";
+  ta.focus();
+
+  setStatus("Loaded");
 }
 
 function renderEntries(entries) {
   const list = el("files");
-  if (!list) throw new Error("Missing #files container");
-
   list.innerHTML = "";
 
   for (const e of entries) {
@@ -851,7 +805,6 @@ function renderEntries(entries) {
     row.style.borderRadius = "12px";
     row.style.userSelect = "none";
 
-    // subtle hover without needing css changes
     row.onmouseenter = () => row.style.background = "rgba(255,255,255,.06)";
     row.onmouseleave = () => row.style.background = "transparent";
 
@@ -881,24 +834,18 @@ function renderEntries(entries) {
     row.appendChild(left);
     row.appendChild(right);
 
-row.onclick = async () => {
-  if (e.type === "dir") {
-    currentPath = joinPath(currentPath, e.name);
-
-    // ✅ show folder path in uploadDir automatically
-    syncUploadDir();
-
-    await refreshLeftPanel();
-    el("filter").value = "";
-  } else {
-    const full = joinPath(currentPath, e.name);
-
-    // ✅ show the file’s folder automatically (dir field)
-    syncUploadDir();
-
-    await openFile(full);
-  }
-};
+    row.onclick = async () => {
+      if (e.type === "dir") {
+        currentPath = joinPath(currentPath, e.name);
+        syncUploadDir();
+        const f = el("filter"); if (f) f.value = "";
+        await refreshLeftPanel();
+      } else {
+        const full = joinPath(currentPath, e.name);
+        syncUploadDir();
+        await openFile(full);
+      }
+    };
 
     list.appendChild(row);
   }
@@ -906,13 +853,8 @@ row.onclick = async () => {
 
 function applyFilter() {
   const q = (el("filter")?.value || "").trim().toLowerCase();
-  if (!q) {
-    renderEntries(lastEntries);
-    return;
-  }
-
-  const filtered = lastEntries.filter(e => e.name.toLowerCase().includes(q));
-  renderEntries(filtered);
+  if (!q) return renderEntries(lastEntries);
+  renderEntries(lastEntries.filter(e => (e.name || "").toLowerCase().includes(q)));
 }
 
 async function refreshLeftPanel() {
@@ -920,10 +862,8 @@ async function refreshLeftPanel() {
   el("btnUp").disabled = !currentPath;
   syncUploadDir();
 
+  setStatus("Loading…");
   const out = await listFolder(currentPath);
-
-  // ✅ TEMP DEBUG (remove later)
-  console.log("site/list response:", out);
 
   const entries = normalizeEntries(out).sort((a, b) => {
     if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
@@ -932,35 +872,208 @@ async function refreshLeftPanel() {
 
   lastEntries = entries;
 
-  const list = el("files");
   if (!entries.length) {
-    list.innerHTML = `<div class="muted" style="padding:8px 10px;">No files in this folder.</div>`;
+    el("files").innerHTML = `<div class="muted" style="padding:8px 10px;">No files in this folder.</div>`;
+    setStatus("Ready");
     return;
   }
 
   applyFilter();
+  setStatus("Ready");
 }
 
-// Buttons / events
-document.addEventListener("DOMContentLoaded", () => {
+async function saveCurrent() {
+  const path = (el("path")?.value || "").trim() || currentFilePath;
+  if (!path) return alert("Open a file first.");
 
-  el("filter").value = "";       // ✅ add this
+  setStatus("Saving…");
+  await api("/admin/api/save", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path, content: el("content").value })
+  });
+
+  // Invalidate cache so list reflects new files
+  allPathsCache = null;
+  await refreshLeftPanel();
+  setStatus("Saved");
+}
+
+async function deleteCurrent() {
+  const path = (el("path")?.value || "").trim() || currentFilePath;
+  if (!path) return alert("Select a file/folder path first.");
+
+  if (!confirm(`Delete '${path}'? This cannot be undone (but we keep backups for files).`)) return;
+
+  setStatus("Deleting…");
+  await api("/admin/api/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path })
+  });
+
+  // Clear editor if we deleted the open file
+  if (currentFilePath === path) {
+    currentFilePath = null;
+    el("path").value = "";
+    el("content").value = "";
+  }
+
+  allPathsCache = null;
+  await refreshLeftPanel();
+  setStatus("Deleted");
+}
+
+async function uploadSelected() {
+  const f = el("uploadFile").files?.[0];
+  if (!f) return alert("Choose a file to upload.");
+
+  const dir = (el("uploadDir").value || "").trim();
+
+  setStatus("Uploading…");
+  const fd = new FormData();
+  fd.append("file", f);
+  fd.append("dir", dir);
+
+  await api("/admin/api/upload", { method: "POST", body: fd });
+
+  el("uploadFile").value = "";
+  allPathsCache = null;
+  await refreshLeftPanel();
+  setStatus("Uploaded");
+}
+
+async function showBackups() {
+  const path = (el("path")?.value || "").trim() || currentFilePath;
+  if (!path) return alert("Open a file first (backups are per file).");
+
+  setStatus("Loading backups…");
+  const r = await api(`/admin/api/backups?path=${encodeURIComponent(path)}`);
+
+  const panel = el("backupPanel");
+  const items = r.items || [];
+
+  if (!items.length) {
+    panel.innerHTML = `<div>No backups for <code>${escapeHtml(path)}</code>.</div>`;
+    setStatus("Ready");
+    return;
+  }
+
+  panel.innerHTML = `
+    <div style="margin-top:6px;">
+      <div class="muted" style="margin-bottom:6px;">Backups for <code>${escapeHtml(path)}</code>:</div>
+      ${items.map(b => `
+        <div class="row" style="justify-content:space-between; border:1px solid #22304a; border-radius:10px; padding:8px; margin-bottom:6px;">
+          <div><code>${escapeHtml(b)}</code></div>
+          <button class="btn" data-rollback="${escapeAttr(b)}">Rollback</button>
+        </div>
+      `).join("")}
+    </div>
+  `;
+
+  // Wire rollback buttons
+  panel.querySelectorAll("button[data-rollback]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const backupFile = btn.getAttribute("data-rollback");
+      if (!backupFile) return;
+
+      if (!confirm(`Rollback '${path}' to backup '${backupFile}'?`)) return;
+
+      setStatus("Rolling back…");
+      await api("/admin/api/rollback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path, backupFile })
+      });
+
+      // Reload file into editor
+      await openFile(path);
+      setStatus("Rolled back");
+    });
+  });
+
+  setStatus("Ready");
+}
+
+async function previewCurrent() {
+  const path = (el("path")?.value || "").trim() || currentFilePath;
+  if (!path) return alert("Open a file to preview.");
+
+  // If they opened a .css/.js, try to preview its likely HTML sibling (optional).
+  // For now: just preview the path they selected.
+  const iframe = el("preview");
+  const bust = `v=${Date.now()}`;
+
+  // Ensure leading slash
+  const urlPath = "/" + path.replace(/^\/+/, "");
+  iframe.src = urlPath.includes("?") ? `${urlPath}&${bust}` : `${urlPath}?${bust}`;
+
+  setStatus("Previewing");
+}
+
+async function checkLogin() {
+  try {
+    setStatus("Checking login…");
+    const r = await api("/debug/whoami");
+    const isAuth = !!r.isAuth;
+    setStatus(isAuth ? "Logged in" : "Not logged in");
+  } catch (e) {
+    console.warn("checkLogin failed", e);
+    setStatus("Login check failed");
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+function escapeAttr(s) {
+  return escapeHtml(s).replace(/"/g, "&quot;");
+}
+
+// Wire buttons/events
+document.addEventListener("DOMContentLoaded", () => {
+  // Basic guards
+  const must = ["btnUp","btnRefresh","btnUpload","btnSave","btnDelete","btnBackups","btnPreview","filter","files","content","path"];
+  const missing = must.filter(id => !el(id));
+  if (missing.length) {
+    console.error("[admin] missing elements:", missing);
+    return;
+  }
+
+  el("filter").value = "";
 
   el("btnUp").addEventListener("click", async () => {
     currentPath = parentPath(currentPath);
-    await refreshLeftPanel();
     el("filter").value = "";
+    await refreshLeftPanel();
   });
 
-el("btnRefresh").addEventListener("click", async () => {
-  allPathsCache = null;
-  await refreshLeftPanel();
-});
+  el("btnRefresh").addEventListener("click", async () => {
+    allPathsCache = null;
+    await refreshLeftPanel();
+  });
 
   el("filter").addEventListener("input", applyFilter);
 
-  // Initial load
-  refreshLeftPanel().catch(err => console.error(err));
+  el("btnUpload").addEventListener("click", () => uploadSelected().catch(err => alert(err.message)));
+
+  el("btnSave").addEventListener("click", () => saveCurrent().catch(err => alert(err.message)));
+
+  el("btnDelete").addEventListener("click", () => deleteCurrent().catch(err => alert(err.message)));
+
+  el("btnBackups").addEventListener("click", () => showBackups().catch(err => alert(err.message)));
+
+  el("btnPreview").addEventListener("click", () => previewCurrent().catch(err => alert(err.message)));
+
+  el("btnMe")?.addEventListener("click", () => checkLogin().catch(() => {}));
+
+  refreshLeftPanel().catch(err => {
+    console.error(err);
+    setStatus("Error");
+  });
+
+  // Optional: initial login check
+  checkLogin().catch(() => {});
 });
 </script>
 </body>
