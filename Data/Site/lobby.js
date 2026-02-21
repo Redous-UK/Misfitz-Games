@@ -1,0 +1,870 @@
+﻿// ----------------------------
+// Helpers
+// ----------------------------
+const el = (id) => document.getElementById(id);
+
+function onClick(id, handler) {
+    const node = el(id);
+    if (!node) { console.warn(`[bind] missing #${id}`); return false; }
+    node.addEventListener("click", handler);
+    return true;
+}
+
+const pretty = (x) => JSON.stringify(x, null, 2);
+
+function esc(s) {
+    return String(s ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+// Normalize casing differences between System.Text.Json camelCase vs PascalCase
+function pick(o, ...keys) {
+    for (const k of keys) {
+        if (!o) break;
+        if (o[k] !== undefined) return o[k];
+    }
+    return undefined;
+}
+
+function initials(name) {
+    const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+    const a = parts[0]?.[0] ?? "?";
+    const b = parts.length > 1 ? parts[parts.length - 1][0] : "";
+    return (a + b).toUpperCase();
+}
+
+async function api(path, opts = {}) {
+    console.log("API:", path, opts);
+
+    const fetchOpts = {
+        credentials: "include",
+        ...opts,
+        headers: {
+            ...(opts.headers || {}),
+            ...(opts.body ? { "Content-Type": "application/json" } : {}),
+        },
+    };
+
+    try {
+        const res = await fetch(path, fetchOpts);
+        console.log("FETCH RES", res.status, res.statusText, "for", path);
+
+        const text = await res.text();
+        let payload = null;
+
+        if (text) {
+            try { payload = JSON.parse(text); }
+            catch { payload = { _nonJson: true, raw: text }; }
+        }
+
+        if (!res.ok) {
+            console.error("API ERROR:", { path, status: res.status, statusText: res.statusText, payload, text });
+
+            const msg =
+                payload?.error ||
+                payload?.message ||
+                `HTTP ${res.status} ${res.statusText} @ ${path}`;
+
+            const err = new Error(msg);
+            err.status = res.status;
+            err.path = path;
+            err.payload = payload;
+            err.raw = text;
+            throw err;
+        }
+
+        return payload;
+    } catch (err) {
+        console.error("FETCH FAILED:", { path, name: err?.name, message: err?.message, err });
+        throw err;
+    }
+}
+
+// ----------------------------
+// State
+// ----------------------------
+let myUserId = null;
+let myName = null;
+let myRole = null;
+
+let activeRoomCode = null;
+let currentRoomState = null;
+
+let selectedGameId = "contexto";
+const gameSettings = {}; // per-game settings store
+
+let pollHandle = null;
+
+// ----------------------------
+// Drawer (settings panel)
+// ----------------------------
+function wireSettingsPanel() {
+    const btn = el("settingsBtn");
+    const overlay = el("settingsOverlay");
+    const panel = el("settingsPanel");
+    const closeBtn = el("settingsCloseBtn");
+
+    if (!btn || !overlay || !panel || !closeBtn) {
+        console.warn("[drawer] missing elements", { btn, overlay, panel, closeBtn });
+        return;
+    }
+
+    function openPanel() {
+        panel.classList.add("open");
+        overlay.hidden = false;
+        panel.setAttribute("aria-hidden", "false");
+        btn.setAttribute("aria-expanded", "true");
+        document.documentElement.style.overflow = "hidden";
+    }
+
+    function closePanel() {
+        panel.classList.remove("open");
+        overlay.hidden = true;
+        panel.setAttribute("aria-hidden", "true");
+        btn.setAttribute("aria-expanded", "false");
+        document.documentElement.style.overflow = "";
+    }
+
+    btn.addEventListener("click", () => {
+        const isOpen = panel.classList.contains("open");
+        if (isOpen) closePanel();
+        else openPanel();
+    });
+
+    overlay.addEventListener("click", closePanel);
+    closeBtn.addEventListener("click", closePanel);
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && panel.classList.contains("open")) closePanel();
+    });
+
+    window.openSettingsPanel = openPanel;
+    window.closeSettingsPanel = closePanel;
+}
+
+// ----------------------------
+// Role UI
+// ----------------------------
+function applyRoleUI(role) {
+    const r = String(role || "").toLowerCase();
+    const isAdmin = r === "admin";
+    const isMember = r === "member" || r === "admin";
+
+    const btnAdmin = el("btnAdmin");
+    if (btnAdmin) btnAdmin.style.display = isAdmin ? "" : "none";
+
+    const btnStart = el("btnStart");
+    const btnStop = el("btnStop");
+    if (btnStart) btnStart.style.display = isMember ? "" : "none";
+    if (btnStop) btnStop.style.display = isMember ? "" : "none";
+}
+
+// ----------------------------
+// Auth
+// ----------------------------
+
+function updateAdminLink(me) {
+    const a = document.getElementById("adminLink");
+    if (!a) return;
+
+    const isAdmin = me?.isAuth && (me?.role || "").toLowerCase() === "admin";
+    a.classList.toggle("hidden", !isAdmin);
+    a.href = "/admin";
+}
+
+async function refreshMe() {
+    const me = await api("/member/me");
+
+    const authOut = el("authOut");
+    if (authOut) authOut.textContent = pretty(me);
+
+    const meLabel = el("meLabel");
+    if (meLabel) {
+        meLabel.textContent = me.isAuth
+            ? `👤 ${me.name ?? "Signed in"} (${me.role ?? "user"})`
+            : "Not logged in";
+    }
+
+    if (!me.isAuth) return me;
+
+    myUserId = me.userId || null;
+    myName = me.name || null;
+    myRole = me.role || null;
+
+    // keep username box in sync (no forced overwrite if user typed)
+    const u = el("username");
+    if (u && (!u.value || u.value.trim().length === 0)) {
+        u.value = myName || "";
+    }
+
+    applyRoleUI(myRole);
+    updateAdminLink(me);
+    syncActionButtons();
+    return me;
+}
+
+// ----------------------------
+// Rooms
+// ----------------------------
+function roomId() {
+    return activeRoomCode;
+}
+
+function setActiveRoom(code) {
+    const c = (code || "").trim();
+    activeRoomCode = c || null;
+
+    const pill = el("activeRoomPill");
+    if (pill) pill.textContent = activeRoomCode ? `Room: ${activeRoomCode}` : "Room: (none)";
+
+    const btnOverlay = el("btnOpenOverlay");
+    if (btnOverlay) btnOverlay.disabled = !activeRoomCode;
+    if (activeRoomCode) localStorage.setItem("activeRoomCode", activeRoomCode);
+
+    refreshState().catch(console.warn);
+    refreshLeaderboard().catch(console.warn);
+    startPolling();
+    syncActionButtons();
+    sendPresenceForRoom(activeRoomCode).catch(() => { });
+}
+
+function autoLoadRoomFromStorage() {
+    const saved = localStorage.getItem("activeRoomCode");
+    if (!saved) return false;
+    setActiveRoom(saved);
+    return true;
+}
+
+async function loadRooms() {
+    const grid = el("roomsGrid");
+    if (!grid) return;
+
+    grid.innerHTML = `<div class="muted">Loading rooms…</div>`;
+
+    try {
+        const payload = await api("/rooms");
+        const rooms = Array.isArray(payload) ? payload : (payload?.rooms ?? []);
+
+        if (!Array.isArray(rooms) || rooms.length === 0) {
+            grid.innerHTML = `<div class="muted">No rooms yet.</div>`;
+            return;
+        }
+
+        rooms.sort((a, b) => String(b.createdAtUtc || "").localeCompare(String(a.createdAtUtc || "")));
+
+        const gameLabel = (r) => {
+            if (r?.hasActiveGame) {
+                const g = String(r.activeGame || "").trim();
+                return { text: g ? `🎮 ${g}` : "🎮 Active", cls: "room-chip game active" };
+            }
+            return { text: "No game", cls: "room-chip game idle" };
+        };
+
+        grid.innerHTML = rooms.map(r => {
+            const code = r.roomCode ?? "";
+            const name = r.name ?? "Room";
+            const created = r.createdAtUtc ? new Date(r.createdAtUtc).toLocaleString() : "";
+            const isActive = activeRoomCode && activeRoomCode === code;
+
+            const players = Number.isFinite(r.playerCount) ? r.playerCount : null;
+            const pText = players === null ? "" : ` • 👥 ${players}`;
+            const gl = gameLabel(r);
+
+            return `
+                <div class="room-tile" data-code="${esc(code)}">
+                  <div class="room-title">${esc(name)}</div>
+                  <div class="room-sub">Code: <b>${esc(code)}</b>${created ? ` • Created: ${esc(created)}` : ""}${pText}</div>
+                  <div class="room-meta">
+                    <span class="room-chip ${isActive ? "active" : ""}">${isActive ? "ACTIVE" : "JOIN"}</span>
+                    <span class="${gl.cls}">${esc(gl.text)}</span>
+                  </div>
+                </div>
+              `;
+        }).join("");
+
+        grid.querySelectorAll(".room-tile[data-code]").forEach(tile => {
+            tile.addEventListener("click", () => {
+                const code = tile.getAttribute("data-code");
+                if (!code) return;
+                setActiveRoom(code);
+            });
+        });
+
+    } catch (e) {
+        grid.innerHTML = `<div class="muted">Failed to load rooms: ${esc(String(e))}</div>`;
+    }
+}
+
+// ----------------------------
+// Presence ping
+// ----------------------------
+async function sendPresenceForRoom(code) {
+    if (!code) return;
+    try {
+        await api(`/rooms/${encodeURIComponent(code)}/presence`, { method: "POST" });
+    } catch (e) {
+        console.warn("presence ping failed", e);
+    }
+}
+
+// ----------------------------
+// Players render
+// ----------------------------
+function renderPlayers(roomState, currentUserId) {
+    const container = el("playerList");
+    if (!container) return;
+
+    const hostId = pick(roomState, "hostUserId", "HostUserId");
+    const players = pick(roomState, "players", "Players");
+    const arr = Array.isArray(players) ? players : [];
+
+    if (!arr.length) {
+        container.innerHTML = `<div class="muted">No players yet — select a room and open play to appear.</div>`;
+        return;
+    }
+
+    const sorted = [...arr].sort((p1, p2) => {
+        const aHost = p1.userId === hostId ? -1 : 0;
+        const bHost = p2.userId === hostId ? -1 : 0;
+        if (aHost !== bHost) return aHost - bHost;
+
+        const aReady = p1.isReady ? -1 : 0;
+        const bReady = p2.isReady ? -1 : 0;
+        if (aReady !== bReady) return aReady - bReady;
+
+        return String(p1.name || "").localeCompare(String(p2.name || ""));
+    });
+
+    container.innerHTML = sorted.map(p => {
+        const name = p.name ?? "Player";
+        const isHost = p.userId === hostId;
+        const isYou = currentUserId && p.userId === currentUserId;
+        const connected = p.isConnected !== false;
+        const ready = !!p.isReady;
+
+        const cardClasses = ["player-card", !connected ? "is-disconnected" : ""].filter(Boolean).join(" ");
+        const pillClass = connected ? (ready ? "pill-sm ready" : "pill-sm wait") : "pill-sm off";
+        const pillText = connected ? (ready ? "Ready" : "Not ready") : "Disconnected";
+
+        const badges = [
+            isHost ? `<span class="player-badge host">HOST</span>` : "",
+            isYou ? `<span class="player-badge you">YOU</span>` : ""
+        ].filter(Boolean).join("");
+
+        const avatar = p.avatarUrl
+            ? `<img src="${esc(p.avatarUrl)}" alt="avatar" />`
+            : `<span>${esc(initials(name))}</span>`;
+
+        return `
+              <div class="${cardClasses}">
+                <div class="avatar">${avatar}</div>
+                <div class="meta">
+                  <div class="top">
+                    <div class="name">${esc(name)}</div>
+                    <div class="badges">${badges}</div>
+                  </div>
+                  <div class="bottom">
+                    <span class="${pillClass}">${esc(pillText)}</span>
+                    <span class="sub">${esc(p.userId || "")}</span>
+                  </div>
+                </div>
+              </div>
+            `;
+    }).join("");
+}
+
+// ----------------------------
+// Room state / leaderboard
+// ----------------------------
+async function refreshState() {
+    const code = roomId();
+    const stateOut = el("stateOut");
+    const playerList = el("playerList");
+
+    if (!code) {
+        if (stateOut) stateOut.textContent = "Pick a room to see state.";
+        if (playerList) playerList.innerHTML = `<div class="muted">Pick a room to see players.</div>`;
+        return;
+    }
+
+    const raw = await api(`/rooms/${encodeURIComponent(code)}/state`);
+    const state = raw?.state ?? raw;
+
+    currentRoomState = state;
+    if (stateOut) stateOut.textContent = pretty(raw);
+
+    renderPlayers(state, myUserId);
+}
+
+async function refreshLeaderboard() {
+    const code = roomId();
+    const out = el("gameOut");
+    if (!code) return;
+
+    try {
+        const lb = await api(`/rooms/${encodeURIComponent(code)}/leaderboard`);
+        if (out) out.textContent = pretty(lb);
+    } catch (e) {
+        if (out) out.textContent = String(e);
+    }
+}
+
+// ----------------------------
+// Games UI
+// ----------------------------
+function setSelectedGame(id) {
+    selectedGameId = id;
+
+    document.querySelectorAll(".game-tile.is-selected").forEach(x => x.classList.remove("is-selected"));
+    const tile = document.querySelector(`.game-tile[data-game="${CSS.escape(id)}"]`);
+    if (tile) tile.classList.add("is-selected");
+
+    renderControlPanel(id);
+    syncActionButtons();
+}
+
+async function loadGames() {
+    const grid = el("gamesGrid");
+    if (!grid) return;
+
+    grid.innerHTML = "";
+
+    const payload = await api("/catalog/games");
+    const games = payload?.games;
+    if (!Array.isArray(games)) {
+        grid.innerHTML = `<div class="muted">Invalid games payload.</div>`;
+        return;
+    }
+
+    for (const item of games) {
+        const tile = document.createElement("div");
+        tile.className = "game-tile";
+        tile.dataset.game = item.id;
+
+        if (!item.enabled) {
+            tile.setAttribute("aria-disabled", "true");
+            tile.classList.add("is-disabled");
+        }
+
+        const bg = document.createElement("div");
+        bg.className = "game-bg";
+        const imageUrl = item.image || "/assets/Games/placeholder.png";
+        bg.style.backgroundImage = `url('${imageUrl}')`;
+
+        const inner = document.createElement("div");
+        inner.className = "game-inner";
+
+        const left = document.createElement("div");
+
+        const title = document.createElement("div");
+        title.className = "game-title";
+        title.textContent = item.name || item.id;
+
+        const desc = document.createElement("div");
+        desc.className = "game-desc";
+        desc.textContent = item.description || "";
+
+        left.appendChild(title);
+        left.appendChild(desc);
+
+        const badge = document.createElement("span");
+        badge.className = "tile-badge " + (item.enabled ? "ok" : "soon");
+        badge.textContent = item.enabled ? "Ready" : "Soon";
+
+        inner.appendChild(left);
+        inner.appendChild(badge);
+
+        tile.appendChild(bg);
+        tile.appendChild(inner);
+
+        tile.addEventListener("click", () => {
+            if (!item.enabled) return;
+            setSelectedGame(item.id);
+        });
+
+        grid.appendChild(tile);
+    }
+
+    // select default (first enabled, else contexto)
+    const firstEnabled = games.find(g => g.enabled);
+    const defaultId = firstEnabled?.id || "contexto";
+    setSelectedGame(defaultId);
+}
+
+// ----------------------------
+// Controls schema (per-game)
+// ----------------------------
+// Add new games by adding a schema entry + adding a start handler in STARTERS below.
+const GAME_CONTROL_SCHEMAS = {
+    contexto: {
+        title: "Contexto",
+        controls: [
+            { key: "secretWord", label: "Secret word (optional)", type: "text", default: "" }
+        ]
+    },
+    hangman: {
+        title: "Hangman",
+        controls: [
+            { key: "word", label: "Word (temp – until random words)", type: "text", default: "" },
+            { key: "maxWrong", label: "Max wrong", type: "number", default: 6 }
+        ]
+    },
+    deal: {
+        title: "Deal or No Deal",
+        controls: [
+            { key: "difficulty", label: "Difficulty", type: "select", default: "easy", options: ["easy", "medium", "hard"] }
+        ]
+    },
+    trivia: {
+        title: "Daily Trivia",
+        controls: [
+            { key: "difficulty", label: "Difficulty", type: "select", default: "easy", options: ["easy", "medium", "hard"] },
+            { key: "roundSeconds", label: "Round seconds", type: "number", default: 20, min: 5, max: 120 },
+            { key: "autoNext", label: "Auto-next", type: "checkbox", default: false },
+            { key: "autoNextDelaySeconds", label: "Auto-next delay (s)", type: "number", default: 7, min: 0, max: 30 }
+        ]
+    }
+};
+
+function ensureDefaults(gameId) {
+    const schema = GAME_CONTROL_SCHEMAS[gameId];
+    if (!schema) return;
+    gameSettings[gameId] ??= {};
+    for (const c of schema.controls) {
+        if (gameSettings[gameId][c.key] === undefined && c.default !== undefined) {
+            gameSettings[gameId][c.key] = c.default;
+        }
+    }
+}
+
+function renderControlPanel(gameId) {
+    const host = el("controlPanelHost");
+    if (!host) return;
+
+    host.innerHTML = "";
+
+    const schema = GAME_CONTROL_SCHEMAS[gameId];
+    if (!schema) {
+        host.innerHTML = `<div class="muted">No custom controls for this game yet.</div>`;
+        return;
+    }
+
+    ensureDefaults(gameId);
+
+    const header = document.createElement("div");
+    header.style.marginBottom = "10px";
+    header.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+              <div style="font-weight:700">${esc(schema.title || "Controls")} • <span style="opacity:.8">${esc(gameId)}</span></div>
+              <button id="resetGameSettingsBtn" class="control-button btn-secondary" style="width:auto;padding:8px 10px;">Reset</button>
+            </div>
+          `;
+    host.appendChild(header);
+
+    header.querySelector("#resetGameSettingsBtn").addEventListener("click", () => {
+        gameSettings[gameId] = {};
+        ensureDefaults(gameId);
+        renderControlPanel(gameId);
+    });
+
+    for (const c of schema.controls) {
+        const wrap = document.createElement("div");
+        wrap.className = "control-block";
+
+        const label = document.createElement("label");
+        label.className = "control-label";
+        label.textContent = c.label;
+        wrap.appendChild(label);
+
+        const stored = gameSettings[gameId][c.key];
+
+        let input;
+
+        // ✅ SELECT
+        if (c.type === "select") {
+            input = document.createElement("select");
+            input.className = "control-input";
+
+            const opts = Array.isArray(c.options) ? c.options : [];
+            for (const opt of opts) {
+                const o = document.createElement("option");
+                o.value = String(opt);
+                o.textContent = String(opt);
+                input.appendChild(o);
+            }
+
+            input.value = String(stored ?? c.default ?? (opts[0] ?? ""));
+
+            input.addEventListener("change", () => {
+                gameSettings[gameId][c.key] = input.value;
+            });
+        }
+        // ✅ CHECKBOX
+        else if (c.type === "checkbox") {
+            // keep your label layout, but checkbox needs checked instead of value
+            input = document.createElement("input");
+            input.className = "control-input";
+            input.type = "checkbox";
+            input.checked = Boolean(stored ?? c.default ?? false);
+
+            // Optional: make checkbox not look weird if your CSS styles .control-input for text
+            // input.classList.add("control-checkbox");
+
+            input.addEventListener("change", () => {
+                gameSettings[gameId][c.key] = input.checked;
+            });
+        }
+        // NUMBER / TEXT (existing behaviour)
+        else {
+            input = document.createElement("input");
+            input.className = "control-input";
+            input.type = (c.type === "number") ? "number" : "text";
+
+            // optional min/max/step support
+            if (c.type === "number") {
+                if (c.min !== undefined) input.min = String(c.min);
+                if (c.max !== undefined) input.max = String(c.max);
+                if (c.step !== undefined) input.step = String(c.step);
+            }
+
+            input.value = String(stored ?? "");
+
+            input.addEventListener("input", () => {
+                const v = input.value;
+                gameSettings[gameId][c.key] =
+                    (c.type === "number")
+                        ? (v === "" ? "" : Number(v))
+                        : v;
+            });
+        }
+
+        wrap.appendChild(input);
+        host.appendChild(wrap);
+    }
+}
+
+// ----------------------------
+// Game actions (scalable)
+// ----------------------------
+const GAMES_REGISTRY = {
+    contexto: {
+        title: "Contexto",
+        playUrl: (code) => `/play.html?roomId=${encodeURIComponent(code)}&game=contexto`,
+        overlayUrl: (code) => `/overlay.html?roomId=${encodeURIComponent(code)}&game=contexto`,
+        start: async (code) => {
+            const secretWord = String(gameSettings.contexto?.secretWord ?? "").trim();
+            const path = secretWord
+                ? `/rooms/${encodeURIComponent(code)}/games/contexto/start`
+                : `/rooms/${encodeURIComponent(code)}/games/contexto/next`;
+
+            const opts = secretWord
+                ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ secretWord }) }
+                : { method: "POST" };
+
+            return await api(path, opts);
+        },
+        stop: async (code) => api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" })
+    },
+
+    hangman: {
+        title: "Hangman",
+        playUrl: (code) => `/play.html?roomId=${encodeURIComponent(code)}&game=hangman`,
+        overlayUrl: (code) => `/overlay.html?roomId=${encodeURIComponent(code)}&game=hangman`,
+        start: async (code) => {
+            const word = String(gameSettings.hangman?.word ?? "").trim();
+            if (!word) throw new Error("Hangman: enter a word (temporary)");
+
+            const mw = gameSettings.hangman?.maxWrong;
+            const maxWrong = Number.isFinite(mw) && mw > 0 ? mw : 6;
+
+            return await api(`/rooms/${encodeURIComponent(code)}/games/hangman/start`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ word, maxWrong })
+            });
+        },
+        stop: async (code) => api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" })
+    },
+    trivia: {
+        title: "Daily Trivia",
+        playUrl: (code) => `/play.html?roomId=${encodeURIComponent(code)}&game=trivia`,
+        overlayUrl: (code) => `/overlay.html?roomId=${encodeURIComponent(code)}&game=trivia`,
+        start: async (code) => {
+            const difficulty = String(gameSettings.trivia?.difficulty ?? "easy").trim().toLowerCase();
+            const okDiff = (difficulty === "easy" || difficulty === "medium" || difficulty === "hard");
+            if (!okDiff) throw new Error("Trivia: difficulty must be easy, medium, or hard");
+
+            const rs = gameSettings.trivia?.roundSeconds;
+            const roundSeconds = Number.isFinite(rs) && rs > 0 ? rs : 20;
+
+            const autoNext = !!gameSettings.trivia?.autoNext;
+
+            const ds = gameSettings.trivia?.autoNextDelaySeconds;
+            const autoNextDelaySeconds = Number.isFinite(ds) && ds >= 0 ? ds : 7;
+
+            return await api(`/rooms/${encodeURIComponent(code)}/games/trivia/start`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ difficulty, roundSeconds, autoNext, autoNextDelaySeconds })
+            });
+        },
+        // optional extra controls if you want buttons later:
+        reveal: async (code) => api(`/rooms/${encodeURIComponent(code)}/games/trivia/reveal`, { method: "POST" }),
+        stop: async (code) => api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" })
+    }
+};
+
+async function startSelectedGame() {
+    const code = roomId();
+    if (!code) return alert("Pick a room first.");
+
+    const gameId = String(selectedGameId || "contexto").toLowerCase();
+    const g = GAMES_REGISTRY[gameId];
+    if (!g?.start) {
+        const out = el("gameOut");
+        if (out) out.textContent = pretty({ ok: false, error: `No start handler for ${gameId}` });
+        return;
+    }
+
+    const r = await g.start(code);
+    const out = el("gameOut");
+    if (out) out.textContent = pretty(r);
+
+    await refreshState();
+    await refreshLeaderboard();
+}
+
+async function stopSelectedGame() {
+    const code = roomId();
+    if (!code) return alert("Pick a room first.");
+
+    try {
+        const r = await api(`/rooms/${encodeURIComponent(code)}/games/stop`, {
+            method: "POST"
+        });
+
+        const out = el("gameOut");
+        if (out) out.textContent = pretty(r);
+
+        await refreshState();
+        await refreshLeaderboard();
+    } catch (e) {
+        alert(String(e));
+    }
+}
+
+function goPlay() {
+    const code = roomId();
+    if (!code) return alert("Pick a room first.");
+
+    const gameId = String(selectedGameId || "contexto").toLowerCase();
+    const g = GAMES_REGISTRY[gameId];
+
+    location.href = g?.playUrl ? g.playUrl(code) : `/play.html?roomId=${encodeURIComponent(code)}&game=${encodeURIComponent(gameId)}`;
+}
+
+function syncActionButtons() {
+    const hasRoom = !!roomId();
+    const gameId = String(selectedGameId || "contexto").toLowerCase();
+    const hasGame = !!GAMES_REGISTRY[gameId];
+
+    // role gating (member/admin can start/stop)
+    const r = String(myRole || "").toLowerCase();
+    const canControl = (r === "member" || r === "admin");
+
+    el("btnStart") && (el("btnStart").disabled = !(hasRoom && hasGame && canControl));
+    el("btnStop") && (el("btnStop").disabled = !(hasRoom && canControl));
+    el("btnPlay") && (el("btnPlay").disabled = !hasRoom);
+    el("btnOpenOverlay") && (el("btnOpenOverlay").disabled = !hasRoom);
+    el("btnLeaderboard") && (el("btnLeaderboard").disabled = !hasRoom);
+}
+
+// ----------------------------
+// Polling
+// ----------------------------
+function startPolling() {
+    if (pollHandle) return;
+    pollHandle = setInterval(() => {
+        if (document.hidden) return;
+        const code = roomId();
+        if (!code) return;
+
+        sendPresenceForRoom(code);
+        refreshState().catch(() => { });
+    }, 5000);
+}
+
+// ----------------------------
+// Wiring / init
+// ----------------------------
+async function init() {
+    wireSettingsPanel();
+
+    onClick("btnBack", () => (location.href = "/user.html"));
+
+    onClick("btnLogout", async () => {
+        try {
+            const r = await api("/member/logout", { method: "POST" });
+            const out = el("authOut");
+            if (out) out.textContent = pretty(r);
+        } finally {
+            location.href = "/user.html";
+        }
+    });
+
+    onClick("btnAdmin", () => (location.href = "/admin.html"));
+    onClick("btnMe", () => refreshMe().catch(e => console.warn("btnMe failed", e)));
+    onClick("btnRefreshRooms", () => loadRooms().catch(e => console.warn("loadRooms failed", e)));
+
+    onClick("btnOpenOverlay", () => {
+        const code = roomId();
+        if (!code) return alert("Pick a room first.");
+
+        const gameId = String(selectedGameId || "contexto").toLowerCase();
+        const g = GAMES_REGISTRY[gameId];
+
+        const url = g?.overlayUrl
+            ? g.overlayUrl(code)
+            : `/overlay.html?roomId=${encodeURIComponent(code)}&game=${encodeURIComponent(gameId)}`;
+
+        window.open(url, "_blank");
+    });
+
+    onClick("btnPlay", goPlay);
+    onClick("btnStart", () => startSelectedGame().catch(e => alert(String(e))));
+    onClick("btnStop", () => stopSelectedGame().catch(e => alert(String(e))));
+    onClick("btnLeaderboard", () => refreshLeaderboard().catch(e => alert(String(e))));
+
+    // Auth must be valid
+    let me;
+    try {
+        me = await refreshMe();
+    } catch (e) {
+        console.warn("refreshMe failed:", e);
+        location.href = "/user.html";
+        return;
+    }
+
+    if (!me.isAuth) {
+        location.href = "/user.html";
+        return;
+    }
+
+    // Games + rooms
+    await loadGames();
+    await loadRooms();
+
+    autoLoadRoomFromStorage();
+    startPolling();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    init().catch(e => {
+        console.error("Lobby init failed:", e);
+        location.href = "/user.html";
+    });
+});

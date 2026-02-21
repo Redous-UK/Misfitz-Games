@@ -105,7 +105,132 @@
         </div>
     </div>
 
+    <footer class="card" style="margin-top:12px; opacity:.9;">
+        <div class="row" style="justify-content:space-between; flex-wrap:wrap; gap:10px;">
+            <div class="muted">© <span id="mfzYear"></span> Misfitz Games</div>
+            <div class="muted" style="display:flex; gap:10px; flex-wrap:wrap;">
+                <a href="/policies/terms.html">Terms</a>
+                <span style="opacity:.4;">•</span>
+                <a href="/policies/privacy.html">Privacy</a>
+                <span style="opacity:.4;">•</span>
+                <a href="/policies/cookie.html">Cookies</a>
+                <span style="opacity:.4;">•</span>
+                <a href="/policies/acceptable-use.html">Acceptable Use</a>
+                <span style="opacity:.4;">•</span>
+                <a href="/policies/creators.html">Creator Terms</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Misfitz Cookie Consent Banner -->
+    <div id="mfz-consent" class="mfz-consent hidden" role="dialog" aria-live="polite" aria-label="Cookie consent">
+        <div class="mfz-consent-card">
+            <div class="mfz-consent-title">Cookies on Misfitz Games</div>
+            <div class="mfz-consent-text">
+                We use strictly necessary cookies to make the site work (login, security).
+                With your permission, we also use optional cookies for preferences and analytics.
+                <a href="/cookie.html">Learn more</a>.
+            </div>
+
+            <div id="mfz-consent-manage" class="mfz-consent-manage hidden">
+                <label class="mfz-consent-row">
+                    <input type="checkbox" checked disabled />
+                    <span><strong>Strictly necessary</strong> (always on)</span>
+                </label>
+
+                <label class="mfz-consent-row">
+                    <input id="mfz-consent-functional" type="checkbox" checked />
+                    <span><strong>Functional</strong> (preferences)</span>
+                </label>
+
+                <label class="mfz-consent-row">
+                    <input id="mfz-consent-analytics" type="checkbox" />
+                    <span><strong>Analytics</strong> (usage insights)</span>
+                </label>
+            </div>
+
+            <div class="mfz-consent-actions">
+                <button id="mfz-consent-accept" class="mfz-btn">Accept all</button>
+                <button id="mfz-consent-reject" class="mfz-btn ghost">Reject optional</button>
+                <button id="mfz-consent-toggle" class="mfz-btn ghost">Manage</button>
+            </div>
+        </div>
+    </div>
+
     <script>
+        document.getElementById("mfzYear").textContent = new Date().getFullYear();
+        (() => {
+            const KEY = "misfitz_consent_v1";
+
+            const el = (id) => document.getElementById(id);
+            const banner = el("mfz-consent");
+            const manage = el("mfz-consent-manage");
+            const btnAccept = el("mfz-consent-accept");
+            const btnReject = el("mfz-consent-reject");
+            const btnToggle = el("mfz-consent-toggle");
+            const chkFunctional = el("mfz-consent-functional");
+            const chkAnalytics = el("mfz-consent-analytics");
+
+            function getConsent() {
+                try { return JSON.parse(localStorage.getItem(KEY) || "null"); } catch { return null; }
+            }
+
+            function setConsent(consent) {
+                localStorage.setItem(KEY, JSON.stringify({
+                    v: 1,
+                    updatedUtc: new Date().toISOString(),
+                    necessary: true,
+                    functional: !!consent.functional,
+                    analytics: !!consent.analytics
+                }));
+
+                // Optional: expose consent for your app to read
+                window.__mfzConsent = getConsent();
+
+                // Optional hook: call into your analytics init
+                // if (window.__mfzConsent.analytics) initAnalytics();
+            }
+
+            function show() { banner.classList.remove("hidden"); }
+            function hide() { banner.classList.add("hidden"); }
+
+            // Boot
+            const existing = getConsent();
+            if (!existing) {
+                // Default state in manage: functional on, analytics off
+                if (chkFunctional) chkFunctional.checked = true;
+                if (chkAnalytics) chkAnalytics.checked = false;
+                show();
+            } else {
+                window.__mfzConsent = existing;
+            }
+
+            btnAccept?.addEventListener("click", () => {
+                setConsent({ functional: true, analytics: true });
+                hide();
+            });
+
+            btnReject?.addEventListener("click", () => {
+                setConsent({ functional: false, analytics: false });
+                hide();
+            });
+
+            btnToggle?.addEventListener("click", () => {
+                manage.classList.toggle("hidden");
+                if (!manage.classList.contains("hidden")) {
+                    // When manage is open, apply current checks on close via toggle click again
+                    btnToggle.textContent = "Save choices";
+                } else {
+                    btnToggle.textContent = "Manage";
+                    setConsent({
+                        functional: chkFunctional?.checked ?? false,
+                        analytics: chkAnalytics?.checked ?? false
+                    });
+                    hide();
+                }
+            });
+        })();
+
         const el = (id) => document.getElementById(id);
         const pretty = (x) => JSON.stringify(x, null, 2);
 

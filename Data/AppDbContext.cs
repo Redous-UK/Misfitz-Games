@@ -13,6 +13,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Effect> Effects => Set<Effect>();
     public DbSet<EffectTarget> EffectTargets => Set<EffectTarget>();
     public DbSet<TuyaAccountLink> TuyaLinks => Set<TuyaAccountLink>();
+    public DbSet<TikTokAccountLink> TikTokLinks => Set<TikTokAccountLink>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -50,6 +51,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasForeignKey(t => t.EffectId);
 
         modelBuilder.Entity<TuyaAccountLink>()
+            .HasIndex(x => x.UserId)
+            .IsUnique();
+
+        modelBuilder.Entity<TikTokAccountLink>()
             .HasIndex(x => x.UserId)
             .IsUnique();
     }

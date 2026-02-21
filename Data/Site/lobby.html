@@ -22,7 +22,7 @@
                 <div class="row">
                     <span id="meLabel" class="pill">Checking login…</span>
                     <button id="btnAdmin" class="btn-secondary" style="display:none">Admin</button>
-                    <button id="btnEffects" class="btn-secondary"  onclick="document.location='/effects.html'">Effects</button>  <!--Temporary shortcut to effects page for testing-->
+                    <button id="btnEffects" class="btn-secondary" onclick="document.location='/effects.html'">Effects</button>  <!--Temporary shortcut to effects page for testing-->
                     <button id="adminLink" class="hidden" onclick="document.location='/admin'">🛠 Admin Editor</button>
                     <button id="btnLogout" class="btn-secondary">Logout</button>
                     <button id="btnBack" class="btn-secondary">Back to Login</button>
@@ -34,7 +34,13 @@
     <div class="content">
         <div class="wrap">
             <div class="grid">
-
+                <div class="card">
+                    <h2>Welcome to the lobby!</h2>
+                    <p>
+                        This is the central hub for joining rooms, starting games, and managing your account.
+                        Use the buttons and panels to explore available rooms, select games, and customize settings.
+                    </p>
+                </div>
                 <div class="card">
                     <h2>Room</h2>
                     <div class="row">
@@ -111,7 +117,7 @@
 
             <pre id="gameOut" style="margin-top:12px" class="debug-out">{}</pre>
         </div>
-    </aside>
+    </aside> mkdir -p /data/myfolder
 
     <script>
         // ----------------------------
@@ -391,15 +397,15 @@
                     const gl = gameLabel(r);
 
                     return `
-                <div class="room-tile" data-code="${esc(code)}">
-                  <div class="room-title">${esc(name)}</div>
-                  <div class="room-sub">Code: <b>${esc(code)}</b>${created ? ` • Created: ${esc(created)}` : ""}${pText}</div>
-                  <div class="room-meta">
-                    <span class="room-chip ${isActive ? "active" : ""}">${isActive ? "ACTIVE" : "JOIN"}</span>
-                    <span class="${gl.cls}">${esc(gl.text)}</span>
-                  </div>
-                </div>
-              `;
+                    <div class="room-tile" data-code="${esc(code)}">
+                      <div class="room-title">${esc(name)}</div>
+                      <div class="room-sub">Code: <b>${esc(code)}</b>${created ? ` • Created: ${esc(created)}` : ""}${pText}</div>
+                      <div class="room-meta">
+                        <span class="room-chip ${isActive ? "active" : ""}">${isActive ? "ACTIVE" : "JOIN"}</span>
+                        <span class="${gl.cls}">${esc(gl.text)}</span>
+                      </div>
+                    </div>
+                  `;
                 }).join("");
 
                 grid.querySelectorAll(".room-tile[data-code]").forEach(tile => {
@@ -476,20 +482,20 @@
                     : `<span>${esc(initials(name))}</span>`;
 
                 return `
-              <div class="${cardClasses}">
-                <div class="avatar">${avatar}</div>
-                <div class="meta">
-                  <div class="top">
-                    <div class="name">${esc(name)}</div>
-                    <div class="badges">${badges}</div>
+                  <div class="${cardClasses}">
+                    <div class="avatar">${avatar}</div>
+                    <div class="meta">
+                      <div class="top">
+                        <div class="name">${esc(name)}</div>
+                        <div class="badges">${badges}</div>
+                      </div>
+                      <div class="bottom">
+                        <span class="${pillClass}">${esc(pillText)}</span>
+                        <span class="sub">${esc(p.userId || "")}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div class="bottom">
-                    <span class="${pillClass}">${esc(pillText)}</span>
-                    <span class="sub">${esc(p.userId || "")}</span>
-                  </div>
-                </div>
-              </div>
-            `;
+                `;
             }).join("");
         }
 
@@ -674,11 +680,11 @@
             const header = document.createElement("div");
             header.style.marginBottom = "10px";
             header.innerHTML = `
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-              <div style="font-weight:700">${esc(schema.title || "Controls")} • <span style="opacity:.8">${esc(gameId)}</span></div>
-              <button id="resetGameSettingsBtn" class="control-button btn-secondary" style="width:auto;padding:8px 10px;">Reset</button>
-            </div>
-          `;
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+                  <div style="font-weight:700">${esc(schema.title || "Controls")} • <span style="opacity:.8">${esc(gameId)}</span></div>
+                  <button id="resetGameSettingsBtn" class="control-button btn-secondary" style="width:auto;padding:8px 10px;">Reset</button>
+                </div>
+              `;
             host.appendChild(header);
 
             header.querySelector("#resetGameSettingsBtn").addEventListener("click", () => {

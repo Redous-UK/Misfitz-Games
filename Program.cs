@@ -637,6 +637,10 @@ public static class Program
 
   <div class="wrap">
     <div class="left">
+      <div class="row" style="justify-content:space-between; gap:8px; margin-bottom:8px;">
+        <div class="muted" id="pathLabel">/</div>
+        <button id="btnUp" class="btn ghost" disabled>Up</button>
+      </div>
       <div class="row" style="margin-bottom:10px">
         <input id="filter" placeholder="Filter files…" style="flex:1" />
         <button class="btn" id="btnRefresh">Refresh</button>
@@ -675,6 +679,8 @@ public static class Program
 <script>
 const el = (id) => document.getElementById(id);
 let allFiles = [];
+let currentPath = ""; // "" means root
+let selectedEntry = null;
 
 function setStatus(t){ el('status').textContent = t; }
 
@@ -690,6 +696,113 @@ async function api(url, opts){
   const text = await r.text();
   try { return JSON.parse(text); } catch { return { ok:false, error:text || ('HTTP '+r.status) }; }
 }
+
+// Your API wrapper (you likely already have this)
+async function api(url, opts) {
+  const r = await fetch(url, opts);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return await r.json();
+}
+
+// Call backend to list JUST ONE folder
+async function listFolder(path) {
+  // Encode path for safety; backend should normalize / prevent traversal
+  const q = encodeURIComponent(path || "");
+  return await api(`/admin/site/list?path=${q}`);
+}
+
+// Render only this folder’s direct children
+async function refreshLeftPanel() {
+  const out = await listFolder(currentPath);
+
+  // Expect something like:
+  // out = { ok:true, path:"", entries:[ { name:"assets", type:"dir" }, { name:"site.css", type:"file", size:123 } ] }
+
+  el("pathLabel").textContent = "/" + (out.path || "").replace(/^\/+/, "");
+
+  const btnUp = el("btnUp");
+  btnUp.disabled = !currentPath;
+
+  const list = el("filesList"); // your left-side container UL/DIV
+  list.innerHTML = "";
+
+  // Sort folders first, then files, alphabetical
+  const entries = (out.entries || []).slice().sort((a, b) => {
+    if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
+    return (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
+  });
+
+  for (const e of entries) {
+    const row = document.createElement("div");
+    row.className = "fileRow"; // use your existing class
+    row.style.display = "flex";
+    row.style.justifyContent = "space-between";
+    row.style.gap = "10px";
+    row.style.padding = "8px 10px";
+    row.style.cursor = "pointer";
+    row.style.borderRadius = "12px";
+
+    const left = document.createElement("div");
+    left.style.display = "flex";
+    left.style.gap = "10px";
+    left.style.alignItems = "center";
+
+    const icon = document.createElement("span");
+    icon.textContent = e.type === "dir" ? "📁" : "📄";
+
+    const name = document.createElement("span");
+    name.textContent = e.name;
+
+    left.appendChild(icon);
+    left.appendChild(name);
+
+    const right = document.createElement("span");
+    right.className = "muted";
+    right.textContent = e.type === "dir" ? "" : (e.size ? `${e.size}b` : "");
+
+    row.appendChild(left);
+    row.appendChild(right);
+
+    row.addEventListener("click", async () => {
+      selectedEntry = e;
+
+      if (e.type === "dir") {
+        // Navigate into folder (no recursion)
+        currentPath = joinPath(currentPath, e.name);
+        await refreshLeftPanel();
+        // Optional: clear editor when navigating folders
+        // clearEditor();
+      } else {
+        // Open file in editor
+        const filePath = joinPath(currentPath, e.name);
+        await openFile(filePath);
+      }
+    });
+
+    list.appendChild(row);
+  }
+}
+
+function joinPath(base, child) {
+  const b = (base || "").replace(/\/+$/, "");
+  const c = (child || "").replace(/^\/+/, "");
+  return b ? `${b}/${c}` : c;
+}
+
+function parentPath(path) {
+  if (!path) return "";
+  const p = path.replace(/\/+$/, "");
+  const idx = p.lastIndexOf("/");
+  return idx === -1 ? "" : p.slice(0, idx);
+}
+
+el("btnUp").addEventListener("click", async () => {
+  currentPath = parentPath(currentPath);
+  await refreshLeftPanel();
+});
+
+// Call on load
+refreshLeftPanel().catch(err => console.error(err));
 
 function renderFiles(){
   const q = el('filter').value.trim().toLowerCase();
@@ -715,15 +828,17 @@ async function loadList(){
 }
 
 async function openFile(path, isDir){
+  
   el('backupPanel').textContent = '';
   if(isDir){ el('path').value = path + '/'; el('content').value=''; return; }
 
   setStatus('Reading…');
-  const r = await api('/admin/api/read?path=' + encodeURIComponent(path));
-  if(!r.ok){ setStatus('Error'); alert(r.error || 'Read failed'); return; }
+  const q = encodeURIComponent(filePath);
+  const r = await api(`/admin/site/read?path=${q}`);
+  // if(!r.ok){ setStatus('Error'); alert(r.error || 'Read failed'); return; }
 
-  el('path').value = path;
-  el('content').value = r.content ?? '';
+    el("editorPath").textContent = "/" + r.path;
+    el("editor").value = r.content; // or Monaco/etc
   setStatus('Ready');
 }
 
