@@ -714,7 +714,8 @@ function normalizeEntries(out) {
 
 async function openFile(path) {
   currentFilePath = path;
-  el("path").value = path;
+  const pathBox = el("path");
+if (pathBox) pathBox.value = path;
   const r = await api(`/admin/site/read?path=${encodeURIComponent(path)}`);
   el("content").value = r.content ?? "";
   el("content").focus();
@@ -732,7 +733,8 @@ function renderEntries(entries) {
 
     row.onclick = async () => {
       if (e.type === "dir") {
-        currentPath = joinPath(currentPath, e.name);
+        const up = el("uploadDir");
+        if (up) up.value = currentPath || "";
         syncUploadDir();
         const filter = el("filter");
           if (filter) filter.value = "";
