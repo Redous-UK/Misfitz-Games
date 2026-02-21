@@ -103,15 +103,15 @@ let pollHandle = null;
 // Drawer (settings panel)
 // ----------------------------
 function wireSettingsPanel() {
-//    const btn = el("settingsBtn");
-//    const overlay = el("settingsOverlay");
-//    const panel = el("settingsPanel");
-//    const closeBtn = el("settingsCloseBtn");
+    const btn = el("settingsBtn");
+    const overlay = el("settingsOverlay");
+    const panel = el("settingsPanel");
+    const closeBtn = el("settingsCloseBtn");
 
-//    if (!btn || !overlay || !panel || !closeBtn) {
-//        console.warn("[drawer] missing elements", { btn, overlay, panel, closeBtn });
-//        return;
-//    }
+    if (!btn || !overlay || !panel || !closeBtn) {
+        console.warn("[drawer] missing elements", { btn, overlay, panel, closeBtn });
+        return;
+    }
 
     function openPanel() {
         panel.classList.add("open");
