@@ -828,7 +828,7 @@ async function openFile(path) {
   currentFilePath = path;
   const pathBox = el("path");
 if (pathBox) pathBox.value = path;
-  const r = await api(`/admin/site/read?path=${encodeURIComponent(path)}`);
+  const r = await api(`/admin/api/read?path=${encodeURIComponent(path)}`);
   el("content").value = r.content ?? "";
   el("content").focus();
 }
