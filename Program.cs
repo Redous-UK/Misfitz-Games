@@ -701,7 +701,7 @@ public static class Program
       <div class="badge" id="status">Loading…</div>
       <div class="muted">Edits save into <code>/data/site</code> (no rebuild)</div>
     </div>
-    <a class="btn" href="/user.html">Account</a>
+    <button id="btnMe" class="btn-secondary" >Check login</button>
   </div>
 
   <div class="wrap">
@@ -833,6 +833,38 @@ function normalizeEntries(out) {
   }
 }
 
+async function saveCurrentFile() {
+  const path = window.__currentFilePath;
+  if (!path) return alert("No file open.");
+
+  const editor = document.getElementById("content") || document.getElementById("editor");
+  const content = editor.value;
+
+  await api("/admin/api/save", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path, content }),
+  });
+}
+
+async function openFile(path) {
+  // show full path somewhere if you have it
+  const editorPath = document.getElementById("editorPath");
+  if (editorPath) editorPath.textContent = "/" + path;
+
+  const r = await api(`/admin/site/read?path=${encodeURIComponent(path)}`);
+
+  // Put content into your editor control
+  // Replace #content with your textarea/editor id
+  const editor = document.getElementById("content") || document.getElementById("editor");
+  if (!editor) throw new Error("Editor element not found (expected #content or #editor)");
+
+  editor.value = r.content ?? "";
+
+  // Track current file for saving
+  window.__currentFilePath = path;
+}
+
 function renderEntries(entries) {
   const list = el("files");
   if (!list) throw new Error("Missing #files container");
@@ -944,6 +976,7 @@ document.addEventListener("DOMContentLoaded", () => {
     el("filter").value = "";
   });
 
+  el("btnMe").addEventListener("click", () => refreshMe().catch(e => console.warn("btnMe failed", e)));
   el("btnRefresh").addEventListener("click", async () => {
     await refreshLeftPanel();
   });
