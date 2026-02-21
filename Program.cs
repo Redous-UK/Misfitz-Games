@@ -718,13 +718,50 @@ function syncUploadDir() {
 }
 
 function normalizeEntries(out) {
-  const entries = out.entries ?? out.items ?? out.files ?? [];
-  return entries.map(e => ({
-    name: e.name ?? e.fileName ?? (e.path ? e.path.split("/").pop() : ""),
-    type: (e.type ?? e.kind ?? (e.isDir ? "dir" : "file")).toLowerCase(),
-    size: e.size ?? e.length ?? null,
-    updatedUtc: e.updatedUtc ?? e.lastWriteTimeUtc ?? null
-  })).filter(e => e.name && (e.type === "dir" || e.type === "file"));
+  // Most likely: { ok:true, path:"", entries:[...] }
+  if (Array.isArray(out.entries)) return out.entries.map(mapEntry).filter(Boolean);
+
+  // Common alternative: { ok:true, dirs:[...], files:[...] }
+  if (Array.isArray(out.dirs) || Array.isArray(out.files)) {
+    const dirs = (out.dirs || []).map(d => ({
+      name: d.name ?? d,
+      type: "dir",
+      size: null,
+      updatedUtc: d.updatedUtc ?? d.lastWriteTimeUtc ?? null
+    }));
+
+    const files = (out.files || []).map(f => ({
+      name: f.name ?? f,
+      type: "file",
+      size: f.size ?? f.length ?? null,
+      updatedUtc: f.updatedUtc ?? f.lastWriteTimeUtc ?? null
+    }));
+
+    return [...dirs, ...files].filter(e => e.name);
+  }
+
+  // Another alternative: { items:[...] } or { files:[...] } where entries are mixed
+  const mixed = out.items ?? out.files ?? [];
+  if (Array.isArray(mixed)) return mixed.map(mapEntry).filter(Boolean);
+
+  return [];
+
+  function mapEntry(e) {
+    if (!e) return null;
+
+    const name = e.name ?? e.fileName ?? (e.path ? e.path.split("/").pop() : null);
+    if (!name) return null;
+
+    const typeRaw = e.type ?? e.kind ?? (e.isDir ? "dir" : "file");
+    const type = String(typeRaw).toLowerCase();
+
+    return {
+      name,
+      type: (type === "directory") ? "dir" : type,
+      size: e.size ?? e.length ?? null,
+      updatedUtc: e.updatedUtc ?? e.lastWriteTimeUtc ?? null
+    };
+  }
 }
 
 function renderEntries(entries) {
@@ -805,18 +842,28 @@ function applyFilter() {
 }
 
 async function refreshLeftPanel() {
-  // UI bits
   el("pathLabel").textContent = "/" + (currentPath || "");
   el("btnUp").disabled = !currentPath;
+  syncUploadDir();
 
   const out = await listFolder(currentPath);
+
+  // ✅ TEMP DEBUG (remove later)
+  console.log("site/list response:", out);
+
   const entries = normalizeEntries(out).sort((a, b) => {
     if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
     return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
   });
 
-  syncUploadDir();
   lastEntries = entries;
+
+  const list = el("files");
+  if (!entries.length) {
+    list.innerHTML = `<div class="muted" style="padding:8px 10px;">No files in this folder.</div>`;
+    return;
+  }
+
   applyFilter();
 }
 
@@ -833,8 +880,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   el("filter").addEventListener("input", applyFilter);
-
-
 
   refreshLeftPanel().catch(err => console.error(err));
 
