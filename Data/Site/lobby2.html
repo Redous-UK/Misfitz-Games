@@ -119,6 +119,59 @@
         </aside>
     </div>
 
+    <!-- Settings button (place wherever you want in your header/top row) -->
+    <button id="settingsBtn" class="btn" type="button" title="Settings">
+        ⚙ Settings
+    </button>
+
+    <!-- Drawer overlay + panel -->
+    <div id="settingsOverlay" class="settingsOverlay hidden" aria-hidden="true">
+        <div id="settingsPanel" class="settingsPanel" role="dialog" aria-modal="true" aria-label="Settings">
+            <div class="settingsHeader">
+                <div class="settingsTitle">Settings</div>
+                <button id="settingsCloseBtn" class="btn ghost" type="button" aria-label="Close">✕</button>
+            </div>
+
+            <div class="settingsBody">
+                <!-- Put your actual settings UI here -->
+                <div class="muted" style="margin-bottom:10px;">
+                    Lobby options & quick tools.
+                </div>
+
+                <div class="card" style="padding:12px;">
+                    <div class="row" style="justify-content:space-between;">
+                        <div>
+                            <div style="font-weight:700;">Auto-join last room</div>
+                            <div class="muted">Uses localStorage roomId.</div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="optAutoJoin" />
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="card" style="padding:12px;">
+                    <div class="row" style="justify-content:space-between;">
+                        <div>
+                            <div style="font-weight:700;">Live reconnect</div>
+                            <div class="muted">Reconnect SignalR if dropped.</div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="optReconnect" checked />
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="row" style="margin-top:10px;">
+                    <button class="btn" id="btnClearLocal">Clear local data</button>
+                    <button class="btn" id="btnLogout">Log out</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="/lobby.js"></script>
 </body>
 </html>

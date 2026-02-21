@@ -110,40 +110,51 @@ function wireSettingsPanel() {
 
     if (!btn || !overlay || !panel || !closeBtn) {
         console.warn("[drawer] missing elements", { btn, overlay, panel, closeBtn });
-        return;
+        return false; // IMPORTANT: don't throw / don't stop init
     }
 
-    function openPanel() {
-        panel.classList.add("open");
-        overlay.hidden = false;
-        panel.setAttribute("aria-hidden", "false");
-        btn.setAttribute("aria-expanded", "true");
-        document.documentElement.style.overflow = "hidden";
-    }
+    const open = () => {
+        overlay.classList.remove("hidden");
+        overlay.setAttribute("aria-hidden", "false");
+        // focus close for accessibility
+        closeBtn.focus?.();
+    };
 
-    function closePanel() {
-        panel.classList.remove("open");
-        overlay.hidden = true;
-        panel.setAttribute("aria-hidden", "true");
-        btn.setAttribute("aria-expanded", "false");
-        document.documentElement.style.overflow = "";
-    }
+    const close = () => {
+        overlay.classList.add("hidden");
+        overlay.setAttribute("aria-hidden", "true");
+        btn.focus?.();
+    };
 
-    btn.addEventListener("click", () => {
-        const isOpen = panel.classList.contains("open");
-        if (isOpen) closePanel();
-        else openPanel();
+    btn.addEventListener("click", open);
+    closeBtn.addEventListener("click", close);
+
+    // click outside panel closes
+    overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) close();
     });
 
-    overlay.addEventListener("click", closePanel);
-    closeBtn.addEventListener("click", closePanel);
-
+    // ESC closes
     document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape" && panel.classList.contains("open")) closePanel();
+        if (e.key === "Escape" && !overlay.classList.contains("hidden")) close();
     });
 
-    window.openSettingsPanel = openPanel;
-    window.closeSettingsPanel = closePanel;
+    // Optional: hook buttons if present
+    el("btnClearLocal")?.addEventListener("click", () => {
+        try {
+            localStorage.removeItem("roomId");
+            localStorage.removeItem("username");
+        } catch { }
+        toast?.("Cleared local data");
+    });
+
+    el("btnLogout")?.addEventListener("click", async () => {
+        // Adjust to your real logout endpoint if you have one
+        try { await fetch("/member/logout", { method: "POST" }); } catch { }
+        location.href = "/user.html";
+    });
+
+    return true;
 }
 
 // ----------------------------
