@@ -834,10 +834,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   el("filter").addEventListener("input", applyFilter);
 
-  // Initial load
-document.addEventListener("DOMContentLoaded", () => {
+
+
   refreshLeftPanel().catch(err => console.error(err));
-});
+
 });
 </script>
 </body>
