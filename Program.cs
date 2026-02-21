@@ -773,6 +773,19 @@ async function refreshLeftPanel() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+
+console.log("[admin] ids present?", {
+  filter: !!el("filter"),
+  path: !!el("path"),
+  uploadDir: !!el("uploadDir"),
+  uploadFile: !!el("uploadFile"),
+  btnUp: !!el("btnUp"),
+  btnRefresh: !!el("btnRefresh"),
+  btnSave: !!el("btnSave"),
+  content: !!el("content"),
+});
+
+
   const filter = el("filter");
 if (filter) filter.value = "";
 
