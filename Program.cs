@@ -67,42 +67,42 @@ public static class Program
 
         // --- Auth: Cookie auth ---
         builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(o =>
-    {
-        o.Cookie.Name = "misfitz_auth";
-        o.Cookie.HttpOnly = true;
-        o.SlidingExpiration = true;
-
-        o.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-        o.Cookie.SameSite = SameSiteMode.Lax;
-
-        o.LoginPath = "/user.html";
-        o.AccessDeniedPath = "/user.html";
-
-        o.Events = new CookieAuthenticationEvents
-        {
-            OnRedirectToLogin = ctx =>
+            .AddCookie(o =>
             {
-                if (ctx.Request.Path.StartsWithSegments("/api"))
+                o.Cookie.Name = "misfitz_auth";
+                o.Cookie.HttpOnly = true;
+                o.SlidingExpiration = true;
+
+                o.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+                o.Cookie.SameSite = SameSiteMode.Lax;
+
+                o.LoginPath = "/user.html";
+                o.AccessDeniedPath = "/user.html";
+
+                o.Events = new CookieAuthenticationEvents
                 {
-                    ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                    return Task.CompletedTask;
-                }
-                ctx.Response.Redirect(ctx.RedirectUri);
-                return Task.CompletedTask;
-            },
-            OnRedirectToAccessDenied = ctx =>
-            {
-                if (ctx.Request.Path.StartsWithSegments("/api"))
-                {
-                    ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
-                    return Task.CompletedTask;
-                }
-                ctx.Response.Redirect(ctx.RedirectUri);
-                return Task.CompletedTask;
-            }
-        };
-    });
+                    OnRedirectToLogin = ctx =>
+                    {
+                        if (ctx.Request.Path.StartsWithSegments("/api") || ctx.Request.Path.StartsWithSegments("/admin/api") || ctx.Request.Path.StartsWithSegments("/admin/site"))
+                        {
+                            ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                            return Task.CompletedTask;
+                        }
+                        ctx.Response.Redirect(ctx.RedirectUri);
+                        return Task.CompletedTask;
+                    },
+                    OnRedirectToAccessDenied = ctx =>
+                    {
+                        if (ctx.Request.Path.StartsWithSegments("/api") || ctx.Request.Path.StartsWithSegments("/admin/api") || ctx.Request.Path.StartsWithSegments("/admin/site"))
+                        {
+                            ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+                            return Task.CompletedTask;
+                        }
+                        ctx.Response.Redirect(ctx.RedirectUri);
+                        return Task.CompletedTask;
+                    }
+                };
+            });
 
         builder.Services.AddAuthorizationBuilder()
             .AddPolicy("Player", p =>
@@ -125,16 +125,12 @@ public static class Program
         builder.Services.AddSingleton<RoomBroadcastService>();
         builder.Services.AddSingleton<RoomGameBroadcaster>();
 
-
         // Game Services
-        // Contexto
         builder.Services.AddSingleton<ContextoWordProvider>();
         builder.Services.AddSingleton<WordVectorStore>();
         builder.Services.AddSingleton<ContextoRankIndexStore>();
-        // Hangman
         builder.Services.AddSingleton<HangmanService>();
-        // Trivia
-        builder.Services.AddHttpClient<TriviaService>();       
+        builder.Services.AddHttpClient<TriviaService>();
 
         // Effects / hardware services
         builder.Services.AddHttpClient<TuyaPlugService>();
@@ -157,49 +153,50 @@ public static class Program
         // ===================== Site roots =====================
         var dataRoot = "/data/site";
         var backupsRoot = "/data/backups";
-        var sourceRoot = Path.Combine(app.Environment.ContentRootPath, "Data", "Site");
-        var targetRoot = "/data/site";
-
-        // Toggle: hardcoded default + env override
-        var pushAll = (Environment.GetEnvironmentVariable("SITE_PUSH_ALL") ?? "off").Trim().ToLowerInvariant();
-        // If you really want a local default:
-        // var pushAll = "on"; // <- you can do this, but env var is safer
-
-        var clean = (Environment.GetEnvironmentVariable("SITE_PUSH_CLEAN") ?? "off").Trim().ToLowerInvariant();
-
-        Console.WriteLine($"[SITE] Source: {sourceRoot}");
-        Console.WriteLine($"[SITE] Target: {targetRoot}");
-        Console.WriteLine($"[SITE] PUSH_ALL: {pushAll}");
-        Console.WriteLine($"[SITE] CLEAN: {clean}");
-
-        if (Directory.Exists(sourceRoot))
-        {
-            var overwrite = pushAll is "on" or "true" or "1" or "yes";
-            var doClean = clean is "on" or "true" or "1" or "yes";
-
-            SyncDirectory(sourceRoot, targetRoot, overwrite, doClean);
-        }
-        else
-        {
-            Console.WriteLine("[SITE] Source folder missing. Skipping sync.");
-        }
+        var seedRoot = Path.Combine(app.Environment.ContentRootPath, "Data", "Site");
 
         Directory.CreateDirectory(dataRoot);
         Directory.CreateDirectory(backupsRoot);
 
-        // Seed packaged defaults -> /data/site when needed (fresh disk / missing essentials)
-        var seedRoot = Path.Combine(app.Environment.ContentRootPath, "Data", "Site");
+        // ===================== Data/Site -> /data/site sync (toggle) =====================
+        // SITE_PUSH_ALL=on  => overwrite everything (republish / fix broken site)
+        // SITE_PUSH_ALL=off => copy only missing files (safe)
+        // SITE_PUSH_CLEAN=on => delete files in /data/site not present in Data/Site (reset mirror)
+        var pushAll = (Environment.GetEnvironmentVariable("SITE_PUSH_ALL") ?? "off").Trim().ToLowerInvariant();
+        var clean = (Environment.GetEnvironmentVariable("SITE_PUSH_CLEAN") ?? "off").Trim().ToLowerInvariant();
 
-        // Wildcard-friendly requirements (prevents clobbering existing edits)
-        BootstrapSite(seedRoot, dataRoot, requiredPatterns:
-        [
-            "*.html",
-            "*.css",
-            "*.js"
-            // add "*.png" if you want, but not required for a working site
-        ]);
+        var overwrite = pushAll is "on" or "true" or "1" or "yes";
+        var doClean = clean is "on" or "true" or "1" or "yes";
+
+        Console.WriteLine($"[SITE] SeedRoot: {seedRoot}");
+        Console.WriteLine($"[SITE] DataRoot: {dataRoot}");
+        Console.WriteLine($"[SITE] Overwrite: {overwrite}");
+        Console.WriteLine($"[SITE] Clean: {doClean}");
+
+        if (Directory.Exists(seedRoot))
+        {
+            try
+            {
+                SyncDirectory(seedRoot, dataRoot, overwrite, doClean);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SITE] Sync failed: {ex}");
+            }
+        }
+        else
+        {
+            Console.WriteLine("[SITE] Data/Site missing; skipping sync.");
+        }
+
+        // NOTE: Removed BootstrapSite() here to avoid conflicting with the sync logic.
 
         // ===================== Pipeline =====================
+        app.UseForwardedHeaders(new ForwardedHeadersOptions
+        {
+            ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+        });
+
         app.UseRouting();
         app.UseCors("default");
         app.UseAuthentication();
@@ -222,11 +219,12 @@ public static class Program
         app.MapControllers();
         app.MapHub<RoomHub>("/hubs/room");
 
-        // ===================== Admin editor (uses existing cookie auth) =====================
+        // ===================== Admin editor page (route) =====================
         app.MapGet("/admin", () =>
             Results.Content(AdminEditorHtml(), "text/html; charset=utf-8")
         ).RequireAuthorization("AdminOnly");
 
+        // ===================== Admin APIs (existing) =====================
         var adminApi = app.MapGroup("/admin/api")
             .RequireAuthorization("AdminOnly");
 
@@ -244,7 +242,6 @@ public static class Program
 
             var bytes = File.ReadAllBytes(full);
             var text = TryDecode(bytes);
-
             return Results.Json(new { ok = true, path, content = text });
         });
 
@@ -259,7 +256,6 @@ public static class Program
 
             Directory.CreateDirectory(Path.GetDirectoryName(full)!);
 
-            // Backup existing before overwrite
             if (File.Exists(full))
                 CreateBackup(backupsRoot, rel, File.ReadAllBytes(full));
 
@@ -273,7 +269,7 @@ public static class Program
                 return Results.BadRequest(new { ok = false, error = "Expected multipart/form-data" });
 
             var form = await ctx.Request.ReadFormAsync();
-            var relDir = form["dir"].ToString(); // can be "" for root
+            var relDir = form["dir"].ToString();
             var file = form.Files.GetFile("file");
             if (file is null) return Results.BadRequest(new { ok = false, error = "Missing file." });
 
@@ -285,7 +281,6 @@ public static class Program
 
             Directory.CreateDirectory(Path.GetDirectoryName(full)!);
 
-            // Backup existing
             if (File.Exists(full))
                 CreateBackup(backupsRoot, targetRel, File.ReadAllBytes(full));
 
@@ -352,12 +347,67 @@ public static class Program
 
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
 
-            // Backup current before rollback
             if (File.Exists(target))
                 CreateBackup(backupsRoot, rel, File.ReadAllBytes(target));
 
             File.WriteAllBytes(target, File.ReadAllBytes(bakFull));
             return Results.Json(new { ok = true });
+        });
+
+        // ===================== NEW: /admin/site endpoints (used by your new folder-only explorer) =====================
+        // Your admin HTML is calling:
+        //   GET /admin/site/list?path=
+        //   GET /admin/site/read?path=
+        // These must exist, otherwise the left panel will show nothing.
+        var adminSite = app.MapGroup("/admin/site")
+            .RequireAuthorization("AdminOnly");
+
+        adminSite.MapGet("/list", (string? path) =>
+        {
+            var rel = NormalizeRelPath(path);
+            var abs = SafeResolve(dataRoot, rel);
+            if (abs is null) return Results.BadRequest(new { ok = false, error = "Invalid path.", path = rel });
+            if (!Directory.Exists(abs)) return Results.NotFound(new { ok = false, error = "Folder not found.", path = rel });
+
+            var dirs = Directory.EnumerateDirectories(abs)
+                .Select(d => new DirectoryInfo(d))
+                .Select(di => new SiteEntry
+                {
+                    Name = di.Name,
+                    Type = "dir",
+                    Size = null,
+                    UpdatedUtc = di.LastWriteTimeUtc
+                });
+
+            var files = Directory.EnumerateFiles(abs)
+                .Select(f => new FileInfo(f))
+                .Select(fi => new SiteEntry
+                {
+                    Name = fi.Name,
+                    Type = "file",
+                    Size = fi.Length,
+                    UpdatedUtc = fi.LastWriteTimeUtc
+                });
+
+            var entries = dirs
+                .Concat(files)
+                .OrderBy(e => e.Type == "dir" ? 0 : 1)
+                .ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            return Results.Json(new { ok = true, path = rel, entries });
+        });
+
+        adminSite.MapGet("/read", (string path) =>
+        {
+            var rel = NormalizeRelPath(path);
+            var full = SafeResolve(dataRoot, rel);
+            if (full is null) return Results.BadRequest(new { ok = false, error = "Invalid path.", path = rel });
+            if (!File.Exists(full)) return Results.NotFound(new { ok = false, error = "Not found.", path = rel });
+
+            var bytes = File.ReadAllBytes(full);
+            var content = TryDecode(bytes);
+            return Results.Json(new { ok = true, path = rel, content });
         });
 
         // ===================== DB migrate =====================
@@ -391,112 +441,6 @@ public static class Program
             return Task.CompletedTask;
         });
 
-        app.MapGet("/debug", (HttpContext ctx) =>
-        {
-            var user = ctx.User;
-            var isAdmin =
-                user?.IsInRole("admin") == true ||
-                user?.Claims?.Any(c => (c.Type == "role" || c.Type.EndsWith("/role")) && c.Value == "admin") == true;
-
-            if (!isAdmin) return Results.NotFound();
-            return Results.Redirect("/debug.html");
-        });
-
-        app.MapGet("/livez", () => Results.Ok(new
-        {
-            ok = true,
-            service = "Misfitz-Games",
-            utc = DateTimeOffset.UtcNow
-        }));
-
-        app.MapGet("/debug/tuya", async (TuyaPlugService tuya) =>
-        {
-            await tuya.SetSwitchAsync(tuya.DeviceId1, false);
-            return Results.Ok(new { ok = true, utc = DateTimeOffset.UtcNow });
-        });
-
-        app.MapGet("/debug/redis", (RedisMuxFactory factory) =>
-        {
-            var task = factory.Task;
-            return Results.Ok(new
-            {
-                status = task.Status.ToString(),
-                isCompleted = task.IsCompleted,
-                isFaulted = task.IsFaulted,
-                isCanceled = task.IsCanceled
-            });
-        });
-
-        app.MapGet("/debug/redis/details", async (RedisMuxFactory factory) =>
-        {
-            var mux = await factory.GetAsync();
-            return Results.Ok(new
-            {
-                isConnected = mux.IsConnected,
-                endpoints = mux.GetEndPoints().Select(e => e.ToString()).ToArray()
-            });
-        });
-
-        app.MapGet("/debug/whoami", (HttpContext ctx) => Results.Ok(new
-        {
-            isAuth = ctx.User?.Identity?.IsAuthenticated == true,
-            claims = ctx.User?.Claims?.Select(c => new { c.Type, c.Value }).ToArray() ?? Array.Empty<object>()
-        }));
-
-        app.MapGet("/debug/db", async (AppDbContext db) =>
-        {
-            var canConnect = await db.Database.CanConnectAsync();
-            return Results.Ok(new
-            {
-                ok = true,
-                canConnect,
-                provider = db.Database.ProviderName
-            });
-        });
-
-        app.MapGet("/debug/env", (IConfiguration cfg) =>
-        {
-            var dbPath2 = cfg["DB_PATH"];
-            return Results.Ok(new
-            {
-                ok = true,
-                dbPath = dbPath2 ?? "(null)",
-                dataDirExists = Directory.Exists("/data"),
-                dataDirFiles = Directory.Exists("/data") ? Directory.GetFiles("/data") : [],
-                cwd = Directory.GetCurrentDirectory()
-            });
-        });
-
-        app.MapGet("/debug/dbpath", (IConfiguration cfg, IWebHostEnvironment env) =>
-        {
-            var dbPath3 =
-                cfg["DB_PATH"]
-                ?? (env.IsProduction() ? "/data/misfitz.db" : "Data/misfitz.db");
-
-            return Results.Ok(new
-            {
-                env = env.EnvironmentName,
-                dbPath = dbPath3,
-                exists = File.Exists(dbPath3),
-                dirExists = Directory.Exists(Path.GetDirectoryName(dbPath3)!),
-                filesInDir = Directory.Exists(Path.GetDirectoryName(dbPath3)!)
-                    ? Directory.GetFiles(Path.GetDirectoryName(dbPath3)!).Select(Path.GetFileName).ToArray()
-                    : []
-            });
-        });
-
-        app.MapGet("/debug/users", async (AppDbContext db) =>
-        {
-            var count = await db.Users.CountAsync();
-            var last = await db.Users
-                .OrderByDescending(u => u.Id)
-                .Take(10)
-                .Select(u => new { u.Id, u.Username, u.Role, u.CreatedUtc, u.LastLoginUtc })
-                .ToListAsync();
-
-            return Results.Ok(new { ok = true, count, last });
-        });
-
         if (app.Environment.IsDevelopment())
         {
             app.UseDeveloperExceptionPage();
@@ -507,60 +451,22 @@ public static class Program
         app.Run();
     }
 
+    // ===================== Models =====================
+    private sealed class SiteEntry
+    {
+        public required string Name { get; init; }
+        public required string Type { get; init; } // "dir" | "file"
+        public long? Size { get; init; }
+        public DateTime UpdatedUtc { get; init; }
+    }
+
     // ===================== Helpers =====================
-
-    // Wildcard-aware bootstrap:
-    // Seeds /data/site from Data/Site only if /data/site is empty OR missing any required patterns.
-    private static void BootstrapSite(string seedRoot, string dataRoot, string[] requiredPatterns)
-    {
-        if (!Directory.Exists(seedRoot))
-        {
-            Console.WriteLine($"[site] Seed folder missing: {seedRoot}");
-            return;
-        }
-
-        Directory.CreateDirectory(dataRoot);
-
-        var hasAny = Directory.EnumerateFileSystemEntries(dataRoot).Any();
-
-        bool PatternExists(string pattern) =>
-            Directory.EnumerateFiles(dataRoot, pattern, SearchOption.AllDirectories).Any();
-
-        var missingRequired = requiredPatterns.Any(p => !PatternExists(p));
-
-        if (hasAny && !missingRequired)
-        {
-            Console.WriteLine("[site] /data/site already populated; skipping seed.");
-            return;
-        }
-
-        Console.WriteLine($"[site] Seeding /data/site from: {seedRoot}");
-        CopyDirectory(seedRoot, dataRoot, overwrite: true);
-        Console.WriteLine("[site] Seed complete.");
-    }
-
-    private static void CopyDirectory(string sourceDir, string destDir, bool overwrite)
-    {
-        Directory.CreateDirectory(destDir);
-
-        foreach (var file in Directory.GetFiles(sourceDir))
-        {
-            var destFile = Path.Combine(destDir, Path.GetFileName(file));
-            File.Copy(file, destFile, overwrite);
-        }
-
-        foreach (var dir in Directory.GetDirectories(sourceDir))
-        {
-            var destSub = Path.Combine(destDir, Path.GetFileName(dir));
-            CopyDirectory(dir, destSub, overwrite);
-        }
-    }
 
     static void SyncDirectory(string sourceRoot, string targetRoot, bool overwrite, bool clean)
     {
         Directory.CreateDirectory(targetRoot);
 
-        // 1) Copy from source -> target
+        // Copy source -> target
         foreach (var srcFile in Directory.EnumerateFiles(sourceRoot, "*", SearchOption.AllDirectories))
         {
             var rel = Path.GetRelativePath(sourceRoot, srcFile);
@@ -574,10 +480,8 @@ public static class Program
             File.Copy(srcFile, dstFile, overwrite: true);
         }
 
-        // 2) Optional clean: remove files/dirs in target that don't exist in source
         if (clean)
         {
-            // Delete files not present in source
             foreach (var dstFile in Directory.EnumerateFiles(targetRoot, "*", SearchOption.AllDirectories))
             {
                 var rel = Path.GetRelativePath(targetRoot, dstFile);
@@ -587,7 +491,6 @@ public static class Program
                     File.Delete(dstFile);
             }
 
-            // Delete empty directories (deepest first)
             foreach (var dstDir in Directory.EnumerateDirectories(targetRoot, "*", SearchOption.AllDirectories)
                          .OrderByDescending(d => d.Length))
             {
@@ -599,15 +502,33 @@ public static class Program
         Console.WriteLine($"[SITE] Sync complete. Overwrite={overwrite}, Clean={clean}");
     }
 
+    private static string NormalizeRelPath(string? path)
+    {
+        var p = (path ?? "").Trim();
+        p = p.Replace('\\', '/').TrimStart('/');
+        while (p.Contains("//", StringComparison.Ordinal))
+            p = p.Replace("//", "/", StringComparison.Ordinal);
+        if (p.Contains("..", StringComparison.Ordinal))
+            throw new InvalidOperationException("Invalid path.");
+        return p;
+    }
+
     private static string? SafeResolve(string root, string relative)
     {
         relative = (relative ?? "").Replace('\\', '/').TrimStart('/');
         if (relative.Contains("..")) return null;
 
         var combined = Path.GetFullPath(Path.Combine(root, relative));
-        var rootFull = Path.GetFullPath(root);
+        var rootFull = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                      + Path.DirectorySeparatorChar;
 
-        if (!combined.StartsWith(rootFull, StringComparison.Ordinal)) return null;
+        // Ensure combined stays under root
+        if (!combined.StartsWith(rootFull, StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(combined.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                           root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                           StringComparison.OrdinalIgnoreCase))
+            return null;
+
         return combined;
     }
 
@@ -672,8 +593,8 @@ public static class Program
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset=\"utf-8\" />
+  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" />
   <title>Misfitz Web Editor</title>
   <style>
     body{font-family:system-ui,sans-serif;background:#0b0f14;color:#e6edf3;margin:0}
@@ -685,63 +606,61 @@ public static class Program
     .right{padding:10px;display:flex;flex-direction:column;gap:10px}
     input,textarea,select{border-radius:10px;border:1px solid #22304a;background:#0b1220;color:#e6edf3;padding:8px}
     textarea{width:100%;height:52vh;font-family:ui-monospace,Consolas,monospace;font-size:13px;line-height:1.35}
-    .file{padding:8px;border-radius:10px;border:1px solid #22304a;background:#111826;margin-bottom:8px;cursor:pointer}
-    .file:hover{border-color:#2f81f7}
     .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .muted{color:#9fb0c5;font-size:12px}
     iframe{width:100%;height:34vh;border:1px solid #22304a;border-radius:12px;background:#0b1220}
     .badge{padding:3px 8px;border-radius:999px;border:1px solid #22304a;background:#111826;font-size:12px}
     code{font-family:ui-monospace,Consolas,monospace}
+    #files{display:flex;flex-direction:column;gap:6px}
   </style>
 </head>
 <body>
-  <div class="top">
-    <div class="row">
-      <div style="font-weight:700">Misfitz Web Editor</div>
-      <div class="badge" id="status">Loading…</div>
-      <div class="muted">Edits save into <code>/data/site</code> (no rebuild)</div>
+  <div class=\"top\">
+    <div class=\"row\">
+      <div style=\"font-weight:700\">Misfitz Web Editor</div>
+      <div class=\"badge\" id=\"status\">Loading…</div>
+      <div class=\"muted\">Edits save into <code>/data/site</code> (no rebuild)</div>
     </div>
-    <button id="btnMe" class="btn-secondary" >Check login</button>
+    <button id=\"btnMe\" class=\"btn\">Check login</button>
   </div>
 
-  <div class="wrap">
-    <div class="left">
-      <div class="row" style="justify-content:space-between; gap:8px; margin-bottom:8px;">
-        <div class="muted" id="pathLabel">/</div>
-        <button id="btnUp" class="btn ghost" disabled>Up</button>
+  <div class=\"wrap\">
+    <div class=\"left\">
+      <div class=\"row\" style=\"justify-content:space-between; gap:8px; margin-bottom:8px;\">
+        <div class=\"muted\" id=\"pathLabel\">/</div>
+        <button id=\"btnUp\" class=\"btn\" disabled>Up</button>
       </div>
-      <div class="row" style="margin-bottom:10px">
-        <input id="filter" placeholder="Filter files…" style="flex:1" />
-        <button class="btn" id="btnRefresh">Refresh</button>
-      </div>
-
-      <div class="row" style="margin-bottom:10px">
-        <input type="file" id="uploadFile" />
-        <input id="uploadDir" placeholder="dir (optional)" style="width:140px" />
-        <button class="btn" id="btnUpload">Upload</button>
+      <div class=\"row\" style=\"margin-bottom:10px\">
+        <input id=\"filter\" placeholder=\"Filter files…\" style=\"flex:1\" />
+        <button class=\"btn\" id=\"btnRefresh\">Refresh</button>
       </div>
 
-      <div id="files"></div>
+      <div class=\"row\" style=\"margin-bottom:10px\">
+        <input type=\"file\" id=\"uploadFile\" />
+        <input id=\"uploadDir\" placeholder=\"dir (optional)\" style=\"width:140px\" />
+        <button class=\"btn\" id=\"btnUpload\">Upload</button>
+      </div>
+
+      <div id=\"files\"></div>
     </div>
 
-    <div class="right">
-      <div class="row">
-        <input id="path" placeholder="path…" style="flex:1" />
-        <button class="btn primary" id="btnSave">Save</button>
-        <button class="btn" id="btnDelete">Delete</button>
-        <button class="btn" id="btnBackups">Backups</button>
+    <div class=\"right\">
+      <div class=\"row\">
+        <input id=\"path\" placeholder=\"path…\" style=\"flex:1\" />
+        <button class=\"btn primary\" id=\"btnSave\">Save</button>
+        <button class=\"btn\" id=\"btnDelete\">Delete</button>
+        <button class=\"btn\" id=\"btnBackups\">Backups</button>
       </div>
 
-      <textarea id="content" placeholder="Select a file to edit…"></textarea>
+      <textarea id=\"content\" placeholder=\"Select a file to edit…\"></textarea>
 
-      <div class="row">
-        <button class="btn" id="btnPreview">Preview</button>
-        <span class="muted">Preview works best for HTML pages. (If CSS/JS looks cached, hard refresh.)</span>
+      <div class=\"row\">
+        <button class=\"btn\" id=\"btnPreview\">Preview</button>
+        <span class=\"muted\">Preview works best for HTML pages.</span>
       </div>
 
-      <iframe id="preview" title="preview"></iframe>
-
-      <div id="backupPanel" class="muted"></div>
+      <iframe id=\"preview\" title=\"preview\"></iframe>
+      <div id=\"backupPanel\" class=\"muted\"></div>
     </div>
   </div>
 
@@ -749,10 +668,10 @@ public static class Program
 const el = (id) => document.getElementById(id);
 
 let currentPath = ""; // "" = root
-let lastEntries = []; // cached entries for filtering
+let lastEntries = [];
+let currentFilePath = null;
 
 async function api(url, opts) {
-  // Always use absolute paths (leading slash) to avoid /admin/admin/... issues
   const r = await fetch(url, opts);
   const txt = await r.text();
   let json = null;
@@ -766,7 +685,6 @@ function joinPath(base, child) {
   const c = (child || "").replace(/^\/+/, "");
   return b ? `${b}/${c}` : c;
 }
-
 function parentPath(path) {
   if (!path) return "";
   const p = path.replace(/\/+$/, "");
@@ -776,154 +694,51 @@ function parentPath(path) {
 
 async function listFolder(path) {
   const q = encodeURIComponent(path || "");
-  // Uses your new endpoint
   return await api(`/admin/site/list?path=${q}`);
 }
 
 function syncUploadDir() {
   const up = el("uploadDir");
-  if (!up) return;
-  up.value = currentPath || "";
+  if (up) up.value = currentPath || "";
 }
 
 function normalizeEntries(out) {
-  // Most likely: { ok:true, path:"", entries:[...] }
-  if (Array.isArray(out.entries)) return out.entries.map(mapEntry).filter(Boolean);
-
-  // Common alternative: { ok:true, dirs:[...], files:[...] }
-  if (Array.isArray(out.dirs) || Array.isArray(out.files)) {
-    const dirs = (out.dirs || []).map(d => ({
-      name: d.name ?? d,
-      type: "dir",
-      size: null,
-      updatedUtc: d.updatedUtc ?? d.lastWriteTimeUtc ?? null
-    }));
-
-    const files = (out.files || []).map(f => ({
-      name: f.name ?? f,
-      type: "file",
-      size: f.size ?? f.length ?? null,
-      updatedUtc: f.updatedUtc ?? f.lastWriteTimeUtc ?? null
-    }));
-
-    return [...dirs, ...files].filter(e => e.name);
-  }
-
-  // Another alternative: { items:[...] } or { files:[...] } where entries are mixed
-  const mixed = out.items ?? out.files ?? [];
-  if (Array.isArray(mixed)) return mixed.map(mapEntry).filter(Boolean);
-
-  return [];
-
-  function mapEntry(e) {
-    if (!e) return null;
-
-    const name = e.name ?? e.fileName ?? (e.path ? e.path.split("/").pop() : null);
-    if (!name) return null;
-
-    const typeRaw = e.type ?? e.kind ?? (e.isDir ? "dir" : "file");
-    const type = String(typeRaw).toLowerCase();
-
-    return {
-      name,
-      type: (type === "directory") ? "dir" : type,
-      size: e.size ?? e.length ?? null,
-      updatedUtc: e.updatedUtc ?? e.lastWriteTimeUtc ?? null
-    };
-  }
-}
-
-async function saveCurrentFile() {
-  const path = window.__currentFilePath;
-  if (!path) return alert("No file open.");
-
-  const editor = document.getElementById("content") || document.getElementById("editor");
-  const content = editor.value;
-
-  await api("/admin/api/save", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path, content }),
-  });
+  const entries = out.entries ?? [];
+  return entries.map(e => ({
+    name: e.name,
+    type: e.type,
+    size: e.size ?? null,
+    updatedUtc: e.updatedUtc ?? null
+  })).filter(e => e.name && (e.type === "dir" || e.type === "file"));
 }
 
 async function openFile(path) {
-  // show full path somewhere if you have it
-  const editorPath = document.getElementById("editorPath");
-  if (editorPath) editorPath.textContent = "/" + path;
-
+  currentFilePath = path;
+  el("path").value = path;
   const r = await api(`/admin/site/read?path=${encodeURIComponent(path)}`);
-
-  // Put content into your editor control
-  // Replace #content with your textarea/editor id
-  const editor = document.getElementById("content") || document.getElementById("editor");
-  if (!editor) throw new Error("Editor element not found (expected #content or #editor)");
-
-  editor.value = r.content ?? "";
-
-  // Track current file for saving
-  window.__currentFilePath = path;
+  el("content").value = r.content ?? "";
+  el("content").focus();
 }
 
 function renderEntries(entries) {
   const list = el("files");
-  if (!list) throw new Error("Missing #files container");
-
   list.innerHTML = "";
 
   for (const e of entries) {
     const row = document.createElement("div");
-    row.className = "fileRow";
-    row.style.display = "flex";
-    row.style.justifyContent = "space-between";
-    row.style.alignItems = "center";
-    row.style.gap = "10px";
-    row.style.padding = "8px 10px";
-    row.style.cursor = "pointer";
-    row.style.borderRadius = "12px";
-    row.style.userSelect = "none";
+    row.className = "file";
 
-    // subtle hover without needing css changes
-    row.onmouseenter = () => row.style.background = "rgba(255,255,255,.06)";
-    row.onmouseleave = () => row.style.background = "transparent";
-
-    const left = document.createElement("div");
-    left.style.display = "flex";
-    left.style.gap = "10px";
-    left.style.alignItems = "center";
-    left.style.minWidth = "0";
-
-    const icon = document.createElement("span");
-    icon.textContent = e.type === "dir" ? "📁" : "📄";
-
-    const name = document.createElement("span");
-    name.textContent = e.name;
-    name.style.whiteSpace = "nowrap";
-    name.style.overflow = "hidden";
-    name.style.textOverflow = "ellipsis";
-
-    left.appendChild(icon);
-    left.appendChild(name);
-
-    const right = document.createElement("span");
-    right.className = "muted";
-    right.style.whiteSpace = "nowrap";
-    right.textContent = e.type === "dir" ? "" : (e.size != null ? `${e.size}b` : "");
-
-    row.appendChild(left);
-    row.appendChild(right);
+    row.textContent = `${e.type === "dir" ? "📁" : "📄"} ${e.name}`;
 
     row.onclick = async () => {
       if (e.type === "dir") {
         currentPath = joinPath(currentPath, e.name);
         syncUploadDir();
+        el("filter").value = "";
         await refreshLeftPanel();
-        el("filter").value = ""; // reset filter when navigating
       } else {
-        const full = joinPath(currentPath, e.name);
         syncUploadDir();
-        // Hook to YOUR editor open:
-        await openFile(full); // <- make sure this exists in your page
+        await openFile(joinPath(currentPath, e.name));
       }
     };
 
@@ -932,14 +747,9 @@ function renderEntries(entries) {
 }
 
 function applyFilter() {
-  const q = (el("filter")?.value || "").trim().toLowerCase();
-  if (!q) {
-    renderEntries(lastEntries);
-    return;
-  }
-
-  const filtered = lastEntries.filter(e => e.name.toLowerCase().includes(q));
-  renderEntries(filtered);
+  const q = (el("filter").value || "").trim().toLowerCase();
+  if (!q) return renderEntries(lastEntries);
+  renderEntries(lastEntries.filter(e => e.name.toLowerCase().includes(q)));
 }
 
 async function refreshLeftPanel() {
@@ -948,43 +758,55 @@ async function refreshLeftPanel() {
   syncUploadDir();
 
   const out = await listFolder(currentPath);
-
-  // ✅ TEMP DEBUG (remove later)
-  console.log("site/list response:", out);
-
-  const entries = normalizeEntries(out).sort((a, b) => {
-    if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
-    return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-  });
+  const entries = normalizeEntries(out)
+    .sort((a,b) => a.type !== b.type ? (a.type === "dir" ? -1 : 1) : a.name.localeCompare(b.name));
 
   lastEntries = entries;
-
-  const list = el("files");
   if (!entries.length) {
-    list.innerHTML = `<div class="muted" style="padding:8px 10px;">No files in this folder.</div>`;
+    el("files").innerHTML = `<div class=\"muted\" style=\"padding:6px\">No files in this folder.</div>`;
     return;
   }
-
   applyFilter();
 }
 
-// Buttons / events
 document.addEventListener("DOMContentLoaded", () => {
+  el("filter").value = "";
+
   el("btnUp").addEventListener("click", async () => {
     currentPath = parentPath(currentPath);
-    await refreshLeftPanel();
     el("filter").value = "";
-  });
-
-  el("btnMe").addEventListener("click", () => refreshMe().catch(e => console.warn("btnMe failed", e)));
-  el("btnRefresh").addEventListener("click", async () => {
     await refreshLeftPanel();
   });
 
+  el("btnRefresh").addEventListener("click", refreshLeftPanel);
   el("filter").addEventListener("input", applyFilter);
 
-  refreshLeftPanel().catch(err => console.error(err));
+  el("btnSave").addEventListener("click", async () => {
+    const path = el("path").value.trim() || currentFilePath;
+    if (!path) return alert("No file selected.");
 
+    await api("/admin/api/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path, content: el("content").value })
+    });
+  });
+
+  el("btnUpload").addEventListener("click", async () => {
+    const f = el("uploadFile").files?.[0];
+    if (!f) return alert("Choose a file to upload.");
+
+    const dir = (el("uploadDir").value || "").trim();
+
+    const fd = new FormData();
+    fd.append("file", f);
+    fd.append("dir", dir);
+
+    await api("/admin/api/upload", { method: "POST", body: fd });
+    await refreshLeftPanel();
+  });
+
+  refreshLeftPanel().catch(err => console.error(err));
 });
 </script>
 </body>
