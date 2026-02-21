@@ -1014,9 +1014,28 @@ async function previewCurrent() {
 async function checkLogin() {
   try {
     setStatus("Checking login…");
-    const r = await api("/debug/whoami");
-    const isAuth = !!r.isAuth;
-    setStatus(isAuth ? "Logged in" : "Not logged in");
+
+    // We are on /admin, so this is the perfect auth probe:
+    // - 200 => logged in as admin
+    // - 401/403 => not logged in / not admin
+    const r = await fetch("/admin/api/list", { method: "GET" });
+
+    if (r.status === 200) {
+      setStatus("Logged in (admin)");
+      return;
+    }
+
+    if (r.status === 401) {
+      setStatus("Not logged in");
+      return;
+    }
+
+    if (r.status === 403) {
+      setStatus("Logged in (no admin)");
+      return;
+    }
+
+    setStatus(`Login check: ${r.status}`);
   } catch (e) {
     console.warn("checkLogin failed", e);
     setStatus("Login check failed");
