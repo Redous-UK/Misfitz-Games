@@ -593,8 +593,8 @@ public static class Program
 <!doctype html>
 <html>
 <head>
-  <meta charset=\"utf-8\" />
-  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Misfitz Web Editor</title>
   <style>
     body{font-family:system-ui,sans-serif;background:#0b0f14;color:#e6edf3;margin:0}
@@ -615,52 +615,52 @@ public static class Program
   </style>
 </head>
 <body>
-  <div class=\"top\">
-    <div class=\"row\">
-      <div style=\"font-weight:700\">Misfitz Web Editor</div>
-      <div class=\"badge\" id=\"status\">Loading…</div>
-      <div class=\"muted\">Edits save into <code>/data/site</code> (no rebuild)</div>
+  <div class="top">
+    <div class="row">
+      <div style="font-weight:700">Misfitz Web Editor</div>
+      <div class="badge" id="status">Loading…</div>
+      <div class="muted">Edits save into <code>/data/site</code> (no rebuild)</div>
     </div>
-    <button id=\"btnMe\" class=\"btn\">Check login</button>
+    <button id="btnMe" class="btn">Check login</button>
   </div>
 
-  <div class=\"wrap\">
-    <div class=\"left\">
-      <div class=\"row\" style=\"justify-content:space-between; gap:8px; margin-bottom:8px;\">
-        <div class=\"muted\" id=\"pathLabel\">/</div>
-        <button id=\"btnUp\" class=\"btn\" disabled>Up</button>
+  <div class="wrap">
+    <div class="left">
+      <div class="row" style="justify-content:space-between; gap:8px; margin-bottom:8px;">
+        <div class="muted" id="pathLabel">/</div>
+        <button id="btnUp" class="btn" disabled>Up</button>
       </div>
-      <div class=\"row\" style=\"margin-bottom:10px\">
-        <input id=\"filter\" placeholder=\"Filter files…\" style=\"flex:1\" />
-        <button class=\"btn\" id=\"btnRefresh\">Refresh</button>
-      </div>
-
-      <div class=\"row\" style=\"margin-bottom:10px\">
-        <input type=\"file\" id=\"uploadFile\" />
-        <input id=\"uploadDir\" placeholder=\"dir (optional)\" style=\"width:140px\" />
-        <button class=\"btn\" id=\"btnUpload\">Upload</button>
+      <div class="row" style="margin-bottom:10px">
+        <input id="filter" placeholder="Filter files…" style="flex:1" />
+        <button class="btn" id="btnRefresh">Refresh</button>
       </div>
 
-      <div id=\"files\"></div>
+      <div class="row" style="margin-bottom:10px">
+        <input type="file" id="uploadFile" />
+        <input id="uploadDir" placeholder="dir (optional)" style="width:140px" />
+        <button class="btn" id="btnUpload">Upload</button>
+      </div>
+
+      <div id="files"></div>
     </div>
 
-    <div class=\"right\">
-      <div class=\"row\">
-        <input id=\"path\" placeholder=\"path…\" style=\"flex:1\" />
-        <button class=\"btn primary\" id=\"btnSave\">Save</button>
-        <button class=\"btn\" id=\"btnDelete\">Delete</button>
-        <button class=\"btn\" id=\"btnBackups\">Backups</button>
+    <div class="right">
+      <div class="row">
+        <input id="path" placeholder="path…" style="flex:1" />
+        <button class="btn primary" id="btnSave">Save</button>
+        <button class="btn" id="btnDelete">Delete</button>
+        <button class="btn" id="btnBackups">Backups</button>
       </div>
 
-      <textarea id=\"content\" placeholder=\"Select a file to edit…\"></textarea>
+      <textarea id="content" placeholder="Select a file to edit…"></textarea>
 
-      <div class=\"row\">
-        <button class=\"btn\" id=\"btnPreview\">Preview</button>
-        <span class=\"muted\">Preview works best for HTML pages.</span>
+      <div class="row">
+        <button class="btn" id="btnPreview">Preview</button>
+        <span class="muted">Preview works best for HTML pages.</span>
       </div>
 
-      <iframe id=\"preview\" title=\"preview\"></iframe>
-      <div id=\"backupPanel\" class=\"muted\"></div>
+      <iframe id="preview" title="preview"></iframe>
+      <div id="backupPanel" class="muted"></div>
     </div>
   </div>
 
@@ -766,7 +766,7 @@ async function refreshLeftPanel() {
 
   lastEntries = entries;
   if (!entries.length) {
-    el("files").innerHTML = `<div class=\"muted\" style=\"padding:6px\">No files in this folder.</div>`;
+    el("files").innerHTML = `<div class="muted" style="padding:6px">No files in this folder.</div>`;
     return;
   }
   applyFilter();
