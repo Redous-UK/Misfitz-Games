@@ -678,63 +678,95 @@ public static class Program
 
 <script>
 const el = (id) => document.getElementById(id);
-let allFiles = [];
-let currentPath = ""; // "" means root
-let selectedEntry = null;
 
-function setStatus(t){ el('status').textContent = t; }
+let currentPath = ""; // "" = root
 
-async function api(url, opts){
-  const r = await fetch(url, { credentials:'include', ...opts });
-
-  // ✅ If not logged in as admin, bounce to normal login
-  if (r.status === 401 || r.status === 403){
-    location.href = '/user.html';
-    return { ok:false, error:'not authorized' };
-  }
-
-  const text = await r.text();
-  try { return JSON.parse(text); } catch { return { ok:false, error:text || ('HTTP '+r.status) }; }
-}
-
-// Your API wrapper (you likely already have this)
 async function api(url, opts) {
+  // url MUST start with "/" or "http"
   const r = await fetch(url, opts);
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  return await r.json();
+  const txt = await r.text();
+  let json = null;
+  try { json = txt ? JSON.parse(txt) : null; } catch { /* ignore */ }
+  if (!r.ok) throw new Error(`HTTP ${r.status}${json ? ": " + JSON.stringify(json) : ""}`);
+  return json ?? {};
 }
 
-// Call backend to list JUST ONE folder
+function joinPath(base, child) {
+  const b = (base || "").replace(/\/+$/, "");
+  const c = (child || "").replace(/^\/+/, "");
+  return b ? `${b}/${c}` : c;
+}
+
+function parentPath(path) {
+  if (!path) return "";
+  const p = path.replace(/\/+$/, "");
+  const idx = p.lastIndexOf("/");
+  return idx === -1 ? "" : p.slice(0, idx);
+}
+
+// Calls YOUR working endpoint (note the leading slash!)
 async function listFolder(path) {
-  // Encode path for safety; backend should normalize / prevent traversal
   const q = encodeURIComponent(path || "");
   return await api(`/admin/site/list?path=${q}`);
 }
 
-// Render only this folder’s direct children
+// Adjust this mapping if your response shape differs
+function normalizeEntries(out) {
+  // Common shapes:
+  // 1) { ok:true, entries:[{name,type}] }
+  // 2) { ok:true, files:[...], dirs:[...] }
+  // 3) { ok:true, items:[{path,isDir}] }
+  const entries =
+    out.entries ??
+    out.items ??
+    out.files ??
+    [];
+
+  // If backend returns split arrays
+  if (!entries.length && (out.dirs || out.files)) {
+    const dirs = (out.dirs || []).map(d => ({ name: d.name ?? d, type: "dir" }));
+    const files = (out.files || []).map(f => ({ name: f.name ?? f, type: "file", size: f.size ?? null }));
+    return [...dirs, ...files].filter(e => e.name);
+  }
+
+  return entries.map(e => ({
+    name: e.name ?? e.fileName ?? (e.path ? e.path.split("/").pop() : ""),
+    type: (e.type ?? e.kind ?? (e.isDir ? "dir" : "file")).toLowerCase(),
+    size: e.size ?? e.length ?? null,
+  })).filter(e => e.name);
+}
+
+async function openFile(path) {
+  if (!path) throw new Error("openFile(path) called with empty path");
+
+  // IMPORTANT: use your editor’s existing READ endpoint if it has one.
+  // If you already have a working open/read function, keep it and call that instead.
+  const q = encodeURIComponent(path);
+  const r = await api(`/admin/api/read?path=${q}`); // <-- if this doesn't exist, call your existing read/open endpoint
+
+  const content = r.content ?? r.text ?? r.body ?? "";
+  el("editorPath").textContent = "/" + (r.path ?? path);
+  el("editor").value = content;
+}
+
 async function refreshLeftPanel() {
   const out = await listFolder(currentPath);
 
-  // Expect something like:
-  // out = { ok:true, path:"", entries:[ { name:"assets", type:"dir" }, { name:"site.css", type:"file", size:123 } ] }
+  // optional UI bits
+  el("pathLabel") && (el("pathLabel").textContent = "/" + (currentPath || ""));
+  el("btnUp") && (el("btnUp").disabled = !currentPath);
 
-  el("pathLabel").textContent = "/" + (out.path || "").replace(/^\/+/, "");
-
-  const btnUp = el("btnUp");
-  btnUp.disabled = !currentPath;
-
-  const list = el("filesList"); // your left-side container UL/DIV
+  const list = el("filesList"); // <-- change to your actual left panel container id
   list.innerHTML = "";
 
-  // Sort folders first, then files, alphabetical
-  const entries = (out.entries || []).slice().sort((a, b) => {
+  const entries = normalizeEntries(out).sort((a, b) => {
     if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
-    return (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
+    return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
   });
 
   for (const e of entries) {
     const row = document.createElement("div");
-    row.className = "fileRow"; // use your existing class
+    row.className = "fileRow";
     row.style.display = "flex";
     row.style.justifyContent = "space-between";
     row.style.gap = "10px";
@@ -763,207 +795,30 @@ async function refreshLeftPanel() {
     row.appendChild(left);
     row.appendChild(right);
 
-    row.addEventListener("click", async () => {
-      selectedEntry = e;
-
+    row.onclick = async () => {
       if (e.type === "dir") {
-        // Navigate into folder (no recursion)
         currentPath = joinPath(currentPath, e.name);
         await refreshLeftPanel();
-        // Optional: clear editor when navigating folders
-        // clearEditor();
       } else {
-        // Open file in editor
-        const filePath = joinPath(currentPath, e.name);
-        await openFile(filePath);
+        const full = joinPath(currentPath, e.name);
+        // If your editor already has an open handler, call it here instead:
+        // await loadFileIntoEditor(full);
+        await openFile(full);
       }
-    });
+    };
 
     list.appendChild(row);
   }
 }
 
-function joinPath(base, child) {
-  const b = (base || "").replace(/\/+$/, "");
-  const c = (child || "").replace(/^\/+/, "");
-  return b ? `${b}/${c}` : c;
-}
-
-function parentPath(path) {
-  if (!path) return "";
-  const p = path.replace(/\/+$/, "");
-  const idx = p.lastIndexOf("/");
-  return idx === -1 ? "" : p.slice(0, idx);
-}
-
-el("btnUp").addEventListener("click", async () => {
+// Up button (optional)
+el("btnUp")?.addEventListener("click", async () => {
   currentPath = parentPath(currentPath);
   await refreshLeftPanel();
 });
 
-// Call on load
+// Initial load
 refreshLeftPanel().catch(err => console.error(err));
-
-function renderFiles(){
-  const q = el('filter').value.trim().toLowerCase();
-  const box = el('files');
-  box.innerHTML = '';
-  for(const f of allFiles){
-    if(q && !f.path.toLowerCase().includes(q)) continue;
-    const div = document.createElement('div');
-    div.className = 'file';
-    div.textContent = (f.isDir ? '📁 ' : '📄 ') + f.path;
-    div.onclick = () => openFile(f.path, f.isDir);
-    box.appendChild(div);
-  }
-}
-
-async function loadList(){
-  setStatus('Loading files…');
-  const r = await api('/admin/api/list');
-  if(!r.ok){ setStatus('Error'); alert(r.error || 'Failed'); return; }
-  allFiles = r.files || [];
-  renderFiles();
-  setStatus('Ready');
-}
-
-async function openFile(path, isDir){
-  
-  el('backupPanel').textContent = '';
-  if(isDir){ el('path').value = path + '/'; el('content').value=''; return; }
-
-  setStatus('Reading…');
-  const q = encodeURIComponent(filePath);
-  const r = await api(`/admin/site/read?path=${q}`);
-  // if(!r.ok){ setStatus('Error'); alert(r.error || 'Read failed'); return; }
-
-    el("editorPath").textContent = "/" + r.path;
-    el("editor").value = r.content; // or Monaco/etc
-  setStatus('Ready');
-}
-
-async function saveFile(){
-  const path = el('path').value.trim();
-  if(!path || path.endsWith('/')){ alert('Pick a file path'); return; }
-
-  setStatus('Saving…');
-  const r = await api('/admin/api/save', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ path, content: el('content').value })
-  });
-
-  if(!r.ok){ setStatus('Error'); alert(r.error || 'Save failed'); return; }
-
-  setStatus('Saved');
-  await loadList();
-}
-
-async function deletePath(){
-  const path = el('path').value.trim();
-  if(!path){ alert('Enter a path'); return; }
-  if(!confirm('Delete ' + path + '? A backup will be kept for files.')) return;
-
-  setStatus('Deleting…');
-  const r = await api('/admin/api/delete', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ path })
-  });
-
-  if(!r.ok){ setStatus('Error'); alert(r.error || 'Delete failed'); return; }
-
-  el('content').value = '';
-  setStatus('Deleted');
-  await loadList();
-}
-
-function preview(){
-  const path = el('path').value.trim();
-  if(!path || path.endsWith('/')){ alert('Pick an HTML file to preview'); return; }
-  const bust = Date.now();
-
-  const clean = path.replace(/^\/+/, '');
-  el('preview').src = '/' + clean + '?v=' + bust;
-}
-
-async function showBackups(){
-  const path = el('path').value.trim();
-  if(!path || path.endsWith('/')){ alert('Pick a file'); return; }
-
-  const r = await api('/admin/api/backups?path=' + encodeURIComponent(path));
-  if(!r.ok){ alert(r.error || 'Failed'); return; }
-
-  const items = r.items || [];
-  if(items.length === 0){
-    el('backupPanel').textContent = 'No backups yet for this file.';
-    return;
-  }
-
-  const wrap = document.createElement('div');
-  wrap.innerHTML = '<div style="margin-top:6px;font-weight:700">Backups</div>';
-
-  for(const b of items){
-    const row = document.createElement('div');
-    row.style.marginTop = '6px';
-
-    const btn = document.createElement('button');
-    btn.className = 'btn';
-    btn.textContent = 'Rollback to ' + b;
-    btn.onclick = async () => {
-      if(!confirm('Rollback ' + path + ' to ' + b + '?')) return;
-      const rr = await api('/admin/api/rollback', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ path, backupFile: b })
-      });
-      if(!rr.ok){ alert(rr.error || 'Rollback failed'); return; }
-      await openFile(path, false);
-      alert('Rolled back.');
-    };
-
-    row.appendChild(btn);
-    wrap.appendChild(row);
-  }
-
-  el('backupPanel').innerHTML = '';
-  el('backupPanel').appendChild(wrap);
-}
-
-async function upload(){
-  const file = el('uploadFile').files[0];
-  if(!file){ alert('Pick a file to upload'); return; }
-  const dir = el('uploadDir').value.trim();
-
-  const fd = new FormData();
-  fd.append('file', file);
-  fd.append('dir', dir);
-
-  setStatus('Uploading…');
-  const r = await fetch('/admin/api/upload', { method:'POST', credentials:'include', body: fd });
-
-  if (r.status === 401 || r.status === 403){
-    location.href = '/user.html';
-    return;
-  }
-
-  const text = await r.text();
-  let j; try{ j = JSON.parse(text);}catch{ j={ok:false,error:text}; }
-  if(!j.ok){ setStatus('Error'); alert(j.error || 'Upload failed'); return; }
-
-  setStatus('Uploaded');
-  await loadList();
-}
-
-el('btnRefresh').onclick = (e)=>{ e.preventDefault(); loadList(); };
-el('btnSave').onclick = (e)=>{ e.preventDefault(); saveFile(); };
-el('btnDelete').onclick = (e)=>{ e.preventDefault(); deletePath(); };
-el('btnPreview').onclick = (e)=>{ e.preventDefault(); preview(); };
-el('btnBackups').onclick = (e)=>{ e.preventDefault(); showBackups(); };
-el('btnUpload').onclick = (e)=>{ e.preventDefault(); upload(); };
-el('filter').addEventListener('input', renderFiles);
-
-loadList();
 </script>
 </body>
 </html>
