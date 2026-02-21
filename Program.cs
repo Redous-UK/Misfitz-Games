@@ -157,6 +157,32 @@ public static class Program
         // ===================== Site roots =====================
         var dataRoot = "/data/site";
         var backupsRoot = "/data/backups";
+        var sourceRoot = Path.Combine(app.Environment.ContentRootPath, "Data", "Site");
+        var targetRoot = "/data/site";
+
+        // Toggle: hardcoded default + env override
+        var pushAll = (Environment.GetEnvironmentVariable("SITE_PUSH_ALL") ?? "off").Trim().ToLowerInvariant();
+        // If you really want a local default:
+        // var pushAll = "on"; // <- you can do this, but env var is safer
+
+        var clean = (Environment.GetEnvironmentVariable("SITE_PUSH_CLEAN") ?? "off").Trim().ToLowerInvariant();
+
+        Console.WriteLine($"[SITE] Source: {sourceRoot}");
+        Console.WriteLine($"[SITE] Target: {targetRoot}");
+        Console.WriteLine($"[SITE] PUSH_ALL: {pushAll}");
+        Console.WriteLine($"[SITE] CLEAN: {clean}");
+
+        if (Directory.Exists(sourceRoot))
+        {
+            var overwrite = pushAll is "on" or "true" or "1" or "yes";
+            var doClean = clean is "on" or "true" or "1" or "yes";
+
+            SyncDirectory(sourceRoot, targetRoot, overwrite, doClean);
+        }
+        else
+        {
+            Console.WriteLine("[SITE] Source folder missing. Skipping sync.");
+        }
 
         Directory.CreateDirectory(dataRoot);
         Directory.CreateDirectory(backupsRoot);
@@ -528,6 +554,49 @@ public static class Program
             var destSub = Path.Combine(destDir, Path.GetFileName(dir));
             CopyDirectory(dir, destSub, overwrite);
         }
+    }
+
+    static void SyncDirectory(string sourceRoot, string targetRoot, bool overwrite, bool clean)
+    {
+        Directory.CreateDirectory(targetRoot);
+
+        // 1) Copy from source -> target
+        foreach (var srcFile in Directory.EnumerateFiles(sourceRoot, "*", SearchOption.AllDirectories))
+        {
+            var rel = Path.GetRelativePath(sourceRoot, srcFile);
+            var dstFile = Path.Combine(targetRoot, rel);
+
+            Directory.CreateDirectory(Path.GetDirectoryName(dstFile)!);
+
+            if (!overwrite && File.Exists(dstFile))
+                continue;
+
+            File.Copy(srcFile, dstFile, overwrite: true);
+        }
+
+        // 2) Optional clean: remove files/dirs in target that don't exist in source
+        if (clean)
+        {
+            // Delete files not present in source
+            foreach (var dstFile in Directory.EnumerateFiles(targetRoot, "*", SearchOption.AllDirectories))
+            {
+                var rel = Path.GetRelativePath(targetRoot, dstFile);
+                var srcFile = Path.Combine(sourceRoot, rel);
+
+                if (!File.Exists(srcFile))
+                    File.Delete(dstFile);
+            }
+
+            // Delete empty directories (deepest first)
+            foreach (var dstDir in Directory.EnumerateDirectories(targetRoot, "*", SearchOption.AllDirectories)
+                         .OrderByDescending(d => d.Length))
+            {
+                if (!Directory.EnumerateFileSystemEntries(dstDir).Any())
+                    Directory.Delete(dstDir);
+            }
+        }
+
+        Console.WriteLine($"[SITE] Sync complete. Overwrite={overwrite}, Clean={clean}");
     }
 
     private static string? SafeResolve(string root, string relative)
