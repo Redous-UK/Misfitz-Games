@@ -1402,3 +1402,11 @@ pre {
     border: 0;
 }
 
+#files {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: calc(100vh - 280px); /* adjust if needed */
+    overflow: auto;
+    padding-right: 4px;
+}

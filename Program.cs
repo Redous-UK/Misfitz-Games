@@ -690,10 +690,10 @@ public static class Program
 const el = (id) => document.getElementById(id);
 
 let currentPath = ""; // "" = root
-let lastEntries = [];
-let currentFilePath = null;
+let lastEntries = []; // cached entries for filtering
 
 async function api(url, opts) {
+  // Always use absolute paths (leading slash) to avoid /admin/admin/... issues
   const r = await fetch(url, opts);
   const txt = await r.text();
   let json = null;
@@ -707,6 +707,7 @@ function joinPath(base, child) {
   const c = (child || "").replace(/^\/+/, "");
   return b ? `${b}/${c}` : c;
 }
+
 function parentPath(path) {
   if (!path) return "";
   const p = path.replace(/\/+$/, "");
@@ -716,22 +717,61 @@ function parentPath(path) {
 
 async function listFolder(path) {
   const q = encodeURIComponent(path || "");
+  // Uses your new endpoint
   return await api(`/admin/site/list?path=${q}`);
 }
 
 function syncUploadDir() {
   const up = el("uploadDir");
-  if (up) up.value = currentPath || "";
+  if (!up) return;
+  up.value = currentPath || "";
 }
 
 function normalizeEntries(out) {
-  const entries = out.entries ?? [];
-  return entries.map(e => ({
-    name: e.name,
-    type: e.type,
-    size: e.size ?? null,
-    updatedUtc: e.updatedUtc ?? null
-  })).filter(e => e.name && (e.type === "dir" || e.type === "file"));
+  // Most likely: { ok:true, path:"", entries:[...] }
+  if (Array.isArray(out.entries)) return out.entries.map(mapEntry).filter(Boolean);
+
+  // Common alternative: { ok:true, dirs:[...], files:[...] }
+  if (Array.isArray(out.dirs) || Array.isArray(out.files)) {
+    const dirs = (out.dirs || []).map(d => ({
+      name: d.name ?? d,
+      type: "dir",
+      size: null,
+      updatedUtc: d.updatedUtc ?? d.lastWriteTimeUtc ?? null
+    }));
+
+    const files = (out.files || []).map(f => ({
+      name: f.name ?? f,
+      type: "file",
+      size: f.size ?? f.length ?? null,
+      updatedUtc: f.updatedUtc ?? f.lastWriteTimeUtc ?? null
+    }));
+
+    return [...dirs, ...files].filter(e => e.name);
+  }
+
+  // Another alternative: { items:[...] } or { files:[...] } where entries are mixed
+  const mixed = out.items ?? out.files ?? [];
+  if (Array.isArray(mixed)) return mixed.map(mapEntry).filter(Boolean);
+
+  return [];
+
+  function mapEntry(e) {
+    if (!e) return null;
+
+    const name = e.name ?? e.fileName ?? (e.path ? e.path.split("/").pop() : null);
+    if (!name) return null;
+
+    const typeRaw = e.type ?? e.kind ?? (e.isDir ? "dir" : "file");
+    const type = String(typeRaw).toLowerCase();
+
+    return {
+      name,
+      type: (type === "directory") ? "dir" : type,
+      size: e.size ?? e.length ?? null,
+      updatedUtc: e.updatedUtc ?? e.lastWriteTimeUtc ?? null
+    };
+  }
 }
 
 async function openFile(path) {
@@ -743,38 +783,92 @@ if (pathBox) pathBox.value = path;
   el("content").focus();
 }
 
+async function openFile(path) {
+  // when you add /admin/site/read:
+  const r = await api(`/admin/site/read?path=${encodeURIComponent(path)}`);
+  // then put r.content into your editor UI
+}
+
 function renderEntries(entries) {
   const list = el("files");
+  if (!list) throw new Error("Missing #files container");
+
   list.innerHTML = "";
 
   for (const e of entries) {
     const row = document.createElement("div");
-    row.className = "file";
+    row.className = "fileRow";
+    row.style.display = "flex";
+    row.style.justifyContent = "space-between";
+    row.style.alignItems = "center";
+    row.style.gap = "10px";
+    row.style.padding = "8px 10px";
+    row.style.cursor = "pointer";
+    row.style.borderRadius = "12px";
+    row.style.userSelect = "none";
 
-    row.textContent = `${e.type === "dir" ? "📁" : "📄"} ${e.name}`;
+    // subtle hover without needing css changes
+    row.onmouseenter = () => row.style.background = "rgba(255,255,255,.06)";
+    row.onmouseleave = () => row.style.background = "transparent";
 
-    row.onclick = async () => {
-      if (e.type === "dir") {
-        const up = el("uploadDir");
-        if (up) up.value = currentPath || "";
-        syncUploadDir();
-        const filter = el("filter");
-          if (filter) filter.value = "";
-        await refreshLeftPanel();
-      } else {
-        syncUploadDir();
-        await openFile(joinPath(currentPath, e.name));
-      }
-    };
+    const left = document.createElement("div");
+    left.style.display = "flex";
+    left.style.gap = "10px";
+    left.style.alignItems = "center";
+    left.style.minWidth = "0";
+
+    const icon = document.createElement("span");
+    icon.textContent = e.type === "dir" ? "📁" : "📄";
+
+    const name = document.createElement("span");
+    name.textContent = e.name;
+    name.style.whiteSpace = "nowrap";
+    name.style.overflow = "hidden";
+    name.style.textOverflow = "ellipsis";
+
+    left.appendChild(icon);
+    left.appendChild(name);
+
+    const right = document.createElement("span");
+    right.className = "muted";
+    right.style.whiteSpace = "nowrap";
+    right.textContent = e.type === "dir" ? "" : (e.size != null ? `${e.size}b` : "");
+
+    row.appendChild(left);
+    row.appendChild(right);
+
+row.onclick = async () => {
+  if (e.type === "dir") {
+    currentPath = joinPath(currentPath, e.name);
+
+    // ✅ show folder path in uploadDir automatically
+    syncUploadDir();
+
+    await refreshLeftPanel();
+    el("filter").value = "";
+  } else {
+    const full = joinPath(currentPath, e.name);
+
+    // ✅ show the file’s folder automatically (dir field)
+    syncUploadDir();
+
+    await openFile(full);
+  }
+};
 
     list.appendChild(row);
   }
 }
 
 function applyFilter() {
-  const q = (el("filter").value || "").trim().toLowerCase();
-  if (!q) return renderEntries(lastEntries);
-  renderEntries(lastEntries.filter(e => e.name.toLowerCase().includes(q)));
+  const q = (el("filter")?.value || "").trim().toLowerCase();
+  if (!q) {
+    renderEntries(lastEntries);
+    return;
+  }
+
+  const filtered = lastEntries.filter(e => e.name.toLowerCase().includes(q));
+  renderEntries(filtered);
 }
 
 async function refreshLeftPanel() {
@@ -783,69 +877,44 @@ async function refreshLeftPanel() {
   syncUploadDir();
 
   const out = await listFolder(currentPath);
-  const entries = normalizeEntries(out)
-    .sort((a,b) => a.type !== b.type ? (a.type === "dir" ? -1 : 1) : a.name.localeCompare(b.name));
+
+  // ✅ TEMP DEBUG (remove later)
+  console.log("site/list response:", out);
+
+  const entries = normalizeEntries(out).sort((a, b) => {
+    if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
+    return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+  });
 
   lastEntries = entries;
+
+  const list = el("files");
   if (!entries.length) {
-    el("files").innerHTML = `<div class="muted" style="padding:6px">No files in this folder.</div>`;
+    list.innerHTML = `<div class="muted" style="padding:8px 10px;">No files in this folder.</div>`;
     return;
   }
+
   applyFilter();
 }
 
+// Buttons / events
 document.addEventListener("DOMContentLoaded", () => {
 
-console.log("[admin] ids present?", {
-  filter: !!el("filter"),
-  path: !!el("path"),
-  uploadDir: !!el("uploadDir"),
-  uploadFile: !!el("uploadFile"),
-  btnUp: !!el("btnUp"),
-  btnRefresh: !!el("btnRefresh"),
-  btnSave: !!el("btnSave"),
-  content: !!el("content"),
-});
-
-
-  const filter = el("filter");
-if (filter) filter.value = "";
+  el("filter").value = "";       // ✅ add this
 
   el("btnUp").addEventListener("click", async () => {
     currentPath = parentPath(currentPath);
-    const filter = el("filter");
-if (filter) filter.value = "";
+    await refreshLeftPanel();
+    el("filter").value = "";
+  });
+
+  el("btnRefresh").addEventListener("click", async () => {
     await refreshLeftPanel();
   });
 
-  el("btnRefresh").addEventListener("click", refreshLeftPanel);
   el("filter").addEventListener("input", applyFilter);
 
-  el("btnSave").addEventListener("click", async () => {
-    const path = el("path").value.trim() || currentFilePath;
-    if (!path) return alert("No file selected.");
-
-    await api("/admin/api/save", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path, content: el("content").value })
-    });
-  });
-
-  el("btnUpload").addEventListener("click", async () => {
-    const f = el("uploadFile").files?.[0];
-    if (!f) return alert("Choose a file to upload.");
-
-    const dir = (el("uploadDir").value || "").trim();
-
-    const fd = new FormData();
-    fd.append("file", f);
-    fd.append("dir", dir);
-
-    await api("/admin/api/upload", { method: "POST", body: fd });
-    await refreshLeftPanel();
-  });
-
+  // Initial load
   refreshLeftPanel().catch(err => console.error(err));
 });
 </script>
