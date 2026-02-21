@@ -31,14 +31,14 @@ public sealed class AdminSiteController : ControllerBase
             return NotFound(new { ok = false, error = "Folder not found", path = rel });
 
         var dirs = Directory.EnumerateDirectories(abs)
-           .Select(d => new DirectoryInfo(d))
-           .Select(di => new SiteEntry
-           {
-               Name = di.Name,
-               Type = "dir",
-               Size = null,
-               UpdatedUtc = di.LastWriteTimeUtc
-           });
+       .Select(d => new DirectoryInfo(d))
+       .Select(di => new SiteEntry
+       {
+           Name = di.Name,
+           Type = "dir",
+           Size = null,
+           UpdatedUtc = di.LastWriteTimeUtc
+       });
 
         var files = Directory.EnumerateFiles(abs)
             .Select(f => new FileInfo(f))
@@ -87,7 +87,6 @@ public sealed class AdminSiteController : ControllerBase
 
     private static string GetSiteRootPath(IWebHostEnvironment env, IConfiguration config)
     {
-        ArgumentNullException.ThrowIfNull(env);
         // Prefer your existing config key if you already have one.
         // Common patterns: "SITE_ROOT", "SITE_PATH", "DATA_SITE_PATH"
         var configured = config["SITE_ROOT"] ?? config["SITE_PATH"] ?? config["DATA_SITE_PATH"];
