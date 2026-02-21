@@ -373,26 +373,26 @@ public static class Program
                 .Select(d => new DirectoryInfo(d))
                 .Select(di => new SiteEntry
                 {
-                    Name = di.Name,
-                    Type = "dir",
-                    Size = null,
-                    UpdatedUtc = di.LastWriteTimeUtc
+                    name = di.Name,
+                    type = "dir",
+                    size = null,
+                    updatedUtc = di.LastWriteTimeUtc
                 });
 
             var files = Directory.EnumerateFiles(abs)
                 .Select(f => new FileInfo(f))
                 .Select(fi => new SiteEntry
                 {
-                    Name = fi.Name,
-                    Type = "file",
-                    Size = fi.Length,
-                    UpdatedUtc = fi.LastWriteTimeUtc
+                    name = fi.Name,
+                    type = "file",
+                    size = fi.Length,
+                    updatedUtc = fi.LastWriteTimeUtc
                 });
 
             var entries = dirs
                 .Concat(files)
-                .OrderBy(e => e.Type == "dir" ? 0 : 1)
-                .ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(e => e.type == "dir" ? 0 : 1)
+                .ThenBy(e => e.name, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
 
             return Results.Json(new { ok = true, path = rel, entries });
@@ -454,10 +454,10 @@ public static class Program
     // ===================== Models =====================
     private sealed class SiteEntry
     {
-        public required string Name { get; init; }
-        public required string Type { get; init; } // "dir" | "file"
-        public long? Size { get; init; }
-        public DateTime UpdatedUtc { get; init; }
+        public required string name { get; init; }
+        public required string type { get; init; } // "dir" | "file"
+        public long? size { get; init; }
+        public DateTime updatedUtc { get; init; }
     }
 
     // ===================== Helpers =====================
