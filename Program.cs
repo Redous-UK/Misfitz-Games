@@ -715,10 +715,60 @@ function parentPath(path) {
   return idx === -1 ? "" : p.slice(0, idx);
 }
 
+let allPathsCache = null;
+
+async function listAll() {
+  // returns { ok:true, root, files:[{path,isDir,size}] }
+  return await api("/admin/api/list");
+}
+
 async function listFolder(path) {
-  const q = encodeURIComponent(path || "");
-  // Uses your new endpoint
-  return await api(`/admin/site/list?path=${q}`);
+  // Use cached full list (refresh when needed)
+  if (!allPathsCache) allPathsCache = await listAll();
+
+  const prefix = (path || "").replace(/^\/+|\/+$/g, "");
+  const wantPrefix = prefix ? (prefix + "/") : "";
+
+  const entriesMap = new Map(); // name -> entry
+
+  for (const item of (allPathsCache.files || [])) {
+    const p = (item.path || "").replace(/^\/+/, "");
+    if (wantPrefix && !p.startsWith(wantPrefix)) continue;
+    if (!wantPrefix && p.includes("/") === false) {
+      // root direct file/dir handled below
+    }
+
+    const rest = wantPrefix ? p.slice(wantPrefix.length) : p;
+    if (!rest) continue;
+
+    const parts = rest.split("/");
+    const name = parts[0];
+
+    // Only show direct children (no subfolder contents)
+    if (parts.length === 1) {
+      // direct file
+      if (!entriesMap.has(name)) {
+        entriesMap.set(name, {
+          name,
+          type: item.isDir ? "dir" : "file",
+          size: item.size ?? null
+        });
+      }
+    } else {
+      // something inside a subfolder -> show the subfolder as a dir entry
+      if (!entriesMap.has(name)) {
+        entriesMap.set(name, { name, type: "dir", size: null });
+      }
+    }
+  }
+
+  // Also handle root direct folders/files properly:
+  // (The loop above already does; this is just returning a consistent shape)
+  return {
+    ok: true,
+    path: prefix,
+    entries: [...entriesMap.values()]
+  };
 }
 
 function syncUploadDir() {
@@ -781,12 +831,6 @@ if (pathBox) pathBox.value = path;
   const r = await api(`/admin/site/read?path=${encodeURIComponent(path)}`);
   el("content").value = r.content ?? "";
   el("content").focus();
-}
-
-async function openFile(path) {
-  // when you add /admin/site/read:
-  const r = await api(`/admin/site/read?path=${encodeURIComponent(path)}`);
-  // then put r.content into your editor UI
 }
 
 function renderEntries(entries) {
@@ -908,9 +952,10 @@ document.addEventListener("DOMContentLoaded", () => {
     el("filter").value = "";
   });
 
-  el("btnRefresh").addEventListener("click", async () => {
-    await refreshLeftPanel();
-  });
+el("btnRefresh").addEventListener("click", async () => {
+  allPathsCache = null;
+  await refreshLeftPanel();
+});
 
   el("filter").addEventListener("input", applyFilter);
 
