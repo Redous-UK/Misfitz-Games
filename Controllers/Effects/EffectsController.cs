@@ -283,6 +283,66 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
         return Ok(new { ok = true });
     }
 
+    // PATCH /api/effects/{effectId}
+    // Allows editing name/action/duration/cooldown/enabled
+    [HttpPatch("{effectId:guid}")]
+    public async Task<IActionResult> PatchEffect(Guid effectId, [FromBody] PatchEffectRequest req, CancellationToken ct)
+    {
+        var uid = GetAppUserIdOrThrow();
+
+        var effect = await db.Effects.FirstOrDefaultAsync(e => e.OwnerUserId == uid && e.Id == effectId, ct);
+        if (effect is null) return NotFound(new { ok = false, error = "Effect not found" });
+
+        if (req.Name is not null)
+        {
+            var name = req.Name.Trim();
+            if (string.IsNullOrWhiteSpace(name))
+                return BadRequest(new { ok = false, error = "Name cannot be blank" });
+
+            // Optional: prevent duplicates
+            var exists = await db.Effects.AnyAsync(e => e.OwnerUserId == uid && e.Id != effectId && e.Name == name, ct);
+            if (exists) return Conflict(new { ok = false, error = "Effect name already exists" });
+
+            effect.Name = name;
+        }
+
+        if (req.Action is not null) effect.Action = req.Action.Value;
+        if (req.DurationSeconds is not null) effect.DurationSeconds = Math.Clamp(req.DurationSeconds.Value, 1, 30);
+        if (req.CooldownSeconds is not null) effect.CooldownSeconds = Math.Clamp(req.CooldownSeconds.Value, 0, 600);
+        if (req.IsEnabled is not null) effect.IsEnabled = req.IsEnabled.Value;
+
+        await db.SaveChangesAsync(ct);
+        return Ok(new { ok = true });
+    }
+
+    public record PatchEffectRequest(
+        string? Name,
+        EffectAction? Action,
+        int? DurationSeconds,
+        int? CooldownSeconds,
+        bool? IsEnabled
+    );
+
+    // DELETE /api/effects/{effectId}
+    [HttpDelete("{effectId:guid}")]
+    public async Task<IActionResult> DeleteEffect(Guid effectId, CancellationToken ct)
+    {
+        var uid = GetAppUserIdOrThrow();
+
+        var effect = await db.Effects
+            .Include(e => e.Targets)
+            .FirstOrDefaultAsync(e => e.OwnerUserId == uid && e.Id == effectId, ct);
+
+        if (effect is null) return NotFound(new { ok = false, error = "Effect not found" });
+
+        db.EffectTargets.RemoveRange(effect.Targets);
+        db.Effects.Remove(effect);
+
+        await db.SaveChangesAsync(ct);
+        return Ok(new { ok = true });
+    }
+
+
 
     // ------------------------------------------------------------------
     // Groups

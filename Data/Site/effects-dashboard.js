@@ -4,6 +4,8 @@ const el = (id) => document.getElementById(id);
 const EFFECTS_BASE = "/api/effects";
 let effectSort = { key: "name", dir: "asc" }; // asc|desc
 let filteredEffects = [];                    // keep a rendered list for keyboard nav
+let liveMode = false;
+let liveTimer = null;
 
 // Safe event binder (prevents null.addEventListener crashes)
 function on(id, evt, handler) {
@@ -269,6 +271,13 @@ function renderGroups() {
 }
 
 // ---------- Render: Effects ----------
+function mk(tag, cls, text) {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+}
+
 function renderEffectsTable() {
     const tbody = el("effectsTbody");
     if (!tbody) return;
@@ -277,109 +286,229 @@ function renderEffectsTable() {
 
     let list = q
         ? effects.filter(e =>
-            ((e.name || "").toLowerCase().includes(q)) ||
+            (e.name || "").toLowerCase().includes(q) ||
             String(e.id || "").toLowerCase().includes(q) ||
             actionLabel(e.action).toLowerCase().includes(q))
         : effects;
 
-    // Update count
+    list = sortEffects(list);
+    filteredEffects = list;
+
     const count = el("effectsCount");
     if (count) count.textContent = String(list.length);
 
     const rows = [];
 
     if (!list.length) {
-        const tr = document.createElement("tr");
-        const td = document.createElement("td");
-
+        const tr = mk("tr");
+        const td = mk("td", "muted", "No effects yet.");
         td.colSpan = 7;
-        td.className = "muted";
-        td.textContent = "No effects yet.";
-
         tr.appendChild(td);
         rows.push(tr);
-    } else {
-        list.forEach((e, idx) => {
-            const isSel = e.id === selectedEffectId;
-
-            const tr = document.createElement("tr");
-            tr.dataset.effectId = e.id;
-            if (isSel) tr.classList.add("isSelected");
-
-            // # column
-            const tdIdx = document.createElement("td");
-            tdIdx.className = "muted";
-            tdIdx.style.width = "34px";
-            tdIdx.textContent = String(idx + 1);
-            tr.appendChild(tdIdx);
-
-            // Name + id
-            const tdName = document.createElement("td");
-
-            const nameDiv = document.createElement("div");
-            nameDiv.className = "strong";
-            nameDiv.textContent = e.name ?? "";
-
-            const idDiv = document.createElement("div");
-            idDiv.className = "muted";
-            idDiv.style.fontSize = "12px";
-            idDiv.textContent = e.id ?? "";
-
-            tdName.appendChild(nameDiv);
-            tdName.appendChild(idDiv);
-            tr.appendChild(tdName);
-
-            // Action
-            const tdAction = document.createElement("td");
-            tdAction.style.width = "140px";
-            tdAction.textContent = actionLabel(e.action);
-            tr.appendChild(tdAction);
-
-            // Duration
-            const tdDur = document.createElement("td");
-            tdDur.style.width = "90px";
-            tdDur.textContent = `${e.durationSeconds ?? 0}s`;
-            tr.appendChild(tdDur);
-
-            // Cooldown
-            const tdCd = document.createElement("td");
-            tdCd.style.width = "90px";
-            tdCd.textContent = `${e.cooldownSeconds ?? 0}s`;
-            tr.appendChild(tdCd);
-
-            // Enabled chip
-            const tdEnabled = document.createElement("td");
-            tdEnabled.style.width = "90px";
-
-            const chip = document.createElement("span");
-            chip.className = "chip" + (e.isEnabled ? "" : " warn");
-            chip.textContent = e.isEnabled ? "Enabled" : "Disabled";
-
-            tdEnabled.appendChild(chip);
-            tr.appendChild(tdEnabled);
-
-            // Load button
-            const tdBtn = document.createElement("td");
-            tdBtn.style.width = "160px";
-            tdBtn.style.textAlign = "right";
-
-            const btn = document.createElement("button");
-            btn.className = "btn btnTiny" + (isSel ? " primary" : "");
-            btn.dataset.load = e.id;
-            btn.textContent = isSel ? "Loaded" : "Load";
-
-            tdBtn.appendChild(btn);
-            tr.appendChild(tdBtn);
-
-            rows.push(tr);
-        });
+        tbody.replaceChildren(...rows);
+        return;
     }
 
-    // 🔥 Replace all rows at once
+    list.forEach((e, idx) => {
+        const isSel = e.id === selectedEffectId;
+
+        const tr = mk("tr", isSel ? "isSelected" : "");
+        tr.dataset.effectId = e.id;
+
+        // #
+        const tdIdx = mk("td", "muted", String(idx + 1));
+        tdIdx.style.width = "34px";
+        tr.appendChild(tdIdx);
+
+        // Name + id
+        const tdName = mk("td");
+        const nameDiv = mk("div", "strong", e.name ?? "");
+        const idDiv = mk("div", "muted", e.id ?? "");
+        idDiv.style.fontSize = "12px";
+        tdName.appendChild(nameDiv);
+        tdName.appendChild(idDiv);
+        tr.appendChild(tdName);
+
+        // Action
+        const tdAction = mk("td", null, actionLabel(e.action));
+        tdAction.style.width = "140px";
+        tr.appendChild(tdAction);
+
+        // Duration
+        const tdDur = mk("td", null, `${e.durationSeconds ?? 0}s`);
+        tdDur.style.width = "90px";
+        tr.appendChild(tdDur);
+
+        // Cooldown
+        const tdCd = mk("td", null, `${e.cooldownSeconds ?? 0}s`);
+        tdCd.style.width = "90px";
+        tr.appendChild(tdCd);
+
+        // Enabled
+        const tdEnabled = mk("td");
+        tdEnabled.style.width = "90px";
+        const chip = mk("span", "chip" + (e.isEnabled ? "" : " warn"), e.isEnabled ? "Enabled" : "Disabled");
+        tdEnabled.appendChild(chip);
+        tr.appendChild(tdEnabled);
+
+        // Actions
+        const tdAct = mk("td");
+        tdAct.style.width = "240px";
+        tdAct.style.textAlign = "right";
+
+        const btnLoad = mk("button", "btn btnTiny" + (isSel ? " primary" : ""), isSel ? "Loaded" : "Load");
+        btnLoad.dataset.load = e.id;
+
+        const btnRun = mk("button", "btn btnTiny", "Run");
+        btnRun.dataset.run = e.id;
+
+        const btnToggle = mk("button", "btn btnTiny", e.isEnabled ? "Disable" : "Enable");
+        btnToggle.dataset.toggle = e.id;
+
+        const btnEdit = mk("button", "btn btnTiny", "Edit");
+        btnEdit.dataset.edit = e.id;
+
+        const btnDel = mk("button", "btn btnTiny warn", "Delete");
+        btnDel.dataset.del = e.id;
+
+        // spacing
+        tdAct.appendChild(btnLoad);
+        tdAct.appendChild(document.createTextNode(" "));
+        tdAct.appendChild(btnRun);
+        tdAct.appendChild(document.createTextNode(" "));
+        tdAct.appendChild(btnToggle);
+        tdAct.appendChild(document.createTextNode(" "));
+        tdAct.appendChild(btnEdit);
+        tdAct.appendChild(document.createTextNode(" "));
+        tdAct.appendChild(btnDel);
+
+        tr.appendChild(tdAct);
+
+        rows.push(tr);
+    });
+
     tbody.replaceChildren(...rows);
 }
 
+function effectKeyVal(e, key) {
+    switch (key) {
+        case "name": return (e.name || "").toLowerCase();
+        case "action": return normAction(e.action);
+        case "duration": return e.durationSeconds ?? 0;
+        case "cooldown": return e.cooldownSeconds ?? 0;
+        case "enabled": return e.isEnabled ? 1 : 0;
+        default: return 0;
+    }
+}
 
+function sortEffects(list) {
+    const dir = effectSort.dir === "asc" ? 1 : -1;
+    const key = effectSort.key;
+    return [...list].sort((a, b) => {
+        const av = effectKeyVal(a, key);
+        const bv = effectKeyVal(b, key);
+        if (av < bv) return -1 * dir;
+        if (av > bv) return 1 * dir;
+        return 0;
+    });
+}
+
+function fillEditEffectForm(effect) {
+    if (!effect) return;
+    el("newEffectName").value = effect.name ?? "";
+    el("newEffectAction").value = String(normAction(effect.action));
+    el("newEffectDuration").value = String(effect.durationSeconds ?? 2);
+    el("newEffectCooldown").value = String(effect.cooldownSeconds ?? 0);
+
+    // Change button label to make it obvious
+    const btn = el("btnCreateEffect");
+    if (btn) btn.textContent = "Save";
+}
+
+function resetCreateEffectForm() {
+    el("newEffectName").value = "";
+    el("newEffectAction").value = "1";
+    el("newEffectDuration").value = "2";
+    el("newEffectCooldown").value = "2";
+    const btn = el("btnCreateEffect");
+    if (btn) btn.textContent = "Create";
+}
+
+async function toggleEffectEnabled(effectId) {
+    const cur = effects.find(e => e.id === effectId);
+    const next = !(cur?.isEnabled ?? true);
+    const r = await patchEffect(effectId, { isEnabled: next });
+    addActivity("ok", "Effect toggled", `${cur?.name || effectId} → ${next ? "Enabled" : "Disabled"}`, r);
+    return r;
+}
+
+async function deleteEffect(effectId) {
+    return await api(`${EFFECTS_BASE}/${effectId}`, { method: "DELETE" });
+}
+
+async function saveEffectEdits(effectId, patch) {
+    const r = await api(`${EFFECTS_BASE}/${effectId}`, {
+        method: "PATCH",
+        body: JSON.stringify(patch)
+    });
+    addActivity("ok", "Effect saved", patch.name || effectId, r);
+    return r;
+}
+
+async function deleteEffect(effectId) {
+    const r = await api(`${EFFECTS_BASE}/${effectId}`, { method: "DELETE" });
+    return r;
+}
+
+function setLiveMode(on) {
+    liveMode = on;
+    if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+    if (liveMode) {
+        liveTimer = setInterval(() => loadEffects().catch(() => { }), 5000);
+    }
+}
+
+let editMode = false; // true when drawer is editing an existing effect
+
+function setEditMode(on) {
+    editMode = on;
+
+    const btn = el("btnCreateEffect");
+    if (btn) btn.textContent = editMode ? "Save" : "Create";
+
+    const title = document.querySelector("#drawer .sectionTitle");
+    // optional: if you want the drawer section title to reflect mode
+    // (only safe if the first sectionTitle in drawer is CREATE EFFECT)
+    if (title && title.textContent?.trim().toLowerCase() === "create effect") {
+        title.textContent = editMode ? "EDIT EFFECT" : "CREATE EFFECT";
+    }
+}
+
+function fillEditEffectForm(effect) {
+    if (!effect) return;
+
+    el("newEffectName").value = effect.name ?? "";
+    el("newEffectAction").value = String(normAction(effect.action));
+    el("newEffectDuration").value = String(effect.durationSeconds ?? 2);
+    el("newEffectCooldown").value = String(effect.cooldownSeconds ?? 0);
+
+    setEditMode(true);
+}
+
+function resetEffectForm() {
+    el("newEffectName").value = "";
+    el("newEffectAction").value = "1";
+    el("newEffectDuration").value = "2";
+    el("newEffectCooldown").value = "2";
+    setEditMode(false);
+}
+
+async function patchEffect(effectId, patch) {
+    return await api(`${EFFECTS_BASE}/${effectId}`, {
+        method: "PATCH",
+        body: JSON.stringify(patch),
+    });
+}
 
 // ---------- Selected effect header (right) ----------
 function renderSelected() {
@@ -492,22 +621,45 @@ async function syncDevices() {
     }
 }
 
-async function createEffect() {
-    const name = el("newEffectName")?.value?.trim() || "";
-    const action = Number(el("newEffectAction")?.value || 1);
-    const durationSeconds = Number(el("newEffectDuration")?.value || 2);
-    const cooldownSeconds = Number(el("newEffectCooldown")?.value || 0);
+async function createOrSaveEffect() {
+    const name = el("newEffectName").value.trim();
+    const action = Number(el("newEffectAction").value);
+    const durationSeconds = Number(el("newEffectDuration").value || 2);
+    const cooldownSeconds = Number(el("newEffectCooldown").value || 0);
 
     if (!name) return setOut("Name required");
 
+    // common payload fields
+    const payload = { name, action, durationSeconds, cooldownSeconds };
+
     try {
+        // SAVE (PATCH)
+        if (editMode && selectedEffectId) {
+            setOut("Saving…");
+
+            const r = await patchEffect(selectedEffectId, payload);
+
+            addActivity("ok", "Effect saved", name, r);
+
+            await loadEffects();
+            await loadEffectDetails(selectedEffectId);
+            renderEffectsTable();
+            renderSelected();
+            setOut(r);
+
+            closeDrawer();
+            return;
+        }
+
+        // CREATE (POST)
+        setOut("Creating…");
+
         const r = await api(EFFECTS_BASE, {
             method: "POST",
-            body: JSON.stringify({ name, action, durationSeconds, cooldownSeconds }),
+            body: JSON.stringify(payload),
         });
 
         addActivity("ok", "Effect created", name, r);
-        if (el("newEffectName")) el("newEffectName").value = "";
 
         await loadEffects();
 
@@ -515,13 +667,25 @@ async function createEffect() {
             selectedEffectId = r.effectId;
             await loadEffectDetails(r.effectId);
             renderEffectsTable();
+            renderSelected();
+            const badge = el("effectLoadedBadge");
+            if (badge) badge.textContent = `Loaded: ${selectedEffect?.name || r.effectId}`;
         }
 
+        resetEffectForm();
         setOut(r);
+        closeDrawer();
     } catch (e) {
-        addActivity("bad", "Create failed", e.message, e.payload || { error: e.message });
-        setOut(e.payload || { error: e.message, raw: e.raw });
+        addActivity("bad", editMode ? "Save failed" : "Create failed", e.message, e.payload || { error: e.message });
+        setOut(e.payload || { error: e.message });
     }
+}
+
+function updateLoadedBadge() {
+    const badge = el("effectLoadedBadge");
+    if (!badge) return;
+    if (!selectedEffect) { badge.textContent = ""; return; }
+    badge.textContent = `Loaded: ${selectedEffect.name} (${selectedEffectId})`;
 }
 
 async function addTarget() {
@@ -618,15 +782,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     on("effectSearch", "input", renderEffectsTable);
 
     // ----- Drawer tools -----
-    on("btnCreateEffect", "click", () =>
-        createEffect().catch(() => { })
-    );
+    on("btnCreateEffect", "click", () => createOrSaveEffect().catch(() => { }));
 
     on("targetType", "change", renderTargetPicker);
 
     on("btnAddTarget", "click", () =>
         addTarget().catch(() => { })
     );
+    on("btnOpenDrawer", "click", openDrawerForCreate);
 
     // ----- Run buttons -----
     on("btnRun", "click", () =>
@@ -647,28 +810,67 @@ document.addEventListener("DOMContentLoaded", async () => {
     // EFFECTS TABLE — Delegated click handler (Load buttons)
     // =========================================================
     on("effectsTbody", "click", async (ev) => {
-        const btn = ev.target.closest("button[data-load]");
-        if (!btn) return;
+        const btn = ev.target.closest("button");
+        const row = ev.target.closest("tr[data-effect-id]");
+        const id =
+            btn?.dataset.load || btn?.dataset.run || btn?.dataset.toggle ||
+            btn?.dataset.edit || btn?.dataset.del || row?.dataset.effectId;
 
-        const id = btn.dataset.load;
         if (!id) return;
 
         try {
-            selectedEffectId = id;
-
-            renderEffectsTable();        // highlight selection
-            await loadEffectDetails(id); // load targets + meta
-
-            const badge = el("effectLoadedBadge");
-            if (badge) {
-                badge.textContent = `Loaded: ${selectedEffect?.name || id}`;
+            // Load (also row click falls through here)
+            if (!btn || btn.dataset.load || row) {
+                selectedEffectId = id;
+                renderEffectsTable();
+                await loadEffectDetails(id);
+                const badge = el("effectLoadedBadge");
+                if (badge) badge.textContent = `Loaded: ${selectedEffect?.name || id}`;
+                return;
             }
 
-            addActivity("ok", "Effect loaded", selectedEffect?.name || id, { effectId: id });
+            // Run
+            if (btn.dataset.run) {
+                selectedEffectId = id;
+                await runSelected();
+                return;
+            }
 
-        } catch (err) {
-            addActivity("bad", "Load failed", err.message, err.payload || { error: err.message });
-            setOut(err.payload || { error: err.message });
+            // Toggle enabled (requires backend patch endpoint)
+            if (btn.dataset.toggle) {
+                await toggleEffectEnabled(id);
+                await loadEffects();
+                if (selectedEffectId === id) await loadEffectDetails(id);
+                return;
+            }
+
+            // Edit (prefill drawer; reuse create form)
+            if (btn.dataset.edit) {
+                selectedEffectId = id;
+                await loadEffectDetails(id);
+                openDrawer();
+                fillEditEffectForm(selectedEffect);
+                return;
+            }
+
+            function openDrawerForCreate() {
+                resetEffectForm();
+                openDrawer();
+            }
+
+            // Delete (requires backend delete endpoint)
+            if (btn.dataset.del) {
+                const name = effects.find(x => x.id === id)?.name || id;
+                if (!confirm(`Delete effect "${name}"? This cannot be undone.`)) return;
+                await deleteEffect(id);
+                if (selectedEffectId === id) { selectedEffectId = null; selectedEffect = null; renderSelected(); renderTargets(); }
+                await loadEffects();
+                addActivity("ok", "Effect deleted", name, { effectId: id });
+                return;
+            }
+        } catch (e) {
+            addActivity("bad", "Action failed", e.message, e.payload || { error: e.message });
+            setOut(e.payload || { error: e.message });
         }
     });
 
