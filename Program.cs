@@ -734,7 +734,8 @@ function renderEntries(entries) {
       if (e.type === "dir") {
         currentPath = joinPath(currentPath, e.name);
         syncUploadDir();
-        el("filter").value = "";
+        const filter = el("filter");
+          if (filter) filter.value = "";
         await refreshLeftPanel();
       } else {
         syncUploadDir();
@@ -770,11 +771,13 @@ async function refreshLeftPanel() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  el("filter").value = "";
+  const filter = el("filter");
+if (filter) filter.value = "";
 
   el("btnUp").addEventListener("click", async () => {
     currentPath = parentPath(currentPath);
-    el("filter").value = "";
+    const filter = el("filter");
+if (filter) filter.value = "";
     await refreshLeftPanel();
   });
 
