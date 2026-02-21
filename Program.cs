@@ -680,9 +680,10 @@ public static class Program
 const el = (id) => document.getElementById(id);
 
 let currentPath = ""; // "" = root
+let lastEntries = []; // cached entries for filtering
 
 async function api(url, opts) {
-  // url MUST start with "/" or "http"
+  // Always use absolute paths (leading slash) to avoid /admin/admin/... issues
   const r = await fetch(url, opts);
   const txt = await r.text();
   let json = null;
@@ -704,93 +705,72 @@ function parentPath(path) {
   return idx === -1 ? "" : p.slice(0, idx);
 }
 
-// Calls YOUR working endpoint (note the leading slash!)
 async function listFolder(path) {
   const q = encodeURIComponent(path || "");
+  // Uses your new endpoint
   return await api(`/admin/site/list?path=${q}`);
 }
 
-// Adjust this mapping if your response shape differs
+function syncUploadDir() {
+  const up = el("uploadDir");
+  if (!up) return;
+  up.value = currentPath || "";
+}
+
 function normalizeEntries(out) {
-  // Common shapes:
-  // 1) { ok:true, entries:[{name,type}] }
-  // 2) { ok:true, files:[...], dirs:[...] }
-  // 3) { ok:true, items:[{path,isDir}] }
-  const entries =
-    out.entries ??
-    out.items ??
-    out.files ??
-    [];
-
-  // If backend returns split arrays
-  if (!entries.length && (out.dirs || out.files)) {
-    const dirs = (out.dirs || []).map(d => ({ name: d.name ?? d, type: "dir" }));
-    const files = (out.files || []).map(f => ({ name: f.name ?? f, type: "file", size: f.size ?? null }));
-    return [...dirs, ...files].filter(e => e.name);
-  }
-
+  const entries = out.entries ?? out.items ?? out.files ?? [];
   return entries.map(e => ({
     name: e.name ?? e.fileName ?? (e.path ? e.path.split("/").pop() : ""),
     type: (e.type ?? e.kind ?? (e.isDir ? "dir" : "file")).toLowerCase(),
     size: e.size ?? e.length ?? null,
-  })).filter(e => e.name);
+    updatedUtc: e.updatedUtc ?? e.lastWriteTimeUtc ?? null
+  })).filter(e => e.name && (e.type === "dir" || e.type === "file"));
 }
 
-async function openFile(path) {
-  if (!path) throw new Error("openFile(path) called with empty path");
+function renderEntries(entries) {
+  const list = el("files");
+  if (!list) throw new Error("Missing #files container");
 
-  // IMPORTANT: use your editor’s existing READ endpoint if it has one.
-  // If you already have a working open/read function, keep it and call that instead.
-  const q = encodeURIComponent(path);
-  const r = await api(`/admin/api/read?path=${q}`); // <-- if this doesn't exist, call your existing read/open endpoint
-
-  const content = r.content ?? r.text ?? r.body ?? "";
-  el("editorPath").textContent = "/" + (r.path ?? path);
-  el("editor").value = content;
-}
-
-async function refreshLeftPanel() {
-  const out = await listFolder(currentPath);
-
-  // optional UI bits
-  el("pathLabel") && (el("pathLabel").textContent = "/" + (currentPath || ""));
-  el("btnUp") && (el("btnUp").disabled = !currentPath);
-
-  const list = el("filesList"); // <-- change to your actual left panel container id
   list.innerHTML = "";
-
-  const entries = normalizeEntries(out).sort((a, b) => {
-    if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
-    return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-  });
 
   for (const e of entries) {
     const row = document.createElement("div");
     row.className = "fileRow";
     row.style.display = "flex";
     row.style.justifyContent = "space-between";
+    row.style.alignItems = "center";
     row.style.gap = "10px";
     row.style.padding = "8px 10px";
     row.style.cursor = "pointer";
     row.style.borderRadius = "12px";
+    row.style.userSelect = "none";
+
+    // subtle hover without needing css changes
+    row.onmouseenter = () => row.style.background = "rgba(255,255,255,.06)";
+    row.onmouseleave = () => row.style.background = "transparent";
 
     const left = document.createElement("div");
     left.style.display = "flex";
     left.style.gap = "10px";
     left.style.alignItems = "center";
+    left.style.minWidth = "0";
 
     const icon = document.createElement("span");
     icon.textContent = e.type === "dir" ? "📁" : "📄";
 
     const name = document.createElement("span");
     name.textContent = e.name;
+    name.style.whiteSpace = "nowrap";
+    name.style.overflow = "hidden";
+    name.style.textOverflow = "ellipsis";
 
     left.appendChild(icon);
     left.appendChild(name);
 
     const right = document.createElement("span");
     right.className = "muted";
-    right.textContent = e.type === "dir" ? "" : (e.size ? `${e.size}b` : "");
+    right.style.whiteSpace = "nowrap";
+    right.textContent = e.type === "dir" ? "" : (e.size != null ? `${e.size}b` : "");
 
     row.appendChild(left);
     row.appendChild(right);
@@ -798,12 +778,14 @@ async function refreshLeftPanel() {
     row.onclick = async () => {
       if (e.type === "dir") {
         currentPath = joinPath(currentPath, e.name);
+        syncUploadDir();
         await refreshLeftPanel();
+        el("filter").value = ""; // reset filter when navigating
       } else {
         const full = joinPath(currentPath, e.name);
-        // If your editor already has an open handler, call it here instead:
-        // await loadFileIntoEditor(full);
-        await openFile(full);
+        syncUploadDir();
+        // Hook to YOUR editor open:
+        await openFile(full); // <- make sure this exists in your page
       }
     };
 
@@ -811,14 +793,52 @@ async function refreshLeftPanel() {
   }
 }
 
-// Up button (optional)
-el("btnUp")?.addEventListener("click", async () => {
-  currentPath = parentPath(currentPath);
-  await refreshLeftPanel();
-});
+function applyFilter() {
+  const q = (el("filter")?.value || "").trim().toLowerCase();
+  if (!q) {
+    renderEntries(lastEntries);
+    return;
+  }
 
-// Initial load
-refreshLeftPanel().catch(err => console.error(err));
+  const filtered = lastEntries.filter(e => e.name.toLowerCase().includes(q));
+  renderEntries(filtered);
+}
+
+async function refreshLeftPanel() {
+  // UI bits
+  el("pathLabel").textContent = "/" + (currentPath || "");
+  el("btnUp").disabled = !currentPath;
+
+  const out = await listFolder(currentPath);
+  const entries = normalizeEntries(out).sort((a, b) => {
+    if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
+    return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+  });
+
+  syncUploadDir();
+  lastEntries = entries;
+  applyFilter();
+}
+
+// Buttons / events
+document.addEventListener("DOMContentLoaded", () => {
+  el("btnUp").addEventListener("click", async () => {
+    currentPath = parentPath(currentPath);
+    await refreshLeftPanel();
+    el("filter").value = "";
+  });
+
+  el("btnRefresh").addEventListener("click", async () => {
+    await refreshLeftPanel();
+  });
+
+  el("filter").addEventListener("input", applyFilter);
+
+  // Initial load
+document.addEventListener("DOMContentLoaded", () => {
+  refreshLeftPanel().catch(err => console.error(err));
+});
+});
 </script>
 </body>
 </html>
