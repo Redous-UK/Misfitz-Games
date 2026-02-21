@@ -360,54 +360,75 @@ public static class Program
         //   GET /admin/site/read?path=
         // These must exist, otherwise the left panel will show nothing.
         var adminSite = app.MapGroup("/admin/site")
-            .RequireAuthorization("AdminOnly");
+    .RequireAuthorization("AdminOnly");
 
         adminSite.MapGet("/list", (string? path) =>
         {
-            var rel = NormalizeRelPath(path);
-            var abs = SafeResolve(dataRoot, rel);
-            if (abs is null) return Results.BadRequest(new { ok = false, error = "Invalid path.", path = rel });
-            if (!Directory.Exists(abs)) return Results.NotFound(new { ok = false, error = "Folder not found.", path = rel });
+            try
+            {
+                var rel = NormalizeRelPath(path);              // never throws now (see below)
+                var abs = SafeResolve(dataRoot, rel);
+                if (abs is null)
+                    return Results.BadRequest(new { ok = false, error = "Invalid path.", path = rel });
 
-            var dirs = Directory.EnumerateDirectories(abs)
-                .Select(d => new DirectoryInfo(d))
-                .Select(di => new SiteEntry
-                {
-                    Name = di.Name,
-                    Type = "dir",
-                    Size = null,
-                    UpdatedUtc = di.LastWriteTimeUtc
-                });
+                if (!Directory.Exists(abs))
+                    return Results.NotFound(new { ok = false, error = "Folder not found.", path = rel });
 
-            var files = Directory.EnumerateFiles(abs)
-                .Select(f => new FileInfo(f))
-                .Select(fi => new SiteEntry
-                {
-                    Name = fi.Name,
-                    Type = "file",
-                    Size = fi.Length,
-                    UpdatedUtc = fi.LastWriteTimeUtc
-                });
+                var dirs = Directory.EnumerateDirectories(abs)
+                    .Select(d => new DirectoryInfo(d))
+                    .Select(di => new
+                    {
+                        name = di.Name,
+                        type = "dir",
+                        size = (long?)null,
+                        updatedUtc = di.LastWriteTimeUtc
+                    });
 
-            var entries = dirs
-                .Concat(files)
-                .OrderBy(e => e.Type == "dir" ? 0 : 1)
-                .ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
+                var files = Directory.EnumerateFiles(abs)
+                    .Select(f => new FileInfo(f))
+                    .Select(fi => new
+                    {
+                        name = fi.Name,
+                        type = "file",
+                        size = (long?)fi.Length,
+                        updatedUtc = fi.LastWriteTimeUtc
+                    });
 
-            return Results.Json(new { ok = true, path = rel, entries });
+                var entries = dirs.Concat(files)
+                    .OrderBy(e => e.type == "dir" ? 0 : 1)
+                    .ThenBy(e => e.name, StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+
+                return Results.Json(new { ok = true, path = rel, entries });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[admin/site/list] ERROR path='{path}': {ex}");
+                return Results.Problem("admin/site/list failed");
+            }
         });
 
         adminSite.MapGet("/read", (string path) =>
         {
-            var rel = NormalizeRelPath(path);
-            var full = SafeResolve(dataRoot, rel);
-            if (full is null) return Results.BadRequest(new { ok = false, error = "Invalid path.", path = rel });
-            if (!File.Exists(full)) return Results.NotFound(new { ok = false, error = "Not found.", path = rel });
+            try
+            {
+                var rel = NormalizeRelPath(path);
+                var full = SafeResolve(dataRoot, rel);
+                if (full is null)
+                    return Results.BadRequest(new { ok = false, error = "Invalid path.", path = rel });
 
-            var bytes = File.ReadAllBytes(full);
-            var content = TryDecode(bytes);
-            return Results.Json(new { ok = true, path = rel, content });
+                if (!File.Exists(full))
+                    return Results.NotFound(new { ok = false, error = "Not found.", path = rel });
+
+                var bytes = File.ReadAllBytes(full);
+                var content = TryDecode(bytes);
+                return Results.Json(new { ok = true, path = rel, content });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[admin/site/read] ERROR path='{path}': {ex}");
+                return Results.Problem("admin/site/read failed");
+            }
         });
 
         // ===================== DB migrate =====================
@@ -508,21 +529,22 @@ public static class Program
         p = p.Replace('\\', '/').TrimStart('/');
         while (p.Contains("//", StringComparison.Ordinal))
             p = p.Replace("//", "/", StringComparison.Ordinal);
+        // Do NOT throw — just treat as invalid later
         if (p.Contains("..", StringComparison.Ordinal))
-            throw new InvalidOperationException("Invalid path.");
+            return "__INVALID__";
+
         return p;
     }
 
     private static string? SafeResolve(string root, string relative)
     {
         relative = (relative ?? "").Replace('\\', '/').TrimStart('/');
-        if (relative.Contains("..")) return null;
+        if (relative.Contains("..") || relative == "__INVALID__") return null;
 
         var combined = Path.GetFullPath(Path.Combine(root, relative));
         var rootFull = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                       + Path.DirectorySeparatorChar;
 
-        // Ensure combined stays under root
         if (!combined.StartsWith(rootFull, StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(combined.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
                            root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
