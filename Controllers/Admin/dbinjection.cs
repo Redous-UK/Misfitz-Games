@@ -93,4 +93,44 @@ public sealed class AdminMigrationsController(IConfiguration config) : Controlle
 
         return diff == 0;
     }
+
+    public sealed record SetNameRequest(
+    string Id,
+    string Name
+);
+
+    [HttpPost("/admin/db/set-name")]
+    public IActionResult SetName([FromBody] SetNameRequest req)
+    {
+        var expected = _config["ADMIN_SECRET"];
+        if (!string.IsNullOrWhiteSpace(expected))
+        {
+            var provided = Request.Headers["X-Misfitz-Secret"].ToString();
+            if (!FixedTimeEquals(provided, expected))
+                return Unauthorized(new { ok = false, error = "Unauthorized" });
+        }
+
+        var dbPath = _config["DB_PATH"] ?? "/data/misfitz.db";
+
+        const string table = "Users";   // 🔴 CHANGE THIS
+        const string idColumn = "Name";      // 🔴 CHANGE THIS
+
+        if (string.IsNullOrWhiteSpace(req.Id))
+            return BadRequest(new { ok = false, error = "Id required" });
+
+        var name = (req.Name ?? "").Trim();
+
+        using var conn = Open(dbPath);
+        conn.Open();
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            $"UPDATE \"{table}\" SET \"Name\" = $name WHERE \"{idColumn}\" = $id;";
+        cmd.Parameters.AddWithValue("$name", name);
+        cmd.Parameters.AddWithValue("$id", req.Id);
+
+        var affected = cmd.ExecuteNonQuery();
+
+        return Ok(new { ok = true, affected });
+    }
 }
