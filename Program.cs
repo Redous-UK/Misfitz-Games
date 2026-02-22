@@ -456,6 +456,12 @@ public static class Program
             });
         });
 
+        app.MapGet("/debug/whoami", (HttpContext ctx) => Results.Ok(new
+        {
+            isAuth = ctx.User?.Identity?.IsAuthenticated == true,
+            claims = ctx.User?.Claims?.Select(c => new { c.Type, c.Value }).ToArray() ?? Array.Empty<object>()
+        }));
+
         app.MapGet("/", context =>
         {
             context.Response.Redirect("/user.html");

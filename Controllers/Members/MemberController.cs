@@ -146,8 +146,10 @@ public class MemberController(AppDbContext db, IRoomStateStore store) : Controll
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new(ClaimTypes.Name, user.Username),
-            new(ClaimTypes.Role, user.Role),
+            new(ClaimTypes.Name, user.Username ?? user.Name ?? ""),
+            new(ClaimTypes.Role, user.Role ?? "member"),
+
+            new Claim("userId", user.Id.ToString())
         };
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
