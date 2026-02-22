@@ -12,9 +12,13 @@ public sealed partial class AdminDbController(IConfiguration config) : Controlle
     // --------- Security gate ----------
     private bool IsAuthorized()
     {
-        // Set ADMIN_SECRET in Render env
+        // Allow bypass via env flag (TEMPORARY)
+        if (_config["ADMIN_DB_NO_AUTH"] == "true")
+            return true;
+
         var expected = _config["ADMIN_SECRET"];
-        if (string.IsNullOrWhiteSpace(expected)) return false;
+        if (string.IsNullOrWhiteSpace(expected))
+            return false;
 
         var provided = Request.Headers["X-Misfitz-Secret"].ToString();
         return FixedTimeEquals(provided, expected);
