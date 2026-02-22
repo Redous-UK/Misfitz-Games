@@ -354,7 +354,7 @@
             sendPresenceForRoom(activeRoomCode).catch(() => { });
         }
 
-        function autoLoadRoomFromStorage() {
+        async function autoLoadRoomFromStorage() {
             const saved = localStorage.getItem("activeRoomCode");
             if (!saved) return false;
             try {
