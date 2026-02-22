@@ -207,6 +207,28 @@ public sealed partial class AdminDbController(IConfiguration config) : Controlle
         return Ok(new { ok = true, affected });
     }
 
+    [HttpPost("/admin/db/fill-null-names")]
+    public IActionResult FillNullNames()
+    {
+        if (!IsAuthorized())
+            return Unauthorized(new { ok = false });
+
+        var dbPath = _config["DB_PATH"] ?? "/data/misfitz.db";
+
+        const string table = "AppUsers"; // 🔴 CHANGE
+
+        using var conn = Open();
+        conn.Open();
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            $"UPDATE \"{table}\" SET \"Name\" = 'Unknown' WHERE \"Name\" IS NULL;";
+
+        var affected = cmd.ExecuteNonQuery();
+
+        return Ok(new { ok = true, affected });
+    }
+
     // --------- Helpers ----------
 
     private static bool IsSafeIdent(string? s) => !string.IsNullOrWhiteSpace(s)
