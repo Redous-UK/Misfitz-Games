@@ -212,10 +212,9 @@ public sealed partial class AdminDbController(IConfiguration config) : Controlle
     {
         if (!IsAuthorized())
             return Unauthorized(new { ok = false });
+        _ = _config["DB_PATH"] ?? "/data/misfitz.db";
 
-        var dbPath = _config["DB_PATH"] ?? "/data/misfitz.db";
-
-        const string table = "AppUsers"; // 🔴 CHANGE
+        const string table = "Users"; // 🔴 CHANGE
 
         using var conn = Open();
         conn.Open();
