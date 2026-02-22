@@ -357,8 +357,15 @@
         function autoLoadRoomFromStorage() {
             const saved = localStorage.getItem("activeRoomCode");
             if (!saved) return false;
-            setActiveRoom(saved);
-            return true;
+            try {
+                // validate
+                await api(`/rooms/${encodeURIComponent(saved)}`);
+                setActiveRoom(saved);
+                return true;
+            } catch {
+                localStorage.removeItem("activeRoomCode");
+                return false;
+            }
         }
 
         async function loadRooms() {
@@ -397,15 +404,15 @@
                     const gl = gameLabel(r);
 
                     return `
-                    <div class="room-tile" data-code="${esc(code)}">
-                      <div class="room-title">${esc(name)}</div>
-                      <div class="room-sub">Code: <b>${esc(code)}</b>${created ? ` • Created: ${esc(created)}` : ""}${pText}</div>
-                      <div class="room-meta">
-                        <span class="room-chip ${isActive ? "active" : ""}">${isActive ? "ACTIVE" : "JOIN"}</span>
-                        <span class="${gl.cls}">${esc(gl.text)}</span>
-                      </div>
-                    </div>
-                  `;
+                                            <div class="room-tile" data-code="${esc(code)}">
+                                              <div class="room-title">${esc(name)}</div>
+                                              <div class="room-sub">Code: <b>${esc(code)}</b>${created ? ` • Created: ${esc(created)}` : ""}${pText}</div>
+                                              <div class="room-meta">
+                                                <span class="room-chip ${isActive ? "active" : ""}">${isActive ? "ACTIVE" : "JOIN"}</span>
+                                                <span class="${gl.cls}">${esc(gl.text)}</span>
+                                              </div>
+                                            </div>
+                                          `;
                 }).join("");
 
                 grid.querySelectorAll(".room-tile[data-code]").forEach(tile => {
@@ -482,20 +489,20 @@
                     : `<span>${esc(initials(name))}</span>`;
 
                 return `
-                  <div class="${cardClasses}">
-                    <div class="avatar">${avatar}</div>
-                    <div class="meta">
-                      <div class="top">
-                        <div class="name">${esc(name)}</div>
-                        <div class="badges">${badges}</div>
-                      </div>
-                      <div class="bottom">
-                        <span class="${pillClass}">${esc(pillText)}</span>
-                        <span class="sub">${esc(p.userId || "")}</span>
-                      </div>
-                    </div>
-                  </div>
-                `;
+                                          <div class="${cardClasses}">
+                                            <div class="avatar">${avatar}</div>
+                                            <div class="meta">
+                                              <div class="top">
+                                                <div class="name">${esc(name)}</div>
+                                                <div class="badges">${badges}</div>
+                                              </div>
+                                              <div class="bottom">
+                                                <span class="${pillClass}">${esc(pillText)}</span>
+                                                <span class="sub">${esc(p.userId || "")}</span>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        `;
             }).join("");
         }
 
@@ -533,6 +540,15 @@
             } catch (e) {
                 if (out) out.textContent = String(e);
             }
+        }
+
+        async function getMyPermanentRoom() {
+            // Only for member/admin (endpoint is authorized by MemberOrAdmin)
+            const r = await api("/member/room");
+            // expected: { ok:true, roomId, roomCode, name }
+            const code = (r?.roomCode || r?.room_code || "").trim();
+            if (!code) throw new Error("/member/room returned no roomCode");
+            return { code, raw: r };
         }
 
         // ----------------------------
@@ -680,11 +696,11 @@
             const header = document.createElement("div");
             header.style.marginBottom = "10px";
             header.innerHTML = `
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-                  <div style="font-weight:700">${esc(schema.title || "Controls")} • <span style="opacity:.8">${esc(gameId)}</span></div>
-                  <button id="resetGameSettingsBtn" class="control-button btn-secondary" style="width:auto;padding:8px 10px;">Reset</button>
-                </div>
-              `;
+                                        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+                                          <div style="font-weight:700">${esc(schema.title || "Controls")} • <span style="opacity:.8">${esc(gameId)}</span></div>
+                                          <button id="resetGameSettingsBtn" class="control-button btn-secondary" style="width:auto;padding:8px 10px;">Reset</button>
+                                        </div>
+                                      `;
             host.appendChild(header);
 
             header.querySelector("#resetGameSettingsBtn").addEventListener("click", () => {
@@ -980,7 +996,18 @@
             await loadGames();
             await loadRooms();
 
-            autoLoadRoomFromStorage();
+            if (isMemberOrAdmin(applyRoleUI(role))) {
+                try {
+                    const mine = await getMyPermanentRoom();
+                    setActiveRoom(mine.code);
+                    localStorage.setItem("activeRoomCode", mine.code);
+                } catch (e) {
+                    console.warn("Failed to fetch permanent room; falling back to storage:", e);
+                    autoLoadRoomFromStorage();
+                }
+            } else {
+                autoLoadRoomFromStorage();
+            }
             startPolling();
         }
 
