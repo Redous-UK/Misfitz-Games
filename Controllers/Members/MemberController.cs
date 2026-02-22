@@ -151,9 +151,11 @@ public class MemberController(AppDbContext db, IRoomStateStore store) : Controll
         };
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var principal = new ClaimsPrincipal(identity);
+
         await HttpContext.SignInAsync(
             CookieAuthenticationDefaults.AuthenticationScheme,
-            new ClaimsPrincipal(identity),
+            principal,
             new AuthenticationProperties { IsPersistent = true }
         );
 
