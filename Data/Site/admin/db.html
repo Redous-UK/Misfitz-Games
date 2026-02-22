@@ -1,0 +1,168 @@
+﻿<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Misfitz — Admin DB</title>
+    <link rel="stylesheet" href="/site2.css" />
+</head>
+<body class="mgHubBody">
+    <header class="mgTopbar">
+        <div class="mgBrand">
+            <div class="mgLogo" aria-hidden="true">M</div>
+            <div>
+                <div class="mgTitle">Misfitz Games</div>
+                <div class="mgSub muted">Admin — Database</div>
+            </div>
+        </div>
+        <div class="mgTopRight">
+            <span id="statusBadge" class="badge warn">Not connected</span>
+            <a class="btn" href="/user.html">Account</a>
+        </div>
+    </header>
+
+    <div class="mgHub" style="grid-template-columns: 320px 1fr;">
+        <aside class="mgCol">
+            <div class="mgCard">
+                <div class="mgCardTitle">Admin Secret</div>
+                <div class="muted" style="margin:8px 0 10px;">Stored only in this browser (localStorage).</div>
+                <input id="secret" class="input" placeholder="Paste ADMIN secret…" />
+                <div class="row" style="margin-top:10px; gap:8px;">
+                    <button id="btnSave" class="btn" type="button">Save</button>
+                    <button id="btnLoad" class="btn" type="button">Load</button>
+                    <button id="btnClear" class="btn danger" type="button">Clear</button>
+                </div>
+                <hr class="mgHr" />
+                <div class="mgCardTitle">Tables</div>
+                <div id="tables" class="list"></div>
+            </div>
+        </aside>
+
+        <main class="mgCol">
+            <div class="mgCard">
+                <div class="row" style="justify-content:space-between; align-items:center;">
+                    <div>
+                        <div class="mgCardTitle">Table</div>
+                        <div id="tableMeta" class="muted">Select a table…</div>
+                    </div>
+                    <div class="row" style="gap:8px;">
+                        <button id="btnRefresh" class="btn" type="button" disabled>Refresh</button>
+                        <button id="btnAddName" class="btn" type="button" disabled>Add Name column</button>
+                    </div>
+                </div>
+
+                <div style="margin-top:12px;">
+                    <div class="mgCardTitle">Schema</div>
+                    <pre id="schemaOut" class="code">—</pre>
+                </div>
+
+                <div style="margin-top:12px;">
+                    <div class="row" style="justify-content:space-between; align-items:center;">
+                        <div class="mgCardTitle">Rows</div>
+                        <div class="row" style="gap:8px; align-items:center;">
+                            <input id="limit" class="input" style="width:90px;" value="50" />
+                            <input id="offset" class="input" style="width:110px;" value="0" />
+                            <button id="btnLoadRows" class="btn" type="button" disabled>Load</button>
+                        </div>
+                    </div>
+                    <pre id="rowsOut" class="code">—</pre>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+  const el = (id) => document.getElementById(id);
+  const pretty = (x) => JSON.stringify(x, null, 2);
+
+  function secret() { return (el("secret").value || "").trim(); }
+
+  async function api(path, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign({}, opts.headers || {}, {
+      "X-Misfitz-Secret": secret()
+    });
+
+    const res = await fetch(path, opts);
+    const text = await res.text();
+    let json;
+    try { json = JSON.parse(text); } catch { json = { ok:false, raw:text }; }
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${text}`);
+    return json;
+  }
+
+  let currentTable = null;
+
+  async function loadOverview() {
+    try {
+      el("statusBadge").className = "badge warn";
+      el("statusBadge").textContent = "Loading…";
+
+      const ov = await api("/admin/db/overview");
+      el("statusBadge").className = "badge ok";
+      el("statusBadge").textContent = "Connected";
+
+      const list = el("tables");
+      list.innerHTML = "";
+      for (const t of (ov.tables || [])) {
+        const btn = document.createElement("button");
+        btn.className = "btn";
+        btn.style.width = "100%";
+        btn.style.marginTop = "8px";
+        btn.textContent = t.name;
+        btn.onclick = () => selectTable(t.name);
+        list.appendChild(btn);
+      }
+    } catch (e) {
+      el("statusBadge").className = "badge warn";
+      el("statusBadge").textContent = "Not connected";
+      console.error(e);
+      alert(String(e));
+    }
+  }
+
+  async function selectTable(name) {
+    currentTable = name;
+    el("btnRefresh").disabled = false;
+    el("btnAddName").disabled = false;
+    el("btnLoadRows").disabled = false;
+    await refreshTable();
+  }
+
+  async function refreshTable() {
+    if (!currentTable) return;
+    const s = await api(`/admin/db/schema?table=${encodeURIComponent(currentTable)}`);
+    el("tableMeta").textContent = `${s.table} • ${s.rowCount} rows`;
+    el("schemaOut").textContent = pretty(s.columns);
+  }
+
+  async function loadRows() {
+    if (!currentTable) return;
+    const limit = parseInt(el("limit").value || "50", 10);
+    const offset = parseInt(el("offset").value || "0", 10);
+    const r = await api(`/admin/db/rows?table=${encodeURIComponent(currentTable)}&limit=${limit}&offset=${offset}`);
+    el("rowsOut").textContent = pretty(r.rows);
+  }
+
+  async function addNameColumn() {
+    if (!currentTable) return;
+    const r = await api(`/admin/db/migrate/add-name-column?table=${encodeURIComponent(currentTable)}`, { method: "POST" });
+    alert(r.message || "Done");
+    await refreshTable();
+  }
+
+  el("btnSave").onclick = () => localStorage.setItem("mg_admin_secret", secret());
+  el("btnLoad").onclick = () => el("secret").value = localStorage.getItem("mg_admin_secret") || "";
+  el("btnClear").onclick = () => { localStorage.removeItem("mg_admin_secret"); el("secret").value = ""; };
+
+  el("btnRefresh").onclick = refreshTable;
+  el("btnLoadRows").onclick = loadRows;
+  el("btnAddName").onclick = addNameColumn;
+
+  // auto-load secret and overview
+  el("secret").value = localStorage.getItem("mg_admin_secret") || "";
+  loadOverview();
+    </script>
+</body>
+</html>
