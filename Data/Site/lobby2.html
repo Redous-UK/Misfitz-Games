@@ -7,11 +7,11 @@
     <link rel="stylesheet" href="/site2.css" />
 </head>
 
-<body class="mgHubBody">
+<body class="mgHubBody" data-page="lobby2">
     <!-- Top bar -->
     <header class="mgTopbar">
         <div class="mgBrand">
-            <div class="mgLogo">M</div>
+            <div class="mgLogo" aria-hidden="true">M</div>
             <div>
                 <div class="mgTitle">Misfitz Games</div>
                 <div class="mgSub muted">Lobby</div>
@@ -20,6 +20,18 @@
 
         <div class="mgTopRight">
             <span id="statusBadge" class="badge warn">Not connected</span>
+
+            <!-- Settings lives in the header so it doesn’t float over the layout -->
+            <button id="settingsBtn"
+                    class="btn"
+                    type="button"
+                    title="Settings"
+                    aria-haspopup="dialog"
+                    aria-controls="settingsPanel"
+                    aria-expanded="false">
+                ⚙ Settings
+            </button>
+
             <a class="btn" href="/user.html">Account</a>
         </div>
     </header>
@@ -44,7 +56,7 @@
                 </div>
 
                 <div class="mgCardActions" style="margin-top:14px;">
-                    <button id="btnRefreshMe" class="btn">Refresh</button>
+                    <button id="btnRefreshMe" class="btn" type="button">Refresh</button>
                     <a class="btn" href="/overlay.html">Overlay</a>
                     <a class="btn" href="/effects-dashboard.html">Effects</a>
                 </div>
@@ -62,15 +74,15 @@
                 <div class="mgCardHeader">
                     <div class="sectionTitle">ROOM LOBBY</div>
                     <div class="row" style="gap:8px;">
-                        <button id="btnRefreshRooms" class="btn">Refresh</button>
+                        <button id="btnRefreshRooms" class="btn" type="button">Refresh</button>
                     </div>
                 </div>
 
                 <div class="mgJoinRow">
-                    <input id="roomRef" class="grow" placeholder="Room code (e.g. 48392017 or MISFITZ1)" />
+                    <input id="roomRef" class="grow" placeholder="Room code (e.g. 48392017 or MISFITZ1)" autocomplete="off" />
                     <input id="username" placeholder="Your name" autocomplete="off" />
-                    <button id="btnJoin" class="btn primary">Join</button>
-                    <button id="btnLeave" class="btn" disabled>Leave</button>
+                    <button id="btnJoin" class="btn primary" type="button">Join</button>
+                    <button id="btnLeave" class="btn" type="button" disabled>Leave</button>
                 </div>
 
                 <div id="roomStateLine" class="muted" style="margin-top:10px;">—</div>
@@ -87,7 +99,7 @@
                     <div class="mgCardSub">
                         <div class="mgCardSubHeader">
                             <div class="sectionTitle">ROOMS</div>
-                            <input id="roomSearch" class="mgSearch" placeholder="Search rooms…" />
+                            <input id="roomSearch" class="mgSearch" placeholder="Search rooms…" autocomplete="off" />
                         </div>
                         <div id="roomsList" class="mgList" style="margin-top:10px;"></div>
                     </div>
@@ -101,11 +113,11 @@
                 <div class="mgCardHeader">
                     <div class="sectionTitle">GAME LOBBY</div>
                     <div class="row" style="gap:8px;">
-                        <button id="btnRefreshGames" class="btn">Refresh</button>
+                        <button id="btnRefreshGames" class="btn" type="button">Refresh</button>
                     </div>
                 </div>
 
-                <input id="gameSearch" class="mgSearch" placeholder="Search games…" />
+                <input id="gameSearch" class="mgSearch" placeholder="Search games…" autocomplete="off" />
 
                 <div id="gamesGrid" class="mgGamesGrid" style="margin-top:10px;"></div>
 
@@ -119,21 +131,15 @@
         </aside>
     </div>
 
-    <!-- Settings button (place wherever you want in your header/top row) -->
-    <button id="settingsBtn" class="btn" type="button" title="Settings">
-        ⚙ Settings
-    </button>
-
     <!-- Drawer overlay + panel -->
     <div id="settingsOverlay" class="settingsOverlay hidden" aria-hidden="true">
-        <div id="settingsPanel" class="settingsPanel" role="dialog" aria-modal="true" aria-label="Settings">
+        <div id="settingsPanel" class="settingsPanel" role="dialog" aria-modal="true" aria-label="Settings" tabindex="-1">
             <div class="settingsHeader">
                 <div class="settingsTitle">Settings</div>
                 <button id="settingsCloseBtn" class="btn ghost" type="button" aria-label="Close">✕</button>
             </div>
 
             <div class="settingsBody">
-                <!-- Put your actual settings UI here -->
                 <div class="muted" style="margin-bottom:10px;">
                     Lobby options & quick tools.
                 </div>
@@ -165,8 +171,8 @@
                 </div>
 
                 <div class="row" style="margin-top:10px;">
-                    <button class="btn" id="btnClearLocal">Clear local data</button>
-                    <button class="btn" id="btnLogout">Log out</button>
+                    <button class="btn" id="btnClearLocal" type="button">Clear local data</button>
+                    <button class="btn" id="btnLogout" type="button">Log out</button>
                 </div>
             </div>
         </div>

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Misfitz_Games.Models;
 using Misfitz_Games.Services.Room;
 
@@ -7,8 +8,9 @@ namespace Misfitz_Games.Controllers.Rooms;
 [ApiController]
 public class RoomsController(IRoomStateStore store, RoomBroadcastService broadcaster) : ControllerBase
 {
-    [HttpPost("/rooms")]
-    public async Task<IActionResult> Create([FromBody] RoomCreateRequest req, CancellationToken ct)
+    /*[HttpPost("/rooms")]
+    [Authorize(Policy = "MemberOrAdmin")]
+    public async Task<IActionResult> CreateRoom(CreateRoomRequest req)
     {
         if (string.IsNullOrWhiteSpace(req.Name))
             return BadRequest(new { ok = false, error = "Name is required" });
@@ -77,7 +79,7 @@ public class RoomsController(IRoomStateStore store, RoomBroadcastService broadca
         }
 
         return Ok(room);
-    }
+    } */
 
     [HttpGet("/rooms")]
     public async Task<IActionResult> List(CancellationToken ct)

@@ -48,3 +48,20 @@ public sealed record IdleRoomCandidate(
     string ActiveGame,
     string Reason
 );
+
+public sealed record Room(
+     Guid Id,
+     string Code,
+     long OwnerUserId,
+     string Name,
+     DateTime CreatedUtc,
+     DateTime LastActiveUtc
+)
+{
+    public AppUser Owner { get; init; } = null!;
+};
+
+public sealed record AppUser(
+    long Id,
+    string Username
+);

@@ -14,6 +14,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<EffectTarget> EffectTargets => Set<EffectTarget>();
     public DbSet<TuyaAccountLink> TuyaLinks => Set<TuyaAccountLink>();
     public DbSet<TikTokAccountLink> TikTokLinks => Set<TikTokAccountLink>();
+    public DbSet<Room> Rooms => Set<Room>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -57,5 +58,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<TikTokAccountLink>()
             .HasIndex(x => x.UserId)
             .IsUnique();
+
+        modelBuilder.Entity<Room>(e =>
+        {
+            e.HasKey(x => new { x.Id });
+            e.HasIndex(x => new { x.OwnerUserId, x.Code }).IsUnique();
+            e.Property(x => x.Code).HasMaxLength(16);
+            e.Property(x => x.Name).HasMaxLength(64);
+            e.HasOne(x => x.Owner)
+                .WithMany()
+                .HasForeignKey(x => x.OwnerUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
     }
 }

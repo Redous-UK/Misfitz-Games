@@ -1,11 +1,15 @@
-﻿// ----------------------------
+﻿// lobby.js (fixed for lobby2.html)
+// Works with the IDs in lobby2.html you pasted.
+// Safe to include on other pages: all bindings are null-guarded.
+
+// ----------------------------
 // Helpers
 // ----------------------------
 const el = (id) => document.getElementById(id);
 
 function onClick(id, handler) {
     const node = el(id);
-    if (!node) { console.warn(`[bind] missing #${id}`); return false; }
+    if (!node) return false;
     node.addEventListener("click", handler);
     return true;
 }
@@ -37,9 +41,17 @@ function initials(name) {
     return (a + b).toUpperCase();
 }
 
-async function api(path, opts = {}) {
-    console.log("API:", path, opts);
+function setText(id, text) {
+    const n = el(id);
+    if (n) n.textContent = text;
+}
 
+function setHtml(id, html) {
+    const n = el(id);
+    if (n) n.innerHTML = html;
+}
+
+async function api(path, opts = {}) {
     const fetchOpts = {
         credentials: "include",
         ...opts,
@@ -49,39 +61,29 @@ async function api(path, opts = {}) {
         },
     };
 
-    try {
-        const res = await fetch(path, fetchOpts);
-        console.log("FETCH RES", res.status, res.statusText, "for", path);
+    const res = await fetch(path, fetchOpts);
+    const text = await res.text();
+    let payload = null;
 
-        const text = await res.text();
-        let payload = null;
-
-        if (text) {
-            try { payload = JSON.parse(text); }
-            catch { payload = { _nonJson: true, raw: text }; }
+    if (text) {
+        try {
+            payload = JSON.parse(text);
+        } catch {
+            payload = { _nonJson: true, raw: text };
         }
+    }
 
-        if (!res.ok) {
-            console.error("API ERROR:", { path, status: res.status, statusText: res.statusText, payload, text });
-
-            const msg =
-                payload?.error ||
-                payload?.message ||
-                `HTTP ${res.status} ${res.statusText} @ ${path}`;
-
-            const err = new Error(msg);
-            err.status = res.status;
-            err.path = path;
-            err.payload = payload;
-            err.raw = text;
-            throw err;
-        }
-
-        return payload;
-    } catch (err) {
-        console.error("FETCH FAILED:", { path, name: err?.name, message: err?.message, err });
+    if (!res.ok) {
+        const msg = payload?.error || payload?.message || `HTTP ${res.status} ${res.statusText} @ ${path}`;
+        const err = new Error(msg);
+        err.status = res.status;
+        err.path = path;
+        err.payload = payload;
+        err.raw = text;
         throw err;
     }
+
+    return payload;
 }
 
 // ----------------------------
@@ -94,10 +96,11 @@ let myRole = null;
 let activeRoomCode = null;
 let currentRoomState = null;
 
-let selectedGameId = "contexto";
-const gameSettings = {}; // per-game settings store
-
+let selectedGameId = null;
 let pollHandle = null;
+
+// To prevent duplicate init if script is included twice
+let __didInit = false;
 
 // ----------------------------
 // Drawer (settings panel)
@@ -108,25 +111,28 @@ function wireSettingsPanel() {
     const panel = el("settingsPanel");
     const closeBtn = el("settingsCloseBtn");
 
-    if (!btn || !overlay || !panel || !closeBtn) {
-        console.warn("[drawer] missing elements", { btn, overlay, panel, closeBtn });
-        return false; // IMPORTANT: don't throw / don't stop init
-    }
+    if (!btn || !overlay || !panel || !closeBtn) return false;
 
     const open = () => {
         overlay.classList.remove("hidden");
         overlay.setAttribute("aria-hidden", "false");
-        // focus close for accessibility
-        closeBtn.focus?.();
+        btn.setAttribute("aria-expanded", "true");
+        // focus panel for accessibility
+        panel.focus?.();
     };
 
     const close = () => {
         overlay.classList.add("hidden");
         overlay.setAttribute("aria-hidden", "true");
+        btn.setAttribute("aria-expanded", "false");
         btn.focus?.();
     };
 
-    btn.addEventListener("click", open);
+    btn.addEventListener("click", () => {
+        const isHidden = overlay.classList.contains("hidden");
+        isHidden ? open() : close();
+    });
+
     closeBtn.addEventListener("click", close);
 
     // click outside panel closes
@@ -139,18 +145,38 @@ function wireSettingsPanel() {
         if (e.key === "Escape" && !overlay.classList.contains("hidden")) close();
     });
 
-    // Optional: hook buttons if present
+    // Settings options
+    const optAutoJoin = el("optAutoJoin");
+    if (optAutoJoin) {
+        const v = localStorage.getItem("opt:autoJoin");
+        optAutoJoin.checked = v === "1";
+        optAutoJoin.addEventListener("change", () => {
+            localStorage.setItem("opt:autoJoin", optAutoJoin.checked ? "1" : "0");
+        });
+    }
+
+    const optReconnect = el("optReconnect");
+    if (optReconnect) {
+        const v = localStorage.getItem("opt:reconnect");
+        optReconnect.checked = v !== "0"; // default on
+        optReconnect.addEventListener("change", () => {
+            localStorage.setItem("opt:reconnect", optReconnect.checked ? "1" : "0");
+        });
+    }
+
     el("btnClearLocal")?.addEventListener("click", () => {
         try {
             localStorage.removeItem("roomId");
             localStorage.removeItem("username");
+            localStorage.removeItem("activeRoomCode");
         } catch { }
-        toast?.("Cleared local data");
+        setText("out", "Cleared local data.");
     });
 
     el("btnLogout")?.addEventListener("click", async () => {
-        // Adjust to your real logout endpoint if you have one
-        try { await fetch("/member/logout", { method: "POST" }); } catch { }
+        try {
+            await api("/member/logout", { method: "POST" });
+        } catch { }
         location.href = "/user.html";
     });
 
@@ -158,45 +184,31 @@ function wireSettingsPanel() {
 }
 
 // ----------------------------
-// Role UI
-// ----------------------------
-function applyRoleUI(role) {
-    const r = String(role || "").toLowerCase();
-    const isAdmin = r === "admin";
-    const isMember = r === "member" || r === "admin";
-
-    const btnAdmin = el("btnAdmin");
-    if (btnAdmin) btnAdmin.style.display = isAdmin ? "" : "none";
-
-    const btnStart = el("btnStart");
-    const btnStop = el("btnStop");
-    if (btnStart) btnStart.style.display = isMember ? "" : "none";
-    if (btnStop) btnStop.style.display = isMember ? "" : "none";
-}
-
-// ----------------------------
 // Auth
 // ----------------------------
+function applyRoleUI(role) {
+    // lobby2.html doesn’t currently have admin/start/stop buttons,
+    // but keep this for future expansion.
+    const r = String(role || "").toLowerCase();
+    const isAdmin = r === "admin";
+    const roleLabel = el("roleLabel");
+    if (roleLabel) roleLabel.textContent = role ? String(role) : "—";
 
-function updateAdminLink(me) {
-    const a = document.getElementById("adminLink");
-    if (!a) return;
-
-    const isAdmin = me?.isAuth && (me?.role || "").toLowerCase() === "admin";
-    a.classList.toggle("hidden", !isAdmin);
-    a.href = "/admin";
+    // If you add an admin link later, it can be toggled here.
+    const adminLink = el("adminLink");
+    if (adminLink) adminLink.classList.toggle("hidden", !isAdmin);
 }
 
 async function refreshMe() {
     const me = await api("/member/me");
 
-    const authOut = el("authOut");
-    if (authOut) authOut.textContent = pretty(me);
+    // Lobby2 uses #out for quick output
+    setText("out", pretty(me));
 
     const meLabel = el("meLabel");
     if (meLabel) {
         meLabel.textContent = me.isAuth
-            ? `👤 ${me.name ?? "Signed in"} (${me.role ?? "user"})`
+            ? `👤 ${me.name ?? "Signed in"}`
             : "Not logged in";
     }
 
@@ -209,12 +221,11 @@ async function refreshMe() {
     // keep username box in sync (no forced overwrite if user typed)
     const u = el("username");
     if (u && (!u.value || u.value.trim().length === 0)) {
-        u.value = myName || "";
+        // Prefer stored username (guest style) then account name
+        u.value = localStorage.getItem("username") || myName || "";
     }
 
     applyRoleUI(myRole);
-    updateAdminLink(me);
-    syncActionButtons();
     return me;
 }
 
@@ -229,85 +240,156 @@ function setActiveRoom(code) {
     const c = (code || "").trim();
     activeRoomCode = c || null;
 
-    const pill = el("activeRoomPill");
-    if (pill) pill.textContent = activeRoomCode ? `Room: ${activeRoomCode}` : "Room: (none)";
+    // Persist under the key your settings text mentions
+    if (activeRoomCode) localStorage.setItem("roomId", activeRoomCode);
 
-    const btnOverlay = el("btnOpenOverlay");
-    if (btnOverlay) btnOverlay.disabled = !activeRoomCode;
-    if (activeRoomCode) localStorage.setItem("activeRoomCode", activeRoomCode);
+    // Update UI
+    const badge = el("roomBadge");
+    if (badge) badge.textContent = activeRoomCode ? activeRoomCode : "—";
 
-    refreshState().catch(console.warn);
-    refreshLeaderboard().catch(console.warn);
+    const stateLine = el("roomStateLine");
+    if (stateLine) stateLine.textContent = activeRoomCode ? `Active room: ${activeRoomCode}` : "—";
+
+    // Toggle join/leave
+    const btnLeave = el("btnLeave");
+    const btnJoin = el("btnJoin");
+    if (btnLeave) btnLeave.disabled = !activeRoomCode;
+    if (btnJoin) btnJoin.disabled = false;
+
+    // Refresh panels
+    refreshState().catch(() => { });
     startPolling();
-    syncActionButtons();
-    sendPresenceForRoom(activeRoomCode).catch(() => { });
 }
 
 function autoLoadRoomFromStorage() {
-    const saved = localStorage.getItem("activeRoomCode");
+    const allow = localStorage.getItem("opt:autoJoin") === "1";
+    if (!allow) return false;
+
+    const saved = localStorage.getItem("roomId") || localStorage.getItem("activeRoomCode");
     if (!saved) return false;
+
+    const roomRef = el("roomRef");
+    if (roomRef && !roomRef.value) roomRef.value = saved;
+
     setActiveRoom(saved);
     return true;
 }
 
-async function loadRooms() {
-    const grid = el("roomsGrid");
-    if (!grid) return;
+function filterList(containerId, query) {
+    const host = el(containerId);
+    if (!host) return;
+    const q = String(query || "").trim().toLowerCase();
+    host.querySelectorAll("[data-filter]").forEach((row) => {
+        const text = String(row.getAttribute("data-filter") || "").toLowerCase();
+        row.style.display = !q || text.includes(q) ? "" : "none";
+    });
+}
 
-    grid.innerHTML = `<div class="muted">Loading rooms…</div>`;
+async function loadRooms() {
+    const host = el("roomsList");
+    if (!host) return;
+
+    host.innerHTML = `<div class="muted">Loading rooms…</div>`;
 
     try {
         const payload = await api("/rooms");
         const rooms = Array.isArray(payload) ? payload : (payload?.rooms ?? []);
 
         if (!Array.isArray(rooms) || rooms.length === 0) {
-            grid.innerHTML = `<div class="muted">No rooms yet.</div>`;
+            host.innerHTML = `<div class="muted">No rooms yet.</div>`;
             return;
         }
 
         rooms.sort((a, b) => String(b.createdAtUtc || "").localeCompare(String(a.createdAtUtc || "")));
 
-        const gameLabel = (r) => {
-            if (r?.hasActiveGame) {
-                const g = String(r.activeGame || "").trim();
-                return { text: g ? `🎮 ${g}` : "🎮 Active", cls: "room-chip game active" };
-            }
-            return { text: "No game", cls: "room-chip game idle" };
-        };
+        host.innerHTML = rooms
+            .map((r) => {
+                const code = r.roomCode ?? r.code ?? "";
+                const name = r.name ?? "Room";
+                const isActive = activeRoomCode && activeRoomCode === code;
 
-        grid.innerHTML = rooms.map(r => {
-            const code = r.roomCode ?? "";
-            const name = r.name ?? "Room";
-            const created = r.createdAtUtc ? new Date(r.createdAtUtc).toLocaleString() : "";
-            const isActive = activeRoomCode && activeRoomCode === code;
+                const players = Number.isFinite(r.playerCount) ? r.playerCount : null;
+                const pText = players === null ? "" : ` • 👥 ${players}`;
 
-            const players = Number.isFinite(r.playerCount) ? r.playerCount : null;
-            const pText = players === null ? "" : ` • 👥 ${players}`;
-            const gl = gameLabel(r);
+                const hasActiveGame = !!r.hasActiveGame;
+                const gameText = hasActiveGame
+                    ? `🎮 ${esc(String(r.activeGame || "Active"))}`
+                    : "No game";
 
-            return `
-                <div class="room-tile" data-code="${esc(code)}">
-                  <div class="room-title">${esc(name)}</div>
-                  <div class="room-sub">Code: <b>${esc(code)}</b>${created ? ` • Created: ${esc(created)}` : ""}${pText}</div>
-                  <div class="room-meta">
-                    <span class="room-chip ${isActive ? "active" : ""}">${isActive ? "ACTIVE" : "JOIN"}</span>
-                    <span class="${gl.cls}">${esc(gl.text)}</span>
-                  </div>
-                </div>
-              `;
-        }).join("");
+                return `
+          <div class="mgRow" data-code="${esc(code)}" data-filter="${esc(name)} ${esc(code)}">
+            <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;">
+              <div>
+                <div style="font-weight:800">${esc(name)}</div>
+                <div class="muted" style="font-size:12px">Code: <b>${esc(code)}</b>${pText}</div>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <span class="chip ${isActive ? "" : "subtle"}">${isActive ? "ACTIVE" : "JOIN"}</span>
+                <span class="chip subtle">${gameText}</span>
+              </div>
+            </div>
+          </div>
+        `;
+            })
+            .join("");
 
-        grid.querySelectorAll(".room-tile[data-code]").forEach(tile => {
-            tile.addEventListener("click", () => {
-                const code = tile.getAttribute("data-code");
+        host.querySelectorAll("[data-code]").forEach((row) => {
+            row.addEventListener("click", () => {
+                const code = row.getAttribute("data-code");
                 if (!code) return;
                 setActiveRoom(code);
             });
         });
 
+        // apply search filter if present
+        const q = el("roomSearch")?.value;
+        filterList("roomsList", q);
     } catch (e) {
-        grid.innerHTML = `<div class="muted">Failed to load rooms: ${esc(String(e))}</div>`;
+        host.innerHTML = `<div class="muted">Failed to load rooms: ${esc(String(e?.message || e))}</div>`;
     }
+}
+
+async function joinRoom() {
+    const code = String(el("roomRef")?.value || "").trim();
+    const name = String(el("username")?.value || "").trim();
+
+    if (!code) return alert("Enter a room code.");
+    if (!name) return alert("Enter a name.");
+
+    localStorage.setItem("roomId", code);
+    localStorage.setItem("username", name);
+
+    // Best-effort join endpoint (if present). Even if it fails, we still set active room.
+    try {
+        await api(`/rooms/${encodeURIComponent(code)}/join`, {
+            method: "POST",
+            body: JSON.stringify({ name }),
+        });
+    } catch (e) {
+        // Not all deployments have /join; don’t block UX.
+        console.warn("join endpoint failed (continuing):", e);
+    }
+
+    setActiveRoom(code);
+}
+
+async function leaveRoom() {
+    const code = roomId();
+    if (!code) return;
+
+    try {
+        await api(`/rooms/${encodeURIComponent(code)}/leave`, { method: "POST" });
+    } catch (e) {
+        console.warn("leave endpoint failed:", e);
+    }
+
+    activeRoomCode = null;
+    setText("roomStateLine", "—");
+    setText("roomBadge", "—");
+    setHtml("playersList", "");
+
+    const btnLeave = el("btnLeave");
+    if (btnLeave) btnLeave.disabled = true;
 }
 
 // ----------------------------
@@ -326,7 +408,7 @@ async function sendPresenceForRoom(code) {
 // Players render
 // ----------------------------
 function renderPlayers(roomState, currentUserId) {
-    const container = el("playerList");
+    const container = el("playersList");
     if (!container) return;
 
     const hostId = pick(roomState, "hostUserId", "HostUserId");
@@ -334,7 +416,7 @@ function renderPlayers(roomState, currentUserId) {
     const arr = Array.isArray(players) ? players : [];
 
     if (!arr.length) {
-        container.innerHTML = `<div class="muted">No players yet — select a room and open play to appear.</div>`;
+        container.innerHTML = `<div class="muted">No players yet.</div>`;
         return;
     }
 
@@ -343,62 +425,53 @@ function renderPlayers(roomState, currentUserId) {
         const bHost = p2.userId === hostId ? -1 : 0;
         if (aHost !== bHost) return aHost - bHost;
 
-        const aReady = p1.isReady ? -1 : 0;
-        const bReady = p2.isReady ? -1 : 0;
-        if (aReady !== bReady) return aReady - bReady;
-
         return String(p1.name || "").localeCompare(String(p2.name || ""));
     });
 
-    container.innerHTML = sorted.map(p => {
-        const name = p.name ?? "Player";
-        const isHost = p.userId === hostId;
-        const isYou = currentUserId && p.userId === currentUserId;
-        const connected = p.isConnected !== false;
-        const ready = !!p.isReady;
+    container.innerHTML = sorted
+        .map((p) => {
+            const name = p.name ?? "Player";
+            const isHost = p.userId === hostId;
+            const isYou = currentUserId && p.userId === currentUserId;
+            const connected = p.isConnected !== false;
 
-        const cardClasses = ["player-card", !connected ? "is-disconnected" : ""].filter(Boolean).join(" ");
-        const pillClass = connected ? (ready ? "pill-sm ready" : "pill-sm wait") : "pill-sm off";
-        const pillText = connected ? (ready ? "Ready" : "Not ready") : "Disconnected";
+            const badges = [
+                isHost ? `<span class="chip">HOST</span>` : "",
+                isYou ? `<span class="chip subtle">YOU</span>` : "",
+                !connected ? `<span class="chip subtle">OFFLINE</span>` : "",
+            ]
+                .filter(Boolean)
+                .join(" ");
 
-        const badges = [
-            isHost ? `<span class="player-badge host">HOST</span>` : "",
-            isYou ? `<span class="player-badge you">YOU</span>` : ""
-        ].filter(Boolean).join("");
+            const avatar = p.avatarUrl
+                ? `<img src="${esc(p.avatarUrl)}" alt="avatar" />`
+                : `<span>${esc(initials(name))}</span>`;
 
-        const avatar = p.avatarUrl
-            ? `<img src="${esc(p.avatarUrl)}" alt="avatar" />`
-            : `<span>${esc(initials(name))}</span>`;
-
-        return `
-              <div class="${cardClasses}">
-                <div class="avatar">${avatar}</div>
-                <div class="meta">
-                  <div class="top">
-                    <div class="name">${esc(name)}</div>
-                    <div class="badges">${badges}</div>
-                  </div>
-                  <div class="bottom">
-                    <span class="${pillClass}">${esc(pillText)}</span>
-                    <span class="sub">${esc(p.userId || "")}</span>
-                  </div>
-                </div>
+            return `
+        <div class="mgRow" data-filter="${esc(name)} ${esc(p.userId || "")}">
+          <div style="display:flex;gap:10px;align-items:center;">
+            <div class="avatar">${avatar}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
+                <div style="font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(name)}</div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">${badges}</div>
               </div>
-            `;
-    }).join("");
+              <div class="muted" style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(p.userId || "")}</div>
+            </div>
+          </div>
+        </div>
+      `;
+        })
+        .join("");
 }
 
 // ----------------------------
-// Room state / leaderboard
+// Room state
 // ----------------------------
 async function refreshState() {
     const code = roomId();
-    const stateOut = el("stateOut");
-    const playerList = el("playerList");
-
     if (!code) {
-        if (stateOut) stateOut.textContent = "Pick a room to see state.";
-        if (playerList) playerList.innerHTML = `<div class="muted">Pick a room to see players.</div>`;
+        setHtml("playersList", `<div class="muted">Pick a room to see players.</div>`);
         return;
     }
 
@@ -406,43 +479,46 @@ async function refreshState() {
     const state = raw?.state ?? raw;
 
     currentRoomState = state;
-    if (stateOut) stateOut.textContent = pretty(raw);
+
+    // Update room line
+    const game = pick(state, "activeGame", "ActiveGame");
+    const updated = pick(state, "updatedAtUtc", "UpdatedAtUtc");
+    const t = updated ? new Date(updated).toLocaleString() : "";
+    setText("roomStateLine", `Active room: ${code}${game ? ` • Game: ${game}` : ""}${t ? ` • Updated: ${t}` : ""}`);
 
     renderPlayers(state, myUserId);
 }
 
-async function refreshLeaderboard() {
-    const code = roomId();
-    const out = el("gameOut");
-    if (!code) return;
-
-    try {
-        const lb = await api(`/rooms/${encodeURIComponent(code)}/leaderboard`);
-        if (out) out.textContent = pretty(lb);
-    } catch (e) {
-        if (out) out.textContent = String(e);
-    }
-}
-
 // ----------------------------
-// Games UI
+// Games
 // ----------------------------
-function setSelectedGame(id) {
+function setSelectedGame(id, gameObj) {
     selectedGameId = id;
 
-    document.querySelectorAll(".game-tile.is-selected").forEach(x => x.classList.remove("is-selected"));
+    document.querySelectorAll(".game-tile.is-selected").forEach((x) => x.classList.remove("is-selected"));
     const tile = document.querySelector(`.game-tile[data-game="${CSS.escape(id)}"]`);
     if (tile) tile.classList.add("is-selected");
 
-    renderControlPanel(id);
-    syncActionButtons();
+    // Update Active Game card
+    const card = el("activeGameCard");
+    if (card) {
+        if (!gameObj) {
+            card.textContent = `Selected: ${id}`;
+        } else {
+            card.innerHTML = `
+        <div style="font-weight:900">${esc(gameObj.name || id)}</div>
+        <div class="muted" style="margin-top:4px;">${esc(gameObj.description || "")}</div>
+        <div class="muted" style="margin-top:8px;font-size:12px;">Game id: <b>${esc(id)}</b></div>
+      `;
+        }
+    }
 }
 
 async function loadGames() {
     const grid = el("gamesGrid");
     if (!grid) return;
 
-    grid.innerHTML = "";
+    grid.innerHTML = `<div class="muted">Loading games…</div>`;
 
     const payload = await api("/catalog/games");
     const games = payload?.games;
@@ -450,6 +526,8 @@ async function loadGames() {
         grid.innerHTML = `<div class="muted">Invalid games payload.</div>`;
         return;
     }
+
+    grid.innerHTML = "";
 
     for (const item of games) {
         const tile = document.createElement("div");
@@ -494,304 +572,32 @@ async function loadGames() {
 
         tile.addEventListener("click", () => {
             if (!item.enabled) return;
-            setSelectedGame(item.id);
+            setSelectedGame(item.id, item);
         });
 
         grid.appendChild(tile);
     }
 
-    // select default (first enabled, else contexto)
-    const firstEnabled = games.find(g => g.enabled);
-    const defaultId = firstEnabled?.id || "contexto";
-    setSelectedGame(defaultId);
+    // select default (first enabled)
+    const firstEnabled = games.find((g) => g.enabled);
+    if (firstEnabled) setSelectedGame(firstEnabled.id, firstEnabled);
+
+    // apply game search filter if present
+    const q = el("gameSearch")?.value;
+    filterGames(q);
 }
 
-// ----------------------------
-// Controls schema (per-game)
-// ----------------------------
-// Add new games by adding a schema entry + adding a start handler in STARTERS below.
-const GAME_CONTROL_SCHEMAS = {
-    contexto: {
-        title: "Contexto",
-        controls: [
-            { key: "secretWord", label: "Secret word (optional)", type: "text", default: "" }
-        ]
-    },
-    hangman: {
-        title: "Hangman",
-        controls: [
-            { key: "word", label: "Word (temp – until random words)", type: "text", default: "" },
-            { key: "maxWrong", label: "Max wrong", type: "number", default: 6 }
-        ]
-    },
-    deal: {
-        title: "Deal or No Deal",
-        controls: [
-            { key: "difficulty", label: "Difficulty", type: "select", default: "easy", options: ["easy", "medium", "hard"] }
-        ]
-    },
-    trivia: {
-        title: "Daily Trivia",
-        controls: [
-            { key: "difficulty", label: "Difficulty", type: "select", default: "easy", options: ["easy", "medium", "hard"] },
-            { key: "roundSeconds", label: "Round seconds", type: "number", default: 20, min: 5, max: 120 },
-            { key: "autoNext", label: "Auto-next", type: "checkbox", default: false },
-            { key: "autoNextDelaySeconds", label: "Auto-next delay (s)", type: "number", default: 7, min: 0, max: 30 }
-        ]
-    }
-};
-
-function ensureDefaults(gameId) {
-    const schema = GAME_CONTROL_SCHEMAS[gameId];
-    if (!schema) return;
-    gameSettings[gameId] ??= {};
-    for (const c of schema.controls) {
-        if (gameSettings[gameId][c.key] === undefined && c.default !== undefined) {
-            gameSettings[gameId][c.key] = c.default;
-        }
-    }
-}
-
-function renderControlPanel(gameId) {
-    const host = el("controlPanelHost");
-    if (!host) return;
-
-    host.innerHTML = "";
-
-    const schema = GAME_CONTROL_SCHEMAS[gameId];
-    if (!schema) {
-        host.innerHTML = `<div class="muted">No custom controls for this game yet.</div>`;
-        return;
-    }
-
-    ensureDefaults(gameId);
-
-    const header = document.createElement("div");
-    header.style.marginBottom = "10px";
-    header.innerHTML = `
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-              <div style="font-weight:700">${esc(schema.title || "Controls")} • <span style="opacity:.8">${esc(gameId)}</span></div>
-              <button id="resetGameSettingsBtn" class="control-button btn-secondary" style="width:auto;padding:8px 10px;">Reset</button>
-            </div>
-          `;
-    host.appendChild(header);
-
-    header.querySelector("#resetGameSettingsBtn").addEventListener("click", () => {
-        gameSettings[gameId] = {};
-        ensureDefaults(gameId);
-        renderControlPanel(gameId);
+function filterGames(query) {
+    const grid = el("gamesGrid");
+    if (!grid) return;
+    const q = String(query || "").trim().toLowerCase();
+    grid.querySelectorAll(".game-tile").forEach((tile) => {
+        const id = tile.getAttribute("data-game") || "";
+        const title = tile.querySelector(".game-title")?.textContent || "";
+        const desc = tile.querySelector(".game-desc")?.textContent || "";
+        const hay = `${id} ${title} ${desc}`.toLowerCase();
+        tile.style.display = !q || hay.includes(q) ? "" : "none";
     });
-
-    for (const c of schema.controls) {
-        const wrap = document.createElement("div");
-        wrap.className = "control-block";
-
-        const label = document.createElement("label");
-        label.className = "control-label";
-        label.textContent = c.label;
-        wrap.appendChild(label);
-
-        const stored = gameSettings[gameId][c.key];
-
-        let input;
-
-        // ✅ SELECT
-        if (c.type === "select") {
-            input = document.createElement("select");
-            input.className = "control-input";
-
-            const opts = Array.isArray(c.options) ? c.options : [];
-            for (const opt of opts) {
-                const o = document.createElement("option");
-                o.value = String(opt);
-                o.textContent = String(opt);
-                input.appendChild(o);
-            }
-
-            input.value = String(stored ?? c.default ?? (opts[0] ?? ""));
-
-            input.addEventListener("change", () => {
-                gameSettings[gameId][c.key] = input.value;
-            });
-        }
-        // ✅ CHECKBOX
-        else if (c.type === "checkbox") {
-            // keep your label layout, but checkbox needs checked instead of value
-            input = document.createElement("input");
-            input.className = "control-input";
-            input.type = "checkbox";
-            input.checked = Boolean(stored ?? c.default ?? false);
-
-            // Optional: make checkbox not look weird if your CSS styles .control-input for text
-            // input.classList.add("control-checkbox");
-
-            input.addEventListener("change", () => {
-                gameSettings[gameId][c.key] = input.checked;
-            });
-        }
-        // NUMBER / TEXT (existing behaviour)
-        else {
-            input = document.createElement("input");
-            input.className = "control-input";
-            input.type = (c.type === "number") ? "number" : "text";
-
-            // optional min/max/step support
-            if (c.type === "number") {
-                if (c.min !== undefined) input.min = String(c.min);
-                if (c.max !== undefined) input.max = String(c.max);
-                if (c.step !== undefined) input.step = String(c.step);
-            }
-
-            input.value = String(stored ?? "");
-
-            input.addEventListener("input", () => {
-                const v = input.value;
-                gameSettings[gameId][c.key] =
-                    (c.type === "number")
-                        ? (v === "" ? "" : Number(v))
-                        : v;
-            });
-        }
-
-        wrap.appendChild(input);
-        host.appendChild(wrap);
-    }
-}
-
-// ----------------------------
-// Game actions (scalable)
-// ----------------------------
-const GAMES_REGISTRY = {
-    contexto: {
-        title: "Contexto",
-        playUrl: (code) => `/play.html?roomId=${encodeURIComponent(code)}&game=contexto`,
-        overlayUrl: (code) => `/overlay.html?roomId=${encodeURIComponent(code)}&game=contexto`,
-        start: async (code) => {
-            const secretWord = String(gameSettings.contexto?.secretWord ?? "").trim();
-            const path = secretWord
-                ? `/rooms/${encodeURIComponent(code)}/games/contexto/start`
-                : `/rooms/${encodeURIComponent(code)}/games/contexto/next`;
-
-            const opts = secretWord
-                ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ secretWord }) }
-                : { method: "POST" };
-
-            return await api(path, opts);
-        },
-        stop: async (code) => api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" })
-    },
-
-    hangman: {
-        title: "Hangman",
-        playUrl: (code) => `/play.html?roomId=${encodeURIComponent(code)}&game=hangman`,
-        overlayUrl: (code) => `/overlay.html?roomId=${encodeURIComponent(code)}&game=hangman`,
-        start: async (code) => {
-            const word = String(gameSettings.hangman?.word ?? "").trim();
-            if (!word) throw new Error("Hangman: enter a word (temporary)");
-
-            const mw = gameSettings.hangman?.maxWrong;
-            const maxWrong = Number.isFinite(mw) && mw > 0 ? mw : 6;
-
-            return await api(`/rooms/${encodeURIComponent(code)}/games/hangman/start`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ word, maxWrong })
-            });
-        },
-        stop: async (code) => api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" })
-    },
-    trivia: {
-        title: "Daily Trivia",
-        playUrl: (code) => `/play.html?roomId=${encodeURIComponent(code)}&game=trivia`,
-        overlayUrl: (code) => `/overlay.html?roomId=${encodeURIComponent(code)}&game=trivia`,
-        start: async (code) => {
-            const difficulty = String(gameSettings.trivia?.difficulty ?? "easy").trim().toLowerCase();
-            const okDiff = (difficulty === "easy" || difficulty === "medium" || difficulty === "hard");
-            if (!okDiff) throw new Error("Trivia: difficulty must be easy, medium, or hard");
-
-            const rs = gameSettings.trivia?.roundSeconds;
-            const roundSeconds = Number.isFinite(rs) && rs > 0 ? rs : 20;
-
-            const autoNext = !!gameSettings.trivia?.autoNext;
-
-            const ds = gameSettings.trivia?.autoNextDelaySeconds;
-            const autoNextDelaySeconds = Number.isFinite(ds) && ds >= 0 ? ds : 7;
-
-            return await api(`/rooms/${encodeURIComponent(code)}/games/trivia/start`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ difficulty, roundSeconds, autoNext, autoNextDelaySeconds })
-            });
-        },
-        // optional extra controls if you want buttons later:
-        reveal: async (code) => api(`/rooms/${encodeURIComponent(code)}/games/trivia/reveal`, { method: "POST" }),
-        stop: async (code) => api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" })
-    }
-};
-
-async function startSelectedGame() {
-    const code = roomId();
-    if (!code) return alert("Pick a room first.");
-
-    const gameId = String(selectedGameId || "contexto").toLowerCase();
-    const g = GAMES_REGISTRY[gameId];
-    if (!g?.start) {
-        const out = el("gameOut");
-        if (out) out.textContent = pretty({ ok: false, error: `No start handler for ${gameId}` });
-        return;
-    }
-
-    const r = await g.start(code);
-    const out = el("gameOut");
-    if (out) out.textContent = pretty(r);
-
-    await refreshState();
-    await refreshLeaderboard();
-}
-
-async function stopSelectedGame() {
-    const code = roomId();
-    if (!code) return alert("Pick a room first.");
-
-    try {
-        const r = await api(`/rooms/${encodeURIComponent(code)}/games/stop`, {
-            method: "POST"
-        });
-
-        const out = el("gameOut");
-        if (out) out.textContent = pretty(r);
-
-        await refreshState();
-        await refreshLeaderboard();
-    } catch (e) {
-        alert(String(e));
-    }
-}
-
-function goPlay() {
-    const code = roomId();
-    if (!code) return alert("Pick a room first.");
-
-    const gameId = String(selectedGameId || "contexto").toLowerCase();
-    const g = GAMES_REGISTRY[gameId];
-
-    location.href = g?.playUrl ? g.playUrl(code) : `/play.html?roomId=${encodeURIComponent(code)}&game=${encodeURIComponent(gameId)}`;
-}
-
-function syncActionButtons() {
-    const hasRoom = !!roomId();
-    const gameId = String(selectedGameId || "contexto").toLowerCase();
-    const hasGame = !!GAMES_REGISTRY[gameId];
-
-    // role gating (member/admin can start/stop)
-    const r = String(myRole || "").toLowerCase();
-    const canControl = (r === "member" || r === "admin");
-
-    el("btnStart") && (el("btnStart").disabled = !(hasRoom && hasGame && canControl));
-    el("btnStop") && (el("btnStop").disabled = !(hasRoom && canControl));
-    el("btnPlay") && (el("btnPlay").disabled = !hasRoom);
-    el("btnOpenOverlay") && (el("btnOpenOverlay").disabled = !hasRoom);
-    el("btnLeaderboard") && (el("btnLeaderboard").disabled = !hasRoom);
 }
 
 // ----------------------------
@@ -813,40 +619,28 @@ function startPolling() {
 // Wiring / init
 // ----------------------------
 async function init() {
+    if (__didInit) return;
+    __didInit = true;
+
     wireSettingsPanel();
 
-   /* onClick("btnLogout", async () => {
-        try {
-            const r = await api("/member/logout", { method: "POST" });
-            const out = el("authOut");
-            if (out) out.textContent = pretty(r);
-        } finally {
-            location.href = "/user.html";
-        }
-    }); 
+    onClick("btnRefreshMe", () => refreshMe().catch((e) => setText("out", String(e?.message || e))));
+    onClick("btnRefreshRooms", () => loadRooms().catch((e) => setText("out", String(e?.message || e))));
+    onClick("btnRefreshGames", () => loadGames().catch((e) => setText("out", String(e?.message || e))));
+    onClick("btnJoin", () => joinRoom().catch((e) => alert(String(e?.message || e))));
+    onClick("btnLeave", () => leaveRoom().catch((e) => alert(String(e?.message || e))));
 
-    onClick("btnAdmin", () => (location.href = "/admin.html"));
-    onClick("btnMe", () => refreshMe().catch(e => console.warn("btnMe failed", e)));
-    onClick("btnRefreshRooms", () => loadRooms().catch(e => console.warn("loadRooms failed", e)));
+    // Search wiring
+    el("roomSearch")?.addEventListener("input", (e) => filterList("roomsList", e.target.value));
+    el("gameSearch")?.addEventListener("input", (e) => filterGames(e.target.value));
 
-    onClick("btnOpenOverlay", () => {
-        const code = roomId();
-        if (!code) return alert("Pick a room first.");
-
-        const gameId = String(selectedGameId || "contexto").toLowerCase();
-        const g = GAMES_REGISTRY[gameId];
-
-        const url = g?.overlayUrl
-            ? g.overlayUrl(code)
-            : `/overlay.html?roomId=${encodeURIComponent(code)}&game=${encodeURIComponent(gameId)}`;
-
-        window.open(url, "_blank");
-    });
-
-    onClick("btnPlay", goPlay);
-    onClick("btnStart", () => startSelectedGame().catch(e => alert(String(e))));
-    onClick("btnStop", () => stopSelectedGame().catch(e => alert(String(e))));
-    onClick("btnLeaderboard", () => refreshLeaderboard().catch(e => alert(String(e))));*/
+    // Status badge (we don’t have SignalR wiring in this snippet, so keep it honest)
+    const status = el("statusBadge");
+    if (status) {
+        status.textContent = "Connected";
+        status.classList.remove("warn");
+        status.classList.add("ok");
+    }
 
     // Auth must be valid
     let me;
@@ -863,16 +657,22 @@ async function init() {
         return;
     }
 
-    // Games + rooms
-    await loadGames();
-    await loadRooms();
+    // Restore stored username if present
+    const storedName = localStorage.getItem("username");
+    const u = el("username");
+    if (u && storedName && (!u.value || !u.value.trim())) u.value = storedName;
 
+    // Games + rooms
+    await Promise.all([loadGames(), loadRooms()]);
+
+    // Auto-join last room if enabled
     autoLoadRoomFromStorage();
+
     startPolling();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    init().catch(e => {
+    init().catch((e) => {
         console.error("Lobby init failed:", e);
         location.href = "/user.html";
     });
