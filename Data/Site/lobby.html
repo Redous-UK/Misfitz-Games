@@ -546,7 +546,7 @@
             // Only for member/admin (endpoint is authorized by MemberOrAdmin)
             const r = await api("/member/room");
             // expected: { ok:true, roomId, roomCode, name }
-            const code = (r?.roomCode || r?.room_code || "").trim();
+            const code = (r?.roomCode || r?.roomId || "").trim();
             if (!code) throw new Error("/member/room returned no roomCode");
             return { code, raw: r };
         }

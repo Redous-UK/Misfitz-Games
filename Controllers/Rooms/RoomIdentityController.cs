@@ -15,7 +15,16 @@ public sealed class RoomIdentityController(AppDbContext db) : ControllerBase
     [Authorize(Policy = "MemberOrAdmin")]
     public async Task<IActionResult> MyRoom()
     {
-        var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        static string? GetUserIdClaim(ClaimsPrincipal user) =>
+            user.FindFirstValue(ClaimTypes.NameIdentifier)
+         ?? user.FindFirstValue("userId")
+         ?? user.FindFirstValue("userid")
+         ?? user.FindFirstValue("uid")
+         ?? user.FindFirstValue("id")
+         ?? user.FindFirstValue("sub");
+
+        var userIdStr = GetUserIdClaim(User);
         if (!long.TryParse(userIdStr, out var userId))
             return Unauthorized(new { ok = false, error = "Missing user id claim." });
 
