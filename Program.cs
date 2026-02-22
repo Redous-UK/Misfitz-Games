@@ -150,6 +150,38 @@ public static class Program
 
         var app = builder.Build();
 
+        app.Use(async (ctx, next) =>
+        {
+            try
+            {
+                await next();
+            }
+            catch (Exception ex)
+            {
+                // This WILL show in Render logs
+                app.Logger.LogError(ex, "Unhandled exception for {Method} {Path}", ctx.Request.Method, ctx.Request.Path);
+
+                // If headers already sent, rethrow
+                if (ctx.Response.HasStarted) throw;
+
+                ctx.Response.Clear();
+                ctx.Response.StatusCode = 500;
+
+                // Return JSON (so your browser Network tab finally shows the reason)
+                ctx.Response.ContentType = "application/json; charset=utf-8";
+                var payload = new
+                {
+                    ok = false,
+                    error = "Server error",
+                    detail = ex.Message,               // keep it simple for prod
+                    type = ex.GetType().Name,
+                    path = ctx.Request.Path.ToString()
+                };
+
+                await ctx.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(payload));
+            }
+        });
+
         // ===================== Site roots =====================
         var dataRoot = "/data/site";
         var backupsRoot = "/data/backups";
