@@ -2,7 +2,7 @@
 
 public class EffectsService(TuyaPlugService tuya)
 {
-    public async Task PulsePlugAsync(string deviceName, int seconds)
+    public async Task PulsePlugAsync(string deviceName, int seconds, CancellationToken ct)
     {
         // Map friendly names to Tuya device IDs (later move to config/DB)
         var deviceId = deviceName switch
@@ -11,8 +11,8 @@ public class EffectsService(TuyaPlugService tuya)
             _ => throw new ArgumentException("Unknown device")
         };
 
-        await tuya.SetSwitchAsync(deviceId, true);
-        await Task.Delay(TimeSpan.FromSeconds(Math.Clamp(seconds, 1, 30)));
-        await tuya.SetSwitchAsync(deviceId, false);
+        await tuya.SetSwitchAsync(deviceId, true, ct);
+        await Task.Delay(TimeSpan.FromSeconds(Math.Clamp(seconds, 1, 30)), ct);
+        await tuya.SetSwitchAsync(deviceId, false, ct);
     }
 }

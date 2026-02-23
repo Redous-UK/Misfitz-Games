@@ -956,8 +956,7 @@
                     const out = el("authOut");
                     if (out) out.textContent = pretty(r);
                 } finally {
-                    console.error("Lobby init failed at Button Logout:");
-                    //location.href = "/user.html";
+                    location.href = "/user.html";
                 }
             });
 
@@ -984,38 +983,39 @@
             onClick("btnStop", () => stopSelectedGame().catch(e => alert(String(e))));
             onClick("btnLeaderboard", () => refreshLeaderboard().catch(e => alert(String(e))));
 
-            // Auth must be valid
-            let me;
+            let me = null;
             try {
                 me = await refreshMe();
             } catch (e) {
                 console.warn("refreshMe failed:", e);
-                //location.href = "/user.html";
+            }
+
+            // === Guest flow ===
+            if (!me?.isAuth) {
+                console.log("Guest mode");
+
+                autoLoadRoomFromStorage();   // last room or none
                 return;
             }
 
-            if (!me.isAuth) {
-                console.error("Not authed");
-                //location.href = "/user.html";
-                return;
-            }
+            // === Member/Admin flow ===
+            console.log("Authenticated as", me.name, me.role);
 
-            // Games + rooms
-            await loadGames();
-            await loadRooms();
-
-            if (isMemberOrAdmin()) {
+            if (me.role === "member" || me.role === "admin") {
                 try {
                     const mine = await getMyPermanentRoom();
                     setActiveRoom(mine.roomCode);
-                    localStorage.setItem("activeRoomCode", mine.roomCode);
                 } catch (e) {
-                    console.warn("Failed to fetch permanent room; falling back to storage:", e);
+                    console.warn("Permanent room unavailable:", e);
                     autoLoadRoomFromStorage();
                 }
             } else {
                 autoLoadRoomFromStorage();
             }
+
+            // Games + rooms
+            await loadGames();
+            await loadRooms();
             startPolling();
         }
 

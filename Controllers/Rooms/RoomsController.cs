@@ -8,6 +8,20 @@ namespace Misfitz_Games.Controllers.Rooms;
 [ApiController]
 public class RoomsController(IRoomStateStore store, RoomBroadcastService broadcaster) : ControllerBase
 {
+
+    private static string NormalizeCustomCode(string code)
+    => (code ?? "").Trim().ToUpperInvariant();
+
+    private static bool IsValidCustomCode(string code)
+    {
+        if (code.Length < 4 || code.Length > 12) return false;
+        return code.All(ch => (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9'));
+    }
+
+    private static string NewNumericCode()
+        => Random.Shared.Next(0, 100_000_000).ToString("D8");
+
+
     /*[HttpPost("/rooms")]
     [Authorize(Policy = "MemberOrAdmin")]
     public async Task<IActionResult> CreateRoom(CreateRoomRequest req)
@@ -173,15 +187,5 @@ public class RoomsController(IRoomStateStore store, RoomBroadcastService broadca
         return Ok(new { ok = true, state = pub });
     }
 
-    private static string NormalizeCustomCode(string code)
-        => (code ?? "").Trim().ToUpperInvariant();
 
-    private static bool IsValidCustomCode(string code)
-    {
-        if (code.Length < 4 || code.Length > 12) return false;
-        return code.All(ch => (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9'));
-    }
-
-    private static string NewNumericCode()
-        => Random.Shared.Next(0, 100_000_000).ToString("D8");
 }
