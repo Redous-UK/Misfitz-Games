@@ -204,6 +204,62 @@ public sealed partial class AdminDbController(IConfiguration config) : Controlle
         return Ok(new { ok = true, affected });
     }
 
+    [HttpPost("/admin/db/query")]
+    public IActionResult Query([FromBody] SqlQueryRequest req)
+    {
+        // 🔒 Protect this endpoint
+        if (!Request.Headers.TryGetValue("X-Misfitz-Secret", out var secret)
+            || secret != "YOUR_SECRET_HERE")
+        {
+            return Unauthorized(new { ok = false });
+        }
+
+        var sql = (req?.Sql ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(sql))
+            return BadRequest(new { ok = false, error = "SQL required" });
+
+        var path = "/data/misfitz.db";
+
+        using var conn = new SqliteConnection($"Data Source={path}");
+        conn.Open();
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = sql;
+
+        // Decide if query returns rows
+        if (sql.StartsWith("SELECT", StringComparison.OrdinalIgnoreCase)
+         || sql.StartsWith("PRAGMA", StringComparison.OrdinalIgnoreCase))
+        {
+            using var reader = cmd.ExecuteReader();
+
+            var cols = Enumerable.Range(0, reader.FieldCount)
+                                 .Select(reader.GetName)
+                                 .ToArray();
+
+            var rows = new List<object[]>();
+
+            while (reader.Read())
+            {
+                var values = new object[reader.FieldCount];
+                reader.GetValues(values);
+                rows.Add(values);
+            }
+
+            return Ok(new { ok = true, columns = cols, rows });
+        }
+        else
+        {
+            var affected = cmd.ExecuteNonQuery();
+            return Ok(new { ok = true, affected });
+        }
+    }
+
+
+public sealed class SqlQueryRequest
+{
+    public string? Sql { get; set; }
+}
+
     // --------- Helpers ----------
 
     private static bool IsSafeIdent(string? s) => !string.IsNullOrWhiteSpace(s)

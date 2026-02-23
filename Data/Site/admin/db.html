@@ -67,102 +67,134 @@
                     </div>
                     <pre id="rowsOut" class="code">—</pre>
                 </div>
+                <div style="margin-top:12px;">
+                    <div class="row" style="justify-content:space-between; align-items:center;">
+                        <div class="mgCardTitle">SQL Query</div>
+                        <div class="row" style="gap:8px; align-items:center;">
+                        <textarea id="sqlBox" rows="8" style="width:100%;" placeholder="SELECT * FROM Users;"></textarea>
+                        <button id="btnRun">Run SQL</button>
+                        <pre id="sqlOut" style="margin-top:12px;"></pre>
+                        </div>
+                    </div>
+                </div>
             </div>
         </main>
     </div>
 
     <script>
-  const el = (id) => document.getElementById(id);
-  const pretty = (x) => JSON.stringify(x, null, 2);
+        const el = (id) => document.getElementById(id);
+        const pretty = (x) => JSON.stringify(x, null, 2);
 
-  function secret() { return (el("secret").value || "").trim(); }
+        function secret() { return (el("secret").value || "").trim(); }
 
-  async function api(path, opts) {
-    opts = opts || {};
-    opts.headers = Object.assign({}, opts.headers || {}, {
-      "X-Misfitz-Secret": secret()
-    });
+        async function api(path, opts) {
+            opts = opts || {};
+            opts.headers = Object.assign({}, opts.headers || {}, {
+                "X-Misfitz-Secret": secret()
+            });
 
-    const res = await fetch(path, opts);
-    const text = await res.text();
-    let json;
-    try { json = JSON.parse(text); } catch { json = { ok:false, raw:text }; }
+            const res = await fetch(path, opts);
+            const text = await res.text();
+            let json;
+            try { json = JSON.parse(text); } catch { json = { ok: false, raw: text }; }
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${text}`);
-    return json;
-  }
+            if (!res.ok) throw new Error(`HTTP ${res.status}: ${text}`);
+            return json;
+        }
 
-  let currentTable = null;
+        let currentTable = null;
 
-  async function loadOverview() {
-    try {
-      el("statusBadge").className = "badge warn";
-      el("statusBadge").textContent = "Loading…";
+        async function loadOverview() {
+            try {
+                el("statusBadge").className = "badge warn";
+                el("statusBadge").textContent = "Loading…";
 
-      const ov = await api("/admin/db/overview");
-      el("statusBadge").className = "badge ok";
-      el("statusBadge").textContent = "Connected";
+                const ov = await api("/admin/db/overview");
+                el("statusBadge").className = "badge ok";
+                el("statusBadge").textContent = "Connected";
 
-      const list = el("tables");
-      list.innerHTML = "";
-      for (const t of (ov.tables || [])) {
-        const btn = document.createElement("button");
-        btn.className = "btn";
-        btn.style.width = "100%";
-        btn.style.marginTop = "8px";
-        btn.textContent = t.name;
-        btn.onclick = () => selectTable(t.name);
-        list.appendChild(btn);
-      }
-    } catch (e) {
-      el("statusBadge").className = "badge warn";
-      el("statusBadge").textContent = "Not connected";
-      console.error(e);
-      alert(String(e));
-    }
-  }
+                const list = el("tables");
+                list.innerHTML = "";
+                for (const t of (ov.tables || [])) {
+                    const btn = document.createElement("button");
+                    btn.className = "btn";
+                    btn.style.width = "100%";
+                    btn.style.marginTop = "8px";
+                    btn.textContent = t.name;
+                    btn.onclick = () => selectTable(t.name);
+                    list.appendChild(btn);
+                }
+            } catch (e) {
+                el("statusBadge").className = "badge warn";
+                el("statusBadge").textContent = "Not connected";
+                console.error(e);
+                alert(String(e));
+            }
+        }
 
-  async function selectTable(name) {
-    currentTable = name;
-    el("btnRefresh").disabled = false;
-    el("btnAddName").disabled = false;
-    el("btnLoadRows").disabled = false;
-    await refreshTable();
-  }
+        async function selectTable(name) {
+            currentTable = name;
+            el("btnRefresh").disabled = false;
+            el("btnAddName").disabled = false;
+            el("btnLoadRows").disabled = false;
+            await refreshTable();
+        }
 
-  async function refreshTable() {
-    if (!currentTable) return;
-    const s = await api(`/admin/db/schema?table=${encodeURIComponent(currentTable)}`);
-    el("tableMeta").textContent = `${s.table} • ${s.rowCount} rows`;
-    el("schemaOut").textContent = pretty(s.columns);
-  }
+        async function refreshTable() {
+            if (!currentTable) return;
+            const s = await api(`/admin/db/schema?table=${encodeURIComponent(currentTable)}`);
+            el("tableMeta").textContent = `${s.table} • ${s.rowCount} rows`;
+            el("schemaOut").textContent = pretty(s.columns);
+        }
 
-  async function loadRows() {
-    if (!currentTable) return;
-    const limit = parseInt(el("limit").value || "50", 10);
-    const offset = parseInt(el("offset").value || "0", 10);
-    const r = await api(`/admin/db/rows?table=${encodeURIComponent(currentTable)}&limit=${limit}&offset=${offset}`);
-    el("rowsOut").textContent = pretty(r.rows);
-  }
+        async function loadRows() {
+            if (!currentTable) return;
+            const limit = parseInt(el("limit").value || "50", 10);
+            const offset = parseInt(el("offset").value || "0", 10);
+            const r = await api(`/admin/db/rows?table=${encodeURIComponent(currentTable)}&limit=${limit}&offset=${offset}`);
+            el("rowsOut").textContent = pretty(r.rows);
+        }
 
-  async function addNameColumn() {
-    if (!currentTable) return;
-    const r = await api(`/admin/db/migrate/add-name-column?table=${encodeURIComponent(currentTable)}`, { method: "POST" });
-    alert(r.message || "Done");
-    await refreshTable();
-  }
+        async function addNameColumn() {
+            if (!currentTable) return;
+            const r = await api(`/admin/db/migrate/add-name-column?table=${encodeURIComponent(currentTable)}`, { method: "POST" });
+            alert(r.message || "Done");
+            await refreshTable();
+        }
 
-  el("btnSave").onclick = () => localStorage.setItem("mg_admin_secret", secret());
-  el("btnLoad").onclick = () => el("secret").value = localStorage.getItem("mg_admin_secret") || "";
-  el("btnClear").onclick = () => { localStorage.removeItem("mg_admin_secret"); el("secret").value = ""; };
+        async function runSQL() {
+            const sql = el("sqlBox").value.trim();
+            if (!sql) return alert("Please enter an SQL query.");
+            try {
+                const r = await api("/admin/db/query", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Misfitz-Secret": SECRET
+                    },
+                    body: JSON.stringify({ sql })
+                });
+                el("sqlOut").textContent = pretty(r);
+            } catch (e) {
+                el("sqlOut").textContent = `Error: ${e.message}`;
+            }
+        }
 
-  el("btnRefresh").onclick = refreshTable;
-  el("btnLoadRows").onclick = loadRows;
-  el("btnAddName").onclick = addNameColumn;
 
-  // auto-load secret and overview
-  el("secret").value = localStorage.getItem("mg_admin_secret") || "";
-  loadOverview();
+        el("btnSave").onclick = () => localStorage.setItem("mg_admin_secret", secret());
+        el("btnLoad").onclick = () => el("secret").value = localStorage.getItem("mg_admin_secret") || "";
+        el("btnClear").onclick = () => { localStorage.removeItem("mg_admin_secret"); el("secret").value = ""; };
+
+
+        el("btnRefresh").onclick = refreshTable;
+        el("btnLoadRows").onclick = loadRows;
+        el("btnAddName").onclick = addNameColumn;
+
+        el("btnRun").onclick = runSQL;
+
+        // auto-load secret and overview
+        el("secret").value = localStorage.getItem("mg_admin_secret") || "";
+        loadOverview();
     </script>
 </body>
 </html>
