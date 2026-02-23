@@ -16,8 +16,7 @@ public sealed class RoomIdentityController(AppDbContext db) : ControllerBase
     [Authorize(Policy = "MemberOrAdmin")]
     public async Task<IActionResult> MyRoom()
     {
-        var ct = HttpContext.RequestAborted;
-        await EnsureUserIdMapsAsync(db, ct);
+        await EnsureCoreTablesAsync(db);
 
         static string? GetUserIdClaim(ClaimsPrincipal user) =>
             user.FindFirstValue(ClaimTypes.NameIdentifier)
@@ -60,26 +59,17 @@ public sealed class RoomIdentityController(AppDbContext db) : ControllerBase
         return Ok(new { ok = true, roomId = room.Id, roomCode = room.Code, name = room.Name });
     }
 
-    static async Task EnsureUserIdMapsAsync(AppDbContext db, CancellationToken ct)
+    static async Task EnsureCoreTablesAsync(AppDbContext db)
     {
-        // Only for SQLite
         if (!db.Database.IsSqlite()) return;
 
         var conn = (SqliteConnection)db.Database.GetDbConnection();
         if (conn.State != System.Data.ConnectionState.Open)
-            await conn.OpenAsync(ct);
+            await conn.OpenAsync();
 
-        // Check table existence
-        await using (var check = conn.CreateCommand())
-        {
-            check.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='UserIdMaps';";
-            var exists = await check.ExecuteScalarAsync(ct);
-            if (exists is not null) return; // already exists
-        }
+        using var cmd = conn.CreateCommand();
 
-        // Create table + unique index
-        await using var create = conn.CreateCommand();
-        create.CommandText = @"
+        cmd.CommandText = @"
 
 -- UserIdMaps
 CREATE TABLE IF NOT EXISTS UserIdMaps (
@@ -125,7 +115,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS IX_TikTokLinks_UserId
   ON TikTokLinks(UserId);
 
 ";
-        await create.ExecuteNonQueryAsync(ct);
+
+        await cmd.ExecuteNonQueryAsync();
     }
 
     private static async Task<string> GenerateUniqueCode(AppDbContext db)

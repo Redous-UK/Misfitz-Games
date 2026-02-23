@@ -471,7 +471,7 @@ public static class Program
         });
 
         // ===================== DB migrate =====================
-        var skipMigrate = builder.Configuration["SKIP_MIGRATE"] == "0";
+        var skipMigrate = builder.Configuration["SKIP_MIGRATE"] == "1";
         var fixMigrationId = builder.Configuration["DBFIX_MARK_MIGRATION"];
 
         using (var scope = app.Services.CreateScope())
