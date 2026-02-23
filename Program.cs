@@ -470,10 +470,21 @@ public static class Program
         });
 
         // ===================== DB migrate =====================
+        var skipMigrate = builder.Configuration["SKIP_MIGRATE"] == "1";
+
         using (var scope = app.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            db.Database.Migrate();
+
+            if (!skipMigrate)
+            {
+                db.Database.Migrate();
+                Console.WriteLine("[EF] Migrate complete");
+            }
+            else
+            {
+                Console.WriteLine("[EF] SKIP_MIGRATE=1 (skipping db.Database.Migrate)");
+            }
         }
 
         // ===================== Debug endpoints =====================
