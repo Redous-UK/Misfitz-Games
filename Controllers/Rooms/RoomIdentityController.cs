@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Misfitz_Games.Data;
 using Misfitz_Games.Models;
@@ -9,12 +10,14 @@ using System.Security.Cryptography;
 namespace Misfitz_Games.Controllers.Rooms;
 
 [ApiController]
-public sealed class RoomIdentityController(AppDbContext db) : ControllerBase
+public sealed class RoomIdentityController(AppDbContext db, CancellationToken ct) : ControllerBase
 {
     [HttpGet("/member/room")]
     [Authorize(Policy = "MemberOrAdmin")]
     public async Task<IActionResult> MyRoom()
     {
+        await EnsureUserIdMapsAsync(db, ct);
+
         static string? GetUserIdClaim(ClaimsPrincipal user) =>
             user.FindFirstValue(ClaimTypes.NameIdentifier)
          ?? user.FindFirstValue("userId")
@@ -54,6 +57,36 @@ public sealed class RoomIdentityController(AppDbContext db) : ControllerBase
         await db.SaveChangesAsync();
 
         return Ok(new { ok = true, roomId = room.Id, roomCode = room.Code, name = room.Name });
+    }
+
+    static async Task EnsureUserIdMapsAsync(AppDbContext db, CancellationToken ct)
+    {
+        // Only for SQLite
+        if (!db.Database.IsSqlite()) return;
+
+        var conn = (SqliteConnection)db.Database.GetDbConnection();
+        if (conn.State != System.Data.ConnectionState.Open)
+            await conn.OpenAsync(ct);
+
+        // Check table existence
+        await using (var check = conn.CreateCommand())
+        {
+            check.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='UserIdMaps';";
+            var exists = await check.ExecuteScalarAsync(ct);
+            if (exists is not null) return; // already exists
+        }
+
+        // Create table + unique index
+        await using var create = conn.CreateCommand();
+        create.CommandText = @"
+CREATE TABLE IF NOT EXISTS UserIdMaps (
+  Id INTEGER PRIMARY KEY AUTOINCREMENT,
+  UserGuid TEXT NOT NULL,
+  CreatedUtc TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS IX_UserIdMaps_UserGuid ON UserIdMaps(UserGuid);
+";
+        await create.ExecuteNonQueryAsync(ct);
     }
 
     private static async Task<string> GenerateUniqueCode(AppDbContext db)

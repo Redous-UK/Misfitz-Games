@@ -533,9 +533,6 @@ public static class Program
             Console.WriteLine($"[DBFIX] MarkMigrationApplied: {migrationId} inserted={rows} productVersion={productVersion}");
         }
 
-
-
-
         // ===================== Debug endpoints =====================
         app.MapGet("/debug/static", () =>
         {
