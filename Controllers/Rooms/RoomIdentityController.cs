@@ -15,20 +15,27 @@ public sealed class RoomIdentityController(AppDbContext db) : ControllerBase
     [Authorize(Policy = "MemberOrAdmin")]
     public async Task<IActionResult> MyRoom()
     {
-
         static string? GetUserIdClaim(ClaimsPrincipal user) =>
             user.FindFirstValue(ClaimTypes.NameIdentifier)
          ?? user.FindFirstValue("userId")
-         ?? user.FindFirstValue("userid")
-         ?? user.FindFirstValue("uid")
-         ?? user.FindFirstValue("id")
          ?? user.FindFirstValue("sub");
 
-        var userIdStr = GetUserIdClaim(User);
-        if (!long.TryParse(userIdStr, out var userId))
-            return Unauthorized(new { ok = false, error = $"Invalid user id claim: {userIdStr}" });
+        var userGuid = GetUserIdClaim(User);
+        if (string.IsNullOrWhiteSpace(userGuid))
+            return Unauthorized(new { ok = false, error = "Missing user id claim." });
 
-        var room = await db.Rooms.SingleOrDefaultAsync(r => r.OwnerUserId == userId);
+        // Lookup or create numeric owner id
+        var map = await db.UserIdMaps.SingleOrDefaultAsync(x => x.UserGuid == userGuid);
+        if (map is null)
+        {
+            map = new UserIdMap { UserGuid = userGuid };
+            db.UserIdMaps.Add(map);
+            await db.SaveChangesAsync(); // assigns map.Id
+        }
+
+        var ownerUserId = map.Id; // this is a long
+
+        var room = await db.Rooms.SingleOrDefaultAsync(r => r.OwnerUserId == ownerUserId);
         if (room is not null)
             return Ok(new { ok = true, roomId = room.Id, roomCode = room.Code, name = room.Name });
 
@@ -37,7 +44,7 @@ public sealed class RoomIdentityController(AppDbContext db) : ControllerBase
         room = new Room(
             Guid.NewGuid(),
             code,
-            userId,
+            ownerUserId,
             "My Room",
             DateTime.UtcNow,
             DateTime.UtcNow
@@ -46,9 +53,7 @@ public sealed class RoomIdentityController(AppDbContext db) : ControllerBase
         db.Rooms.Add(room);
         await db.SaveChangesAsync();
 
-        var dump = User.Claims.Select(c => new { c.Type, c.Value }).ToList();
-
-        return Ok(new { ok = true, roomId = room.Id, roomCode = room.Code, name = room.Name, claims = dump });
+        return Ok(new { ok = true, roomId = room.Id, roomCode = room.Code, name = room.Name });
     }
 
     private static async Task<string> GenerateUniqueCode(AppDbContext db)

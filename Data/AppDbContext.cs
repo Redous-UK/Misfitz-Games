@@ -15,6 +15,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<TuyaAccountLink> TuyaLinks => Set<TuyaAccountLink>();
     public DbSet<TikTokAccountLink> TikTokLinks => Set<TikTokAccountLink>();
     public DbSet<Room> Rooms => Set<Room>();
+    public DbSet<UserIdMap> UserIdMaps => Set<UserIdMap>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -70,5 +71,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasForeignKey(x => x.OwnerUserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
+
+        modelBuilder.Entity<UserIdMap>()
+            .HasIndex(x => x.UserGuid)
+            .IsUnique();
     }
 }

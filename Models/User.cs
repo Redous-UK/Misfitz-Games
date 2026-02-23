@@ -12,3 +12,10 @@ public class User
     public DateTimeOffset CreatedUtc { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? LastLoginUtc { get; set; }
 }
+
+public sealed class UserIdMap
+{
+    public long Id { get; set; }                // numeric surrogate key
+    public string UserGuid { get; set; } = "";  // the claim value (GUID string)
+    public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
+}
