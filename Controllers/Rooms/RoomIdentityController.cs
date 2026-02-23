@@ -46,7 +46,9 @@ public sealed class RoomIdentityController(AppDbContext db) : ControllerBase
         db.Rooms.Add(room);
         await db.SaveChangesAsync();
 
-        return Ok(new { ok = true, roomId = room.Id, roomCode = room.Code, name = room.Name });
+        var dump = User.Claims.Select(c => new { c.Type, c.Value }).ToList();
+
+        return Ok(new { ok = true, roomId = room.Id, roomCode = room.Code, name = room.Name, claims = dump });
     }
 
     private static async Task<string> GenerateUniqueCode(AppDbContext db)
