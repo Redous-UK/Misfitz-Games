@@ -79,13 +79,51 @@ public sealed class RoomIdentityController(AppDbContext db) : ControllerBase
 
         // Create table + unique index
         await using var create = conn.CreateCommand();
-        create.CommandText = @"
+        cmd.CommandText = @"
+
+-- UserIdMaps
 CREATE TABLE IF NOT EXISTS UserIdMaps (
   Id INTEGER PRIMARY KEY AUTOINCREMENT,
   UserGuid TEXT NOT NULL,
   CreatedUtc TEXT NOT NULL
 );
-CREATE UNIQUE INDEX IF NOT EXISTS IX_UserIdMaps_UserGuid ON UserIdMaps(UserGuid);
+CREATE UNIQUE INDEX IF NOT EXISTS IX_UserIdMaps_UserGuid
+  ON UserIdMaps(UserGuid);
+
+-- AppUser
+CREATE TABLE IF NOT EXISTS AppUser (
+  Id INTEGER PRIMARY KEY AUTOINCREMENT,
+  Username TEXT NOT NULL
+);
+
+-- Rooms
+CREATE TABLE IF NOT EXISTS Rooms (
+  Id TEXT NOT NULL PRIMARY KEY,
+  Code TEXT NOT NULL,
+  OwnerUserId INTEGER NOT NULL,
+  Name TEXT NOT NULL,
+  CreatedUtc TEXT NOT NULL,
+  LastActiveUtc TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS IX_Rooms_OwnerUserId_Code
+  ON Rooms(OwnerUserId, Code);
+
+-- TikTokLinks (if used)
+CREATE TABLE IF NOT EXISTS TikTokLinks (
+  Id TEXT NOT NULL PRIMARY KEY,
+  UserId TEXT NOT NULL,
+  TikTokOpenId TEXT NOT NULL,
+  TikTokUsername TEXT,
+  AccessTokenEnc TEXT NOT NULL,
+  RefreshTokenEnc TEXT NOT NULL,
+  AccessTokenExpiresUtc TEXT NOT NULL,
+  Scopes TEXT NOT NULL,
+  CreatedUtc TEXT NOT NULL,
+  UpdatedUtc TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS IX_TikTokLinks_UserId
+  ON TikTokLinks(UserId);
+
 ";
         await create.ExecuteNonQueryAsync(ct);
     }
