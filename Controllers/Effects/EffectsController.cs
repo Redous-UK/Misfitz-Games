@@ -31,7 +31,7 @@ public class EffectsController(AppDbContext db, EffectsEngine engine, EffectsSer
     [HttpPost("plug/pulse")]
     public async Task<IActionResult> PulsePlug([FromBody] PulseRequest req)
     {
-        await _legacyEffects.PulsePlugAsync(req.DeviceName, req.Seconds);
+        await _legacyEffects.PulsePlugAsync(req.DeviceName, req.Seconds, HttpContext.RequestAborted);
         return Ok(new { ok = true });
     }
 
