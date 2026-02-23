@@ -11,6 +11,13 @@ namespace Misfitz_Games.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AddColumn<string>(
+                name: "Name",
+                table: "Users",
+                type: "TEXT",
+                nullable: false,
+                defaultValue: "");
+
             migrationBuilder.CreateTable(
                 name: "AppUser",
                 columns: table => new
