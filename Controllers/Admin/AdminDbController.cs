@@ -147,31 +147,7 @@ public sealed partial class AdminDbController(IConfiguration config) : Controlle
 
     // --------- Limited, explicit mutations ----------
 
-    // POST /admin/db/migrate/add-name-column?table=AppUsers
-    [HttpPost("/admin/db/migrate/add-name-column")]
-    public IActionResult AddNameColumn([FromQuery] string table)
-    {
-        if (!IsAuthorized()) return Unauthorized(new { ok = false });
-        if (!IsSafeIdent(table)) return BadRequest(new { ok = false, error = "Invalid table name" });
-
-        const string columnName = "Name";
-        const string columnDef = "TEXT NULL";
-
-        using var conn = Open();
-        conn.Open();
-
-        if (!TableExists(conn, table))
-            return NotFound(new { ok = false, error = $"Table '{table}' not found." });
-
-        if (ColumnExists(conn, table, columnName))
-            return Ok(new { ok = true, changed = false, message = "Column already exists." });
-
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"ALTER TABLE \"{table}\" ADD COLUMN \"{columnName}\" {columnDef};";
-        cmd.ExecuteNonQuery();
-
-        return Ok(new { ok = true, changed = true, message = $"Added {table}.{columnName}" });
-    }
+    // -- Used to have alter table until fixed EF migration
 
     // POST /admin/db/update/user-name
     // Body: { "table":"AppUsers", "idColumn":"Id", "id":"123", "name":"Craig" }
