@@ -1,4 +1,5 @@
-﻿<!doctype html>
+﻿﻿
+<!doctype html>
 <html>
 <head>
     <meta charset="utf-8" />
@@ -404,15 +405,15 @@
                     const gl = gameLabel(r);
 
                     return `
-                                            <div class="room-tile" data-code="${esc(code)}">
-                                              <div class="room-title">${esc(name)}</div>
-                                              <div class="room-sub">Code: <b>${esc(code)}</b>${created ? ` • Created: ${esc(created)}` : ""}${pText}</div>
-                                              <div class="room-meta">
-                                                <span class="room-chip ${isActive ? "active" : ""}">${isActive ? "ACTIVE" : "JOIN"}</span>
-                                                <span class="${gl.cls}">${esc(gl.text)}</span>
-                                              </div>
-                                            </div>
-                                          `;
+                                                <div class="room-tile" data-code="${esc(code)}">
+                                                  <div class="room-title">${esc(name)}</div>
+                                                  <div class="room-sub">Code: <b>${esc(code)}</b>${created ? ` • Created: ${esc(created)}` : ""}${pText}</div>
+                                                  <div class="room-meta">
+                                                    <span class="room-chip ${isActive ? "active" : ""}">${isActive ? "ACTIVE" : "JOIN"}</span>
+                                                    <span class="${gl.cls}">${esc(gl.text)}</span>
+                                                  </div>
+                                                </div>
+                                              `;
                 }).join("");
 
                 grid.querySelectorAll(".room-tile[data-code]").forEach(tile => {
@@ -489,20 +490,20 @@
                     : `<span>${esc(initials(name))}</span>`;
 
                 return `
-                                          <div class="${cardClasses}">
-                                            <div class="avatar">${avatar}</div>
-                                            <div class="meta">
-                                              <div class="top">
-                                                <div class="name">${esc(name)}</div>
-                                                <div class="badges">${badges}</div>
+                                              <div class="${cardClasses}">
+                                                <div class="avatar">${avatar}</div>
+                                                <div class="meta">
+                                                  <div class="top">
+                                                    <div class="name">${esc(name)}</div>
+                                                    <div class="badges">${badges}</div>
+                                                  </div>
+                                                  <div class="bottom">
+                                                    <span class="${pillClass}">${esc(pillText)}</span>
+                                                    <span class="sub">${esc(p.userId || "")}</span>
+                                                  </div>
+                                                </div>
                                               </div>
-                                              <div class="bottom">
-                                                <span class="${pillClass}">${esc(pillText)}</span>
-                                                <span class="sub">${esc(p.userId || "")}</span>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        `;
+                                            `;
             }).join("");
         }
 
@@ -696,11 +697,11 @@
             const header = document.createElement("div");
             header.style.marginBottom = "10px";
             header.innerHTML = `
-                                        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-                                          <div style="font-weight:700">${esc(schema.title || "Controls")} • <span style="opacity:.8">${esc(gameId)}</span></div>
-                                          <button id="resetGameSettingsBtn" class="control-button btn-secondary" style="width:auto;padding:8px 10px;">Reset</button>
-                                        </div>
-                                      `;
+                                            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+                                              <div style="font-weight:700">${esc(schema.title || "Controls")} • <span style="opacity:.8">${esc(gameId)}</span></div>
+                                              <button id="resetGameSettingsBtn" class="control-button btn-secondary" style="width:auto;padding:8px 10px;">Reset</button>
+                                            </div>
+                                          `;
             host.appendChild(header);
 
             header.querySelector("#resetGameSettingsBtn").addEventListener("click", () => {
@@ -942,7 +943,7 @@
         async function init() {
             wireSettingsPanel();
 
-            onClick("btnBack", () => (location.href = "/user.html"));
+            onClick("btnBack", () => (location.href = "/user2.html"));
 
             onClick("btnLogout", async () => {
                 try {
@@ -950,7 +951,8 @@
                     const out = el("authOut");
                     if (out) out.textContent = pretty(r);
                 } finally {
-                    location.href = "/user.html";
+                    console.error("Lobby init failed at Button Logout:", e);
+                    //location.href = "/user.html";
                 }
             });
 
@@ -983,12 +985,13 @@
                 me = await refreshMe();
             } catch (e) {
                 console.warn("refreshMe failed:", e);
-                location.href = "/user.html";
+                //location.href = "/user.html";
                 return;
             }
 
             if (!me.isAuth) {
-                location.href = "/user.html";
+                console.error("Not authed:", e);
+                //location.href = "/user.html";
                 return;
             }
 
@@ -1013,8 +1016,8 @@
 
         document.addEventListener("DOMContentLoaded", () => {
             init().catch(e => {
-                console.error("Lobby init failed:", e);
-                location.href = "/user.html";
+                console.error("Lobby init failed at DOMContent Level:", e);
+                //location.href = "/user.html";
             });
         });
     </script>
