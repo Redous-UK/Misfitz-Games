@@ -90,7 +90,7 @@ namespace Misfitz_Games.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_Rooms_OwnerUserId_Code",
                 table: "Rooms",
-                columns: new[] { "OwnerUserId", "Code" },
+                columns: ["OwnerUserId", "Code"],
                 unique: true);
 
             migrationBuilder.CreateIndex(
