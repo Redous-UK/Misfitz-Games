@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.StaticFiles;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Misfitz_Games.Data;
@@ -470,7 +471,8 @@ public static class Program
         });
 
         // ===================== DB migrate =====================
-        var skipMigrate = builder.Configuration["SKIP_MIGRATE"] == "1";
+        var skipMigrate = builder.Configuration["SKIP_MIGRATE"] == "0";
+        var fixMigrationId = builder.Configuration["DBFIX_MARK_MIGRATION"];
 
         using (var scope = app.Services.CreateScope())
         {
@@ -478,6 +480,21 @@ public static class Program
 
             if (!skipMigrate)
             {
+
+                if (!string.IsNullOrWhiteSpace(fixMigrationId))
+                {
+                    try
+                    {
+                        MarkMigrationApplied(dbPath, fixMigrationId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("[DBFIX] failed: " + ex);
+                        // decide: either continue or crash — I'd continue
+                    }
+                }
+
+
                 db.Database.Migrate();
                 Console.WriteLine("[EF] Migrate complete");
             }
@@ -486,6 +503,38 @@ public static class Program
                 Console.WriteLine("[EF] SKIP_MIGRATE=1 (skipping db.Database.Migrate)");
             }
         }
+
+        static void MarkMigrationApplied(string dbPath, string migrationId)
+        {
+            using var conn = new SqliteConnection($"Data Source={dbPath}");
+            conn.Open();
+
+            // Get a ProductVersion from an existing row (fallback if empty)
+            string productVersion = "8.0.11";
+            using (var vcmd = conn.CreateCommand())
+            {
+                vcmd.CommandText = "SELECT ProductVersion FROM __EFMigrationsHistory ORDER BY MigrationId DESC LIMIT 1;";
+                var v = vcmd.ExecuteScalar();
+                if (v is string s && !string.IsNullOrWhiteSpace(s))
+                    productVersion = s;
+            }
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                INSERT INTO __EFMigrationsHistory (MigrationId, ProductVersion)
+                SELECT $id, $ver
+                WHERE NOT EXISTS (
+                  SELECT 1 FROM __EFMigrationsHistory WHERE MigrationId = $id
+                );";
+            cmd.Parameters.AddWithValue("$id", migrationId);
+            cmd.Parameters.AddWithValue("$ver", productVersion);
+
+            var rows = cmd.ExecuteNonQuery();
+            Console.WriteLine($"[DBFIX] MarkMigrationApplied: {migrationId} inserted={rows} productVersion={productVersion}");
+        }
+
+
+
 
         // ===================== Debug endpoints =====================
         app.MapGet("/debug/static", () =>
