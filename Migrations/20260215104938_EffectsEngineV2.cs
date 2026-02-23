@@ -147,25 +147,25 @@ namespace Misfitz_Games.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_DeviceGroups_OwnerUserId_Name",
                 table: "DeviceGroups",
-                columns: new[] { "OwnerUserId", "Name" },
+                columns: ["OwnerUserId", "Name"],
                 unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Devices_OwnerUserId_Name",
                 table: "Devices",
-                columns: new[] { "OwnerUserId", "Name" },
+                columns: ["OwnerUserId", "Name"],
                 unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Devices_OwnerUserId_Provider_ExternalDeviceId",
                 table: "Devices",
-                columns: new[] { "OwnerUserId", "Provider", "ExternalDeviceId" },
+                columns: ["OwnerUserId", "Provider", "ExternalDeviceId"],
                 unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Effects_OwnerUserId_Name",
                 table: "Effects",
-                columns: new[] { "OwnerUserId", "Name" },
+                columns: ["OwnerUserId", "Name"],
                 unique: true);
 
             migrationBuilder.CreateIndex(

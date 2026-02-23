@@ -10,12 +10,13 @@ using System.Security.Cryptography;
 namespace Misfitz_Games.Controllers.Rooms;
 
 [ApiController]
-public sealed class RoomIdentityController(AppDbContext db, CancellationToken ct) : ControllerBase
+public sealed class RoomIdentityController(AppDbContext db) : ControllerBase
 {
     [HttpGet("/member/room")]
     [Authorize(Policy = "MemberOrAdmin")]
     public async Task<IActionResult> MyRoom()
     {
+        var ct = HttpContext.RequestAborted;
         await EnsureUserIdMapsAsync(db, ct);
 
         static string? GetUserIdClaim(ClaimsPrincipal user) =>
