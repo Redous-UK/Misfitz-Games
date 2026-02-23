@@ -26,7 +26,7 @@ public sealed class RoomIdentityController(AppDbContext db) : ControllerBase
 
         var userIdStr = GetUserIdClaim(User);
         if (!long.TryParse(userIdStr, out var userId))
-            return Unauthorized(new { ok = false, error = "Missing user id claim." });
+            return Unauthorized(new { ok = false, error = $"Invalid user id claim: {userIdStr}" });
 
         var room = await db.Rooms.SingleOrDefaultAsync(r => r.OwnerUserId == userId);
         if (room is not null)

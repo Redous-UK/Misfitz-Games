@@ -83,7 +83,10 @@ public static class Program
                 {
                     OnRedirectToLogin = ctx =>
                     {
-                        if (ctx.Request.Path.StartsWithSegments("/api") || ctx.Request.Path.StartsWithSegments("/admin/api") || ctx.Request.Path.StartsWithSegments("/admin/site"))
+                        if (ctx.Request.Path.StartsWithSegments("/api") ||
+                        ctx.Request.Path.StartsWithSegments("/admin/api") ||
+                        ctx.Request.Path.StartsWithSegments("/member") ||
+                        ctx.Request.Path.StartsWithSegments("/admin/site"))
                         {
                             ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
                             return Task.CompletedTask;
@@ -93,7 +96,10 @@ public static class Program
                     },
                     OnRedirectToAccessDenied = ctx =>
                     {
-                        if (ctx.Request.Path.StartsWithSegments("/api") || ctx.Request.Path.StartsWithSegments("/admin/api") || ctx.Request.Path.StartsWithSegments("/admin/site"))
+                        if (ctx.Request.Path.StartsWithSegments("/api") ||
+                        ctx.Request.Path.StartsWithSegments("/admin/api") ||
+                        ctx.Request.Path.StartsWithSegments("/member") ||
+                        ctx.Request.Path.StartsWithSegments("/admin/site"))
                         {
                             ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
                             return Task.CompletedTask;

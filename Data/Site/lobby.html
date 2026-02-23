@@ -956,7 +956,7 @@
                     const out = el("authOut");
                     if (out) out.textContent = pretty(r);
                 } finally {
-                    console.error("Lobby init failed at Button Logout:", e);
+                    console.error("Lobby init failed at Button Logout:");
                     //location.href = "/user.html";
                 }
             });
@@ -995,7 +995,7 @@
             }
 
             if (!me.isAuth) {
-                console.error("Not authed:", e);
+                console.error("Not authed");
                 //location.href = "/user.html";
                 return;
             }
@@ -1007,8 +1007,8 @@
             if (isMemberOrAdmin()) {
                 try {
                     const mine = await getMyPermanentRoom();
-                    setActiveRoom(mine.code);
-                    localStorage.setItem("activeRoomCode", mine.code);
+                    setActiveRoom(mine.roomCode);
+                    localStorage.setItem("activeRoomCode", mine.roomCode);
                 } catch (e) {
                     console.warn("Failed to fetch permanent room; falling back to storage:", e);
                     autoLoadRoomFromStorage();
