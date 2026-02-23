@@ -79,7 +79,7 @@ public sealed class RoomIdentityController(AppDbContext db) : ControllerBase
 
         // Create table + unique index
         await using var create = conn.CreateCommand();
-        cmd.CommandText = @"
+        create.CommandText = @"
 
 -- UserIdMaps
 CREATE TABLE IF NOT EXISTS UserIdMaps (
