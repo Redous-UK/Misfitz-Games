@@ -1,23 +1,25 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 using Misfitz_Games.Hubs;
+using Misfitz_Games.Services.Room;
+using Misfitz_Games.Models;
 
 namespace Misfitz_Games.Services.Room;
 
-public sealed class RoomBroadcastService(IHubContext<RoomHub> hub)
+public sealed class RoomBroadcastService(IHubContext<RoomHub> hub, IRoomStateStore store)
 {
     private static string GroupName(Guid roomId) => $"room:{roomId:D}";
 
-    public Task BroadcastStateAsync(Guid roomId, object state, CancellationToken ct = default)
-        => hub.Clients.Group(GroupName(roomId)).SendAsync("StateUpdated", state, ct);
+    public async Task BroadcastStateAsync(Guid roomId, CancellationToken ct = default)
+    {
+        var state = await store.GetStateAsync(roomId, ct);
+        if (state is null) return;
 
-    public Task ToastAsync(Guid roomId, string message, CancellationToken ct = default)
-        => hub.Clients.Group(GroupName(roomId)).SendAsync("Toast", message, ct);
-
-    public Task BroadcastRoomClosedAsync(Guid roomId, CancellationToken ct = default)
-        // Assuming you already broadcast to group "room:{roomId}"
-        => hub.Clients.Group($"room:{roomId:D}").SendAsync("RoomClosed", new
+        await hub.Clients.Group(GroupName(roomId)).SendAsync("RoomStateUpdated", new
         {
+            ok = true,
             roomId,
-            utc = DateTimeOffset.UtcNow
+            utc = DateTimeOffset.UtcNow,
+            state
         }, ct);
+    }
 }

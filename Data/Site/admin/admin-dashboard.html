@@ -1,0 +1,540 @@
+﻿<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Misfitz Games — DB Admin</title>
+  <link rel="stylesheet" href="/site2.css" />
+  <style>
+    /* Minimal extra styling that piggybacks your Misfitz theme */
+    .dbWrap { max-width: 1400px; margin: 0 auto; padding: 14px; }
+    .dbGrid { display: grid; grid-template-columns: 320px 1fr; gap: 12px; }
+    @media (max-width: 980px) { .dbGrid { grid-template-columns: 1fr; } }
+
+    .dbCard { background: var(--card, rgba(255,255,255,.04)); border: 1px solid rgba(255,255,255,.08); border-radius: 16px; padding: 12px; }
+    .dbCardHeader { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom: 10px; }
+    .dbTitle { font-weight: 800; letter-spacing: .4px; }
+    .dbTiny { font-size: 12px; opacity: .75; }
+    .dbRow { display:flex; gap:8px; align-items:center; flex-wrap: wrap; }
+
+    .dbInput, .dbSelect, .dbTextarea {
+      width: 100%;
+      background: rgba(0,0,0,.25);
+      border: 1px solid rgba(255,255,255,.12);
+      color: inherit;
+      border-radius: 12px;
+      padding: 10px 12px;
+      outline: none;
+    }
+    .dbTextarea { min-height: 170px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 13px; line-height: 1.35; }
+
+    .dbList { display:flex; flex-direction: column; gap: 6px; }
+    .dbItem {
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+      padding: 10px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.18);
+      cursor: pointer;
+      user-select: none;
+    }
+    .dbItem:hover { border-color: rgba(255,255,255,.16); background: rgba(0,0,0,.24); }
+    .dbItem.active { border-color: rgba(255,255,255,.26); box-shadow: 0 0 0 2px rgba(255,255,255,.08) inset; }
+    .dbBadge { font-size: 12px; padding: 4px 8px; border-radius: 999px; border: 1px solid rgba(255,255,255,.12); opacity: .9; }
+
+    .tabs { display:flex; gap:8px; }
+    .tabBtn {
+      padding: 8px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.18);
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .tabBtn.active { border-color: rgba(255,255,255,.22); background: rgba(0,0,0,.28); }
+
+    .resultWrap { overflow:auto; border-radius: 14px; border: 1px solid rgba(255,255,255,.10); }
+    table.resultTable { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.resultTable th, table.resultTable td {
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      vertical-align: top;
+      white-space: nowrap;
+    }
+    table.resultTable th { position: sticky; top: 0; background: rgba(0,0,0,.45); text-align:left; font-weight: 800; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .pre { white-space: pre-wrap; word-break: break-word; }
+    .muted2 { opacity: .8; font-size: 12px; }
+    .pill { display:inline-flex; align-items:center; gap:6px; padding: 6px 10px; border-radius: 999px; border:1px solid rgba(255,255,255,.12); background: rgba(0,0,0,.18); font-size:12px; }
+    .okDot { width:8px; height:8px; border-radius:999px; background: #39d98a; } /* ok, tiny */
+    .warnDot { width:8px; height:8px; border-radius:999px; background: #f7b731; }
+    .badDot { width:8px; height:8px; border-radius:999px; background: #ff5c5c; }
+
+    /* lightweight switch */
+    .switch { display:inline-flex; align-items:center; gap:8px; user-select:none; cursor:pointer; }
+    .switch input { width: 16px; height: 16px; }
+  </style>
+</head>
+
+<body class="mgHubBody">
+  <!-- Top bar (Misfitz universal header vibe) -->
+  <header class="mgTopbar">
+    <div class="mgBrand">
+      <div class="mgLogo" aria-hidden="true">M</div>
+      <div>
+        <div class="mgTitle">Misfitz Games</div>
+        <div class="mgSub muted">DB Admin</div>
+      </div>
+    </div>
+    <div class="mgTopRight">
+      <span id="statusPill" class="pill"><span class="warnDot"></span><span id="statusText">Idle</span></span>
+      <a class="btn" href="/lobby2.html">Lobby</a>
+      <a class="btn" href="/user.html">Account</a>
+    </div>
+  </header>
+
+  <div class="dbWrap">
+    <div class="dbGrid">
+      <!-- LEFT: Tables / Tools -->
+      <aside class="dbCard">
+        <div class="dbCardHeader">
+          <div>
+            <div class="dbTitle">DB Browser</div>
+            <div class="dbTiny muted">SQLite @ /data/misfitz.db</div>
+          </div>
+          <button id="btnRefreshTables" class="btn">Refresh</button>
+        </div>
+
+        <div class="dbRow" style="margin-bottom:10px;">
+          <input id="secret" class="dbInput" placeholder="Paste ADMIN secret…" autocomplete="off" />
+          <label class="switch muted2" title="Store secret in this browser only">
+            <input id="rememberSecret" type="checkbox" />
+            Remember
+          </label>
+        </div>
+
+        <div class="dbRow" style="margin-bottom:10px;">
+          <input id="tableSearch" class="dbInput" placeholder="Search tables…" />
+        </div>
+
+        <div class="dbRow" style="margin-bottom:10px; justify-content:space-between;">
+          <label class="switch" title="Blocks non-SELECT/PRAGMA statements when enabled">
+            <input id="safeMode" type="checkbox" checked />
+            <span class="muted2">Safe Mode (read-only)</span>
+          </label>
+          <button id="btnExplain" class="btn">Help</button>
+        </div>
+
+        <div class="dbList" id="tablesList">
+          <div class="muted">No tables loaded yet.</div>
+        </div>
+
+        <div class="mgDivider" style="margin:12px 0;"></div>
+
+        <div class="dbRow" style="gap:8px;">
+          <button id="btnListTables" class="btn">List tables</button>
+          <button id="btnMigrations" class="btn">Migrations</button>
+          <button id="btnVacuum" class="btn" title="Disabled in Safe Mode">VACUUM</button>
+        </div>
+
+        <div class="dbTiny muted" style="margin-top:10px;">
+          Tip: click a table to auto-run <span class="mono">SELECT * LIMIT 200</span>.<br/>
+          Ctrl+Enter runs SQL.
+        </div>
+      </aside>
+
+      <!-- RIGHT: SQL + Results -->
+      <main class="dbCard">
+        <div class="dbCardHeader">
+          <div>
+            <div class="dbTitle">SQL Console</div>
+            <div class="dbTiny muted">Runs against your live persistent SQLite. Be careful.</div>
+          </div>
+          <div class="dbRow" style="gap:8px;">
+            <select id="historySelect" class="dbSelect" style="width:320px; max-width: 48vw;">
+              <option value="">History…</option>
+            </select>
+            <button id="btnRun" class="btn primary">Run</button>
+            <button id="btnClear" class="btn">Clear</button>
+          </div>
+        </div>
+
+        <textarea id="sqlBox" class="dbTextarea" placeholder="SELECT name FROM sqlite_master WHERE type='table';"></textarea>
+
+        <div class="dbRow" style="margin-top:10px; justify-content:space-between;">
+          <div class="dbRow" style="gap:8px;">
+            <span class="dbBadge" id="activeTableBadge">Table: —</span>
+            <span class="dbBadge" id="rowCountBadge">Rows: —</span>
+          </div>
+          <div class="tabs">
+            <button id="tabGrid" class="tabBtn active">Grid</button>
+            <button id="tabJson" class="tabBtn">JSON</button>
+          </div>
+        </div>
+
+        <div style="margin-top:10px;">
+          <div id="gridView" class="resultWrap"></div>
+          <pre id="jsonView" class="dbTextarea pre hidden" style="min-height:220px;"></pre>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // ----- tiny helpers -----
+    const el = (id) => document.getElementById(id);
+    const pretty = (x) => JSON.stringify(x, null, 2);
+    const esc = (s) => String(s ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+    function getSecret() {
+      return (el("secret")?.value ?? "").trim();
+    }
+
+    function setStatus(kind, text) {
+      const pill = el("statusPill");
+      const t = el("statusText");
+      if (!pill || !t) return;
+      t.textContent = text || "—";
+      // swap dot class
+      pill.querySelector(".okDot,.warnDot,.badDot")?.remove();
+      const dot = document.createElement("span");
+      dot.className = kind === "ok" ? "okDot" : kind === "bad" ? "badDot" : "warnDot";
+      pill.prepend(dot);
+    }
+
+    // ----- local history -----
+    const HISTORY_KEY = "mg_db_history_v1";
+    const SECRET_KEY = "mg_admin_secret_v1";
+
+    function loadHistory() {
+      try {
+        const raw = localStorage.getItem(HISTORY_KEY);
+        const arr = raw ? JSON.parse(raw) : [];
+        return Array.isArray(arr) ? arr : [];
+      } catch { return []; }
+    }
+    function saveHistory(arr) {
+      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(arr.slice(0, 20))); } catch {}
+    }
+    function pushHistory(sql) {
+      const s = (sql ?? "").trim();
+      if (!s) return;
+      const arr = loadHistory();
+      const next = [s, ...arr.filter(x => x !== s)];
+      saveHistory(next);
+      renderHistory();
+    }
+    function renderHistory() {
+      const sel = el("historySelect");
+      if (!sel) return;
+      const arr = loadHistory();
+      sel.innerHTML = `<option value="">History…</option>` + arr.map((q, i) =>
+        `<option value="${esc(q)}">${esc(q.length > 70 ? q.slice(0,70) + "…" : q)}</option>`
+      ).join("");
+    }
+
+    // ----- API wrapper -----
+    async function api(path, opts) {
+      opts = opts || {};
+      const headers = { ...(opts.headers || {}) };
+
+      const secret = getSecret();
+      if (secret) headers["X-Misfitz-Secret"] = secret;
+
+      const hasBody = opts.body !== undefined && opts.body !== null;
+      const hasCT = Object.keys(headers).some(k => k.toLowerCase() === "content-type");
+      if (hasBody && !hasCT) headers["Content-Type"] = "application/json";
+
+      const res = await fetch(path, {
+        credentials: "include",
+        ...opts,
+        headers
+      });
+
+      const text = await res.text();
+      let json = null;
+      try { json = text ? JSON.parse(text) : null; }
+      catch { json = { ok: false, raw: text }; }
+
+      if (!res.ok) {
+        const msg = json?.error || json?.message || `HTTP ${res.status}`;
+        const err = new Error(msg);
+        err.status = res.status;
+        err.payload = json;
+        err.raw = text;
+        throw err;
+      }
+      return json;
+    }
+
+    // ----- safe mode -----
+    function isReadOnlySql(sql) {
+      const s = (sql ?? "").trim();
+      if (!s) return true;
+      // allow SELECT / PRAGMA / WITH (common CTE select)
+      const head = s.split(/\s+/)[0]?.toUpperCase();
+      return head === "SELECT" || head === "PRAGMA" || head === "WITH";
+    }
+
+    // ----- rendering -----
+    function renderGrid(result) {
+      const host = el("gridView");
+      if (!host) return;
+
+      const cols = result?.columns;
+      const rows = result?.rows;
+
+      if (!Array.isArray(cols) || !Array.isArray(rows)) {
+        host.innerHTML = `<div class="muted" style="padding:10px;">No tabular results.</div>`;
+        return;
+      }
+
+      el("rowCountBadge").textContent = `Rows: ${rows.length}`;
+
+      const thead = `<thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead>`;
+      const tbody = `<tbody>${
+        rows.map(r => {
+          const cells = cols.map((_, i) => {
+            const v = (r && r.length > i) ? r[i] : null;
+            const text = (v === null || v === undefined) ? "" : String(v);
+            const clipped = text.length > 160 ? text.slice(0,160) + "…" : text;
+            return `<td title="${esc(text)}">${esc(clipped)}</td>`;
+          }).join("");
+          return `<tr>${cells}</tr>`;
+        }).join("")
+      }</tbody>`;
+
+      host.innerHTML = `<table class="resultTable">${thead}${tbody}</table>`;
+    }
+
+    function showJson(result) {
+      el("jsonView").textContent = pretty(result);
+    }
+
+    function setActiveTable(name) {
+      el("activeTableBadge").textContent = `Table: ${name || "—"}`;
+      document.querySelectorAll(".dbItem.active").forEach(x => x.classList.remove("active"));
+      if (name) {
+        const node = document.querySelector(`.dbItem[data-table="${CSS.escape(name)}"]`);
+        if (node) node.classList.add("active");
+      }
+    }
+
+    // ----- core actions -----
+    async function runSQL() {
+      const sql = el("sqlBox").value.trim();
+      if (!sql) return alert("Please enter an SQL query.");
+
+      const secret = getSecret();
+      if (!secret) return alert("Please paste the ADMIN secret first.");
+
+      // safe mode
+      if (el("safeMode").checked && !isReadOnlySql(sql)) {
+        return alert("Safe Mode is ON (read-only). Disable it to run write queries.");
+      }
+
+      setStatus("warn", "Running…");
+      try {
+        const r = await api("/admin/db/query", {
+          method: "POST",
+          body: JSON.stringify({ sql })
+        });
+
+        pushHistory(sql);
+
+        // Render views
+        showJson(r);
+        renderGrid(r);
+
+        // badges
+        if (r?.rows?.length !== undefined) el("rowCountBadge").textContent = `Rows: ${r.rows.length}`;
+        else if (r?.affected !== undefined) el("rowCountBadge").textContent = `Affected: ${r.affected}`;
+        else el("rowCountBadge").textContent = "Rows: —";
+
+        setStatus("ok", "OK");
+      } catch (e) {
+        showJson({ ok: false, error: e.message, status: e.status, payload: e.payload, raw: e.raw });
+        el("gridView").innerHTML = `<div class="muted" style="padding:10px;">Error: ${esc(e.message)}</div>`;
+        el("rowCountBadge").textContent = "Rows: —";
+        setStatus("bad", "Error");
+      }
+    }
+
+    async function loadTables() {
+      setStatus("warn", "Loading tables…");
+      try {
+        const r = await api("/admin/db/query", {
+          method: "POST",
+          body: JSON.stringify({ sql: "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;" })
+        });
+
+        const names = (r?.rows || []).map(x => x?.[0]).filter(Boolean);
+        renderTables(names);
+
+        setStatus("ok", "Ready");
+      } catch (e) {
+        renderTables([]);
+        setStatus("bad", "Auth/Err");
+        showJson({ ok:false, error:e.message, status:e.status, payload:e.payload, raw:e.raw });
+      }
+    }
+
+    function renderTables(names) {
+      const host = el("tablesList");
+      if (!host) return;
+
+      if (!names.length) {
+        host.innerHTML = `<div class="muted">No tables found (or unauthorized).</div>`;
+        return;
+      }
+
+      host.innerHTML = names.map(n => `
+        <div class="dbItem" data-table="${esc(n)}" title="Click to browse">
+          <div style="font-weight:800;">${esc(n)}</div>
+          <span class="dbBadge">Browse</span>
+        </div>
+      `).join("");
+
+      host.querySelectorAll(".dbItem").forEach(node => {
+        node.addEventListener("click", async () => {
+          const name = node.getAttribute("data-table");
+          if (!name) return;
+          setActiveTable(name);
+
+          el("sqlBox").value = `SELECT * FROM "${name}" LIMIT 200;`;
+          await runSQL();
+        });
+      });
+    }
+
+    function applyTableSearch() {
+      const q = (el("tableSearch").value ?? "").trim().toLowerCase();
+      document.querySelectorAll("#tablesList .dbItem").forEach(node => {
+        const name = (node.getAttribute("data-table") ?? "").toLowerCase();
+        node.style.display = !q || name.includes(q) ? "" : "none";
+      });
+    }
+
+    function showHelp() {
+      const help = [
+        "Useful queries:",
+        "• List tables: SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;",
+        "• Table schema: PRAGMA table_info(Users);",
+        "• Indexes: PRAGMA index_list(Users);",
+        "• Migrations: SELECT * FROM __EFMigrationsHistory ORDER BY MigrationId;",
+        "",
+        "Shortcuts:",
+        "• Ctrl+Enter: Run SQL",
+        "• Click table: Browse LIMIT 200",
+        "",
+        "Safe Mode blocks write queries until you disable it."
+      ].join("\n");
+      el("sqlBox").value = help.startsWith("Useful") ? el("sqlBox").value : el("sqlBox").value;
+      el("jsonView").textContent = help;
+      el("gridView").innerHTML = `<div class="muted" style="padding:10px;"><pre class="pre">${esc(help)}</pre></div>`;
+    }
+
+    // ----- tabs -----
+    function setTab(which) {
+      const grid = el("gridView");
+      const json = el("jsonView");
+      const a = el("tabGrid");
+      const b = el("tabJson");
+
+      if (which === "json") {
+        grid.classList.add("hidden");
+        json.classList.remove("hidden");
+        a.classList.remove("active");
+        b.classList.add("active");
+      } else {
+        grid.classList.remove("hidden");
+        json.classList.add("hidden");
+        a.classList.add("active");
+        b.classList.remove("active");
+      }
+    }
+
+    // ----- init -----
+    document.addEventListener("DOMContentLoaded", () => {
+      // history
+      renderHistory();
+
+      // secret remember
+      const remember = el("rememberSecret");
+      const secretBox = el("secret");
+      const saved = localStorage.getItem(SECRET_KEY) || "";
+      if (saved) {
+        secretBox.value = saved;
+        remember.checked = true;
+      }
+
+      remember.addEventListener("change", () => {
+        if (!remember.checked) localStorage.removeItem(SECRET_KEY);
+        else localStorage.setItem(SECRET_KEY, getSecret());
+      });
+
+      secretBox.addEventListener("input", () => {
+        if (remember.checked) localStorage.setItem(SECRET_KEY, getSecret());
+      });
+
+      // wiring
+      el("btnRun").addEventListener("click", runSQL);
+      el("btnClear").addEventListener("click", () => {
+        el("sqlBox").value = "";
+        el("gridView").innerHTML = "";
+        el("jsonView").textContent = "";
+        el("rowCountBadge").textContent = "Rows: —";
+        setActiveTable(null);
+        setStatus("warn", "Idle");
+      });
+
+      el("btnRefreshTables").addEventListener("click", loadTables);
+      el("tableSearch").addEventListener("input", applyTableSearch);
+
+      el("historySelect").addEventListener("change", () => {
+        const v = el("historySelect").value;
+        if (!v) return;
+        el("sqlBox").value = v;
+      });
+
+      el("btnListTables").addEventListener("click", async () => {
+        el("sqlBox").value = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;";
+        await runSQL();
+      });
+
+      el("btnMigrations").addEventListener("click", async () => {
+        el("sqlBox").value = "SELECT * FROM __EFMigrationsHistory ORDER BY MigrationId;";
+        await runSQL();
+      });
+
+      el("btnVacuum").addEventListener("click", async () => {
+        if (el("safeMode").checked) return alert("Disable Safe Mode to run VACUUM.");
+        el("sqlBox").value = "VACUUM;";
+        await runSQL();
+      });
+
+      el("btnExplain").addEventListener("click", showHelp);
+
+      el("tabGrid").addEventListener("click", () => setTab("grid"));
+      el("tabJson").addEventListener("click", () => setTab("json"));
+
+      // Ctrl+Enter runs
+      el("sqlBox").addEventListener("keydown", (e) => {
+        if (e.ctrlKey && e.key === "Enter") runSQL();
+      });
+
+      // default tab
+      setTab("grid");
+
+      // try loading tables (if secret already saved)
+      if (getSecret()) loadTables();
+      else setStatus("warn", "Paste secret");
+    });
+  </script>
+</body>
+</html>

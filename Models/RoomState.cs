@@ -6,7 +6,8 @@ public enum GameType
     Contexto = 1,
     Deal = 2,
     Hangman = 3,
-    Trivia = 4
+    Trivia = 4,
+    HigherLower = 5
 }
 
 public sealed record RoomState(
