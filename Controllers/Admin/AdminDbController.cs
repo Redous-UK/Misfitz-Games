@@ -213,7 +213,14 @@ public sealed partial class AdminDbController(IConfiguration config) : Controlle
         var got = Request.Headers["X-Misfitz-Secret"].ToString().Trim();
 
         if (string.IsNullOrWhiteSpace(expected) || got != expected)
-            return Unauthorized(new { ok = false });
+            return Unauthorized(new
+            {
+                ok = false,
+                reason = "secret_mismatch",
+                expectedLen = expected?.Length ?? 0,
+                gotLen = got?.Length ?? 0,
+                headerPresent = Request.Headers.ContainsKey("X-Misfitz-Secret")
+            });
 
         var sql = (req?.Sql ?? "").Trim();
         if (string.IsNullOrWhiteSpace(sql))
