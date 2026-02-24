@@ -205,14 +205,13 @@ public sealed partial class AdminDbController(IConfiguration config) : Controlle
     }
 
     [HttpPost("/admin/db/query")]
-    public IActionResult Query([FromBody] SqlQueryRequest req)
+    public IActionResult Query([FromBody] SqlQueryRequest req, [FromServices] IConfiguration config)
     {
-        // 🔒 Protect this endpoint
-        if (!Request.Headers.TryGetValue("X-Misfitz-Secret", out var secret)
-            || secret != "YOUR_SECRET_HERE")
-        {
+        var expected = (config["MISFITZ_ADMIN_SECRET"] ?? "").Trim();
+        var got = Request.Headers["X-Misfitz-Secret"].ToString().Trim();
+
+        if (string.IsNullOrWhiteSpace(expected) || got != expected)
             return Unauthorized(new { ok = false });
-        }
 
         var sql = (req?.Sql ?? "").Trim();
         if (string.IsNullOrWhiteSpace(sql))
@@ -226,7 +225,6 @@ public sealed partial class AdminDbController(IConfiguration config) : Controlle
         using var cmd = conn.CreateCommand();
         cmd.CommandText = sql;
 
-        // Decide if query returns rows
         if (sql.StartsWith("SELECT", StringComparison.OrdinalIgnoreCase)
          || sql.StartsWith("PRAGMA", StringComparison.OrdinalIgnoreCase))
         {
@@ -237,7 +235,6 @@ public sealed partial class AdminDbController(IConfiguration config) : Controlle
                                  .ToArray();
 
             var rows = new List<object[]>();
-
             while (reader.Read())
             {
                 var values = new object[reader.FieldCount];
@@ -247,15 +244,13 @@ public sealed partial class AdminDbController(IConfiguration config) : Controlle
 
             return Ok(new { ok = true, columns = cols, rows });
         }
-        else
-        {
-            var affected = cmd.ExecuteNonQuery();
-            return Ok(new { ok = true, affected });
-        }
+
+        var affected = cmd.ExecuteNonQuery();
+        return Ok(new { ok = true, affected });
     }
 
 
-public sealed class SqlQueryRequest
+    public sealed class SqlQueryRequest
 {
     public string? Sql { get; set; }
 }

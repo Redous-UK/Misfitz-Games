@@ -71,11 +71,13 @@
                     <div class="row" style="justify-content:space-between; align-items:center;">
                         <div class="mgCardTitle">SQL Query</div>
                         <div class="row" style="gap:8px; align-items:center;">
-                        <textarea id="sqlBox" rows="8" style="width:100%;" placeholder="SELECT * FROM Users;"></textarea>
-                        <button id="btnRun">Run SQL</button>
-                        <pre id="sqlOut" style="margin-top:12px;"></pre>
+                            <input id="limit" class="input" style="width:90px;" value="50" />
+                            <input id="offset" class="input" style="width:110px;" value="0" />
+                            <button id="btnRun" class="btn" type="button">Run SQL</button>
                         </div>
                     </div>
+                    <input id="sqlBox" class="input" rows="8" style="width: 100%; padding:12px;" placeholder="SELECT * FROM Users;" />
+                    <pre id="sqlOut" class="code">-</pre>
                 </div>
             </div>
         </main>
@@ -85,20 +87,45 @@
         const el = (id) => document.getElementById(id);
         const pretty = (x) => JSON.stringify(x, null, 2);
 
-        function secret() { return (el("secret").value || "").trim(); }
+        function getSecret() { return (el("secret").value || "").trim(); }
 
         async function api(path, opts) {
             opts = opts || {};
-            opts.headers = Object.assign({}, opts.headers || {}, {
-                "X-Misfitz-Secret": secret()
+
+            // Build headers safely (don’t mutate caller object unexpectedly)
+            const headers = { ...(opts.headers || {}) };
+
+            // Always send secret header (if present)
+            const secret = getSecret();
+            if (secret) headers["X-Misfitz-Secret"] = secret;
+
+            // If we have a body and caller didn't set content-type, default to JSON
+            const hasBody = opts.body !== undefined && opts.body !== null;
+            const hasCT =
+                Object.keys(headers).some(k => k.toLowerCase() === "content-type");
+
+            if (hasBody && !hasCT) headers["Content-Type"] = "application/json";
+
+            const res = await fetch(path, {
+                credentials: "include",
+                ...opts,
+                headers
             });
 
-            const res = await fetch(path, opts);
             const text = await res.text();
             let json;
-            try { json = JSON.parse(text); } catch { json = { ok: false, raw: text }; }
+            try { json = text ? JSON.parse(text) : null; }
+            catch { json = { ok: false, raw: text }; }
 
-            if (!res.ok) throw new Error(`HTTP ${res.status}: ${text}`);
+            if (!res.ok) {
+                const msg = (json && (json.error || json.message)) || `HTTP ${res.status}: ${text}`;
+                const err = new Error(msg);
+                err.status = res.status;
+                err.path = path;
+                err.payload = json;
+                throw err;
+            }
+
             return json;
         }
 
@@ -163,17 +190,19 @@
         }
 
         async function runSQL() {
-            const sql = el("sqlBox").value.trim();
+            const sql = el("sqlBox")?.value?.trim() ?? "";
             if (!sql) return alert("Please enter an SQL query.");
+
+            const secret = getSecret();
+            if (!secret) return alert("Please paste the ADMIN secret first.");
+
             try {
                 const r = await api("/admin/db/query", {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-Misfitz-Secret": SECRET
-                    },
+                    // no need to repeat X-Misfitz-Secret here; api() adds it
                     body: JSON.stringify({ sql })
                 });
+
                 el("sqlOut").textContent = pretty(r);
             } catch (e) {
                 el("sqlOut").textContent = `Error: ${e.message}`;

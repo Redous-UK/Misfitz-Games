@@ -692,6 +692,17 @@ pre {
     max-height: 240px;
 }
 
+sqlBox {
+    margin: 10px 0 0;
+    background: rgba(0,0,0,.45);
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 14px;
+    padding: 12px;
+    overflow: auto;
+    color: #cfe3ff;
+    max-height: 240px;
+}
+
 /* full-width game tiles */
 .games {
     display: grid;
