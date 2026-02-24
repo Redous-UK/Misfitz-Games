@@ -209,7 +209,7 @@ public sealed partial class AdminDbController(IConfiguration config) : Controlle
     [HttpPost("/admin/db/query")]
     public IActionResult Query([FromBody] SqlQueryRequest req, [FromServices] IConfiguration config)
     {
-        var expected = (config["MISFITZ_ADMIN_SECRET"] ?? "").Trim();
+        var expected = (config["ADMIN_PASSWORD"] ?? "").Trim();
         var got = Request.Headers["X-Misfitz-Secret"].ToString().Trim();
 
         if (string.IsNullOrWhiteSpace(expected) || got != expected)

@@ -23,8 +23,7 @@
                 <div class="row">
                     <span id="meLabel" class="pill">Checking login…</span>
                     <button id="btnAdmin" class="btn-secondary" style="display:none">Admin</button>
-                    <button id="btnEffects" class="btn-secondary" onclick="document.location='/effects-dashboard.html'">Effects</button>  <!--Temporary shortcut to effects page for testing-->
-                    <button id="adminLink" class="hidden" onclick="document.location='/admin'">🛠 Admin Editor</button>
+                    <button id="btnEffects" class="btn-secondary" onclick="document.location='/effects-dashboard.html'">Effects</button>
                     <button id="btnLogout" class="btn-secondary">Logout</button>
                     <button id="btnBack" class="btn-secondary">Back to Login</button>
                 </div>
@@ -290,15 +289,6 @@
         // Auth
         // ----------------------------
 
-        function updateAdminLink(me) {
-            const a = document.getElementById("adminLink");
-            if (!a) return;
-
-            const isAdmin = me?.isAuth && (me?.role || "").toLowerCase() === "admin";
-            a.classList.toggle("hidden", !isAdmin);
-            a.href = "/admin";
-        }
-
         async function refreshMe() {
             const me = await api("/member/me");
 
@@ -325,7 +315,6 @@
             }
 
             applyRoleUI(myRole);
-            updateAdminLink(me);
             syncActionButtons();
             return me;
         }
@@ -1022,7 +1011,7 @@
         document.addEventListener("DOMContentLoaded", () => {
             init().catch(e => {
                 console.error("Lobby init failed at DOMContent Level:", e);
-                //location.href = "/user.html";
+                location.href = "/user.html";
             });
         });
     </script>
