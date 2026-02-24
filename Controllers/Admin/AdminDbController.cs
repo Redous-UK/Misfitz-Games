@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using System.Text.RegularExpressions;
 
@@ -204,6 +205,7 @@ public sealed partial class AdminDbController(IConfiguration config) : Controlle
         return Ok(new { ok = true, affected });
     }
 
+    [AllowAnonymous]
     [HttpPost("/admin/db/query")]
     public IActionResult Query([FromBody] SqlQueryRequest req, [FromServices] IConfiguration config)
     {

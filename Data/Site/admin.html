@@ -1,4 +1,5 @@
-﻿<!doctype html>
+﻿﻿
+<!doctype html>
 <html>
 <head>
     <meta charset="utf-8" />
@@ -22,6 +23,8 @@
                 <div class="row">
                     <span id="meLabel" class="pill">Checking login…</span>
                     <button id="btnMe" class="btn-secondary">Check login</button>
+                    <button id="adminLink" class="hidden">Editor</button>
+                    <button id="adminUsers" class="hidden" onclick="document.location='/admin-users.html'">Users</button>
                     <button id="btnLobby" class="btn-secondary">Go to Lobby</button>
                     <button id="btnLogout" class="btn-danger">Logout</button>
                 </div>
@@ -394,6 +397,19 @@
         }
 
         // Auth / nav
+
+        function updateAdminLink(me) {
+            const a = document.getElementById("adminLink");
+            const b = document.getElementById("adminUsers");
+            if (!a || !b) return;
+
+            const isAdmin = me?.isAuth && (me?.role || "").toLowerCase() === "admin";
+            a.classList.toggle("hidden", !isAdmin);
+            b.classList.toggle("hidden", !isAdmin);
+            a.href = "/admin";
+            b.href = "admin-users.html";
+        }
+
         el("btnLobby").onclick = () => location.href = "/lobby.html";
 
         el("btnLogout").onclick = async () => {
@@ -474,6 +490,7 @@
             try {
                 // Change to any lightweight endpoint you know exists
                 const me = await api("/member/me");
+
                 el("adminOut").textContent = pretty({ ok: true, ping: "ok", me });
             } catch (e) {
                 el("adminOut").textContent = String(e);
@@ -520,8 +537,9 @@
             const me = await api("/member/me");
             if (!me.isAuth) return location.href = "/user.html";
             if (me.role !== "admin") return location.href = "/lobby.html";
+            updateAdminLink(me);
         }
-       // requireAdmin().catch(() => location.href = "/user.html");
+        requireAdmin().catch(() => location.href = "/user.html");
     </script>
 </body>
 </html>
