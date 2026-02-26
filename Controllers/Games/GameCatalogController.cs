@@ -17,7 +17,7 @@ public sealed class GameCatalogController : ControllerBase
                 new { id = "hangman", name = "Hangman", description = "Guess the hidden word one letter at a time. Too many wrong guesses and it’s game over!", enabled = true, image = "/assets/Games/Hangman/hangman.png"},
                 new { id = "trivia", name = "Daily Trivia", description = "Daily Trivia can you answer all questions correctly!", enabled = true, image = "/assets/Games/trivia.png"},
                 new { id = "twenty_one", name = "21", description = "Coming soon.", enabled = false, image = "/assets/Games/21.png"},
-                new { id = "higher_or_lower", name = "Higher or Lower", description = "The Higher/Lower game is an engaging guessing game where players determine whether the next item or number is higher or lower than the current one!", enabled = true, image = "/assets/Games/higher_or_lower.png"},
+                new { id = "higher_lower", name = "Higher or Lower", description = "The Higher/Lower game is an engaging guessing game where players determine whether the next item or number is higher or lower than the current one!", enabled = true, image = "/assets/Games/higher_or_lower.png"},
                 new { id = "connect_four", name = "Connect Four", description = "Coming soon.", enabled = false, image = "/assets/Games/connect_four.png"},
                 new { id = "pictionary", name = "Pictionary", description = "Coming soon.", enabled = false, image = "/assets/Games/pictionary.png"},
                 new { id = "charades", name = "Charades", description = "Coming soon.", enabled = false, image = "/assets/Games/charades.png"},
