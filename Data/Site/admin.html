@@ -1,5 +1,4 @@
-﻿﻿
-<!doctype html>
+﻿<!doctype html>
 <html>
 <head>
     <meta charset="utf-8" />
@@ -24,7 +23,7 @@
                     <span id="meLabel" class="pill">Checking login…</span>
                     <button id="btnMe" class="btn-secondary">Check login</button>
                     <button id="adminLink" class="hidden">Editor</button>
-                    <button id="adminUsers" class="hidden" onclick="document.location='/admin-users.html'">Users</button>
+                    <button id="adminUsers" class="hidden">Users</button>
                     <button id="btnLobby" class="btn-secondary">Go to Lobby</button>
                     <button id="btnLogout" class="btn-danger">Logout</button>
                 </div>
@@ -45,7 +44,7 @@
                         <button id="btnOpenOverlay" class="btn-secondary">Open overlay</button>
                     </div>
                     <div class="muted" style="margin-top:10px; font-size:12px;">
-                        Tip: <span class="kbd">Create room</span> should call your room-create endpoint. If yours differs, update <span class="kbd">createRoom()</span>.
+                        Tip: <span class="kbd">Create room</span> calls <span class="kbd">/rooms/create</span> then falls back to <span class="kbd">POST /rooms</span>.
                     </div>
                     <pre id="stateOut" class="debug-out">{}</pre>
                 </div>
@@ -79,31 +78,67 @@
                 <div class="two">
 
                     <div class="card">
-                        <h2>Game selection</h2>
+                        <h2>Game controls</h2>
+
                         <div class="row">
                             <select id="gameSelect" style="flex:1; min-width:260px">
                                 <option value="contexto">Contexto</option>
+                                <option value="hangman">Hangman</option>
+                                <option value="trivia">Daily Trivia</option>
+                                <option value="higher_lower">Higher or Lower</option>
                                 <option value="deal">Deal or No Deal</option>
                             </select>
                             <span class="pill" id="selectedGamePill">Selected: contexto</span>
                         </div>
 
-                        <div class="row" style="margin-top:10px">
-                            <input id="secretWord" style="flex:1; min-width:260px" placeholder="Contexto secret word (optional)" />
+                        <!-- Settings panel (reused) -->
+                        <div id="gameSettings" style="margin-top:10px;">
+                            <!-- Contexto -->
+                            <div id="settings_contexto" class="row" style="margin-top:10px;">
+                                <input id="secretWord" style="flex:1; min-width:260px" placeholder="Contexto secret word (optional)" />
+                            </div>
+
+                            <!-- Hangman -->
+                            <div id="settings_hangman" class="row" style="margin-top:10px; display:none;">
+                                <input id="hangmanWord" style="flex:1; min-width:260px" placeholder="Hangman word (optional; will prompt if blank)" />
+                                <input id="hangmanMaxWrong" type="number" min="1" max="10" value="6" style="width:160px" />
+                            </div>
+
+                            <!-- Higher/Lower -->
+                            <div id="settings_higher_lower" class="row" style="margin-top:10px; display:none;">
+                                <span class="muted" style="font-size:12px;">
+                                    Uses shared buttons below:
+                                    <span class="kbd">Higher</span>, <span class="kbd">Lower</span>, <span class="kbd">Continue</span>
+                                </span>
+                            </div>
+
+                            <!-- Trivia / Deal -->
+                            <div id="settings_trivia" class="row" style="margin-top:10px; display:none;">
+                                <span class="muted" style="font-size:12px;">No settings yet.</span>
+                            </div>
+
+                            <div id="settings_deal" class="row" style="margin-top:10px; display:none;">
+                                <span class="muted" style="font-size:12px;">No settings yet.</span>
+                            </div>
                         </div>
 
-                        <div class="row" style="margin-top:10px">
+                        <!-- Reusable settings-style action buttons -->
+                        <div class="row" style="margin-top:10px; flex-wrap:wrap;">
                             <button id="btnStart">Start</button>
+
+                            <button id="btnActionA" class="btn-secondary" style="display:none;">Action A</button>
+                            <button id="btnActionB" class="btn-secondary" style="display:none;">Action B</button>
+                            <button id="btnContinue" class="btn-secondary" style="display:none;">Continue</button>
+
                             <button id="btnStop" class="btn-secondary">Stop</button>
                             <button id="btnNewGame" class="btn-secondary">New Game</button>
                             <button id="btnLeaderboard" class="btn-secondary">Leaderboard</button>
                         </div>
 
                         <div class="muted" style="margin-top:10px; font-size:12px;">
-                            Start/Stop/New Game are wired like your lobby:
-                            <span class="kbd">/rooms/{id}/games/contexto/start</span>,
-                            <span class="kbd">.../next</span>,
-                            <span class="kbd">.../games/stop</span>.
+                            Endpoints follow the lobby pattern:
+                            <span class="kbd">/rooms/{id}/games/&lt;game&gt;/start</span>,
+                            <span class="kbd">/rooms/{id}/games/stop</span>, etc.
                         </div>
 
                         <pre id="gameOut" class="debug-out">{}</pre>
@@ -115,8 +150,9 @@
                             <button id="btnPing" class="btn-secondary">Ping API</button>
                             <button id="btnClearRoomLocal" class="btn-secondary">Clear saved roomId</button>
                         </div>
+
                         <div class="muted" style="margin-top:10px; font-size:12px;">
-                            If you store the current room in <span class="kbd">localStorage.roomId</span>, this page can keep it in sync.
+                            This page keeps the current room in <span class="kbd">localStorage.roomId</span>.
                         </div>
 
                         <div class="row" style="gap:10px; align-items:center; flex-wrap:wrap;">
@@ -150,144 +186,29 @@
                 },
             };
 
-            try {
-                const res = await fetch(path, fetchOpts);
-                console.log("FETCH RES", res.status, res.statusText, "for", path);
+            const res = await fetch(path, fetchOpts);
+            const text = await res.text();
 
-                const text = await res.text();
-                let payload = null;
+            let payload = null;
+            if (text) {
+                try { payload = JSON.parse(text); }
+                catch { payload = { _nonJson: true, raw: text }; }
+            }
 
-                if (text) {
-                    try { payload = JSON.parse(text); }
-                    catch { payload = { _nonJson: true, raw: text }; }
-                }
-
-                if (!res.ok) {
-                    console.error("API ERROR:", { path, status: res.status, statusText: res.statusText, payload, text });
-
-                    const msg =
-                        payload?.error ||
-                        payload?.message ||
-                        `HTTP ${res.status} ${res.statusText} @ ${path}`;
-
-                    const err = new Error(msg);
-                    err.status = res.status;
-                    err.path = path;
-                    err.payload = payload;
-                    err.raw = text;
-                    throw err;
-                }
-
-                return payload;
-            } catch (err) {
-                console.error("FETCH FAILED:", { path, name: err?.name, message: err?.message, err });
+            if (!res.ok) {
+                const msg = payload?.error || payload?.message || `HTTP ${res.status} ${res.statusText} @ ${path}`;
+                const err = new Error(msg);
+                err.status = res.status;
+                err.path = path;
+                err.payload = payload;
+                err.raw = text;
                 throw err;
             }
+
+            return payload;
         }
 
-        function getCleanupParams() {
-            const olderThanHours = Math.max(1, parseInt(el("cleanupHours").value || "24", 10));
-            let max = parseInt(el("cleanupMax").value || "200", 10);
-            if (Number.isNaN(max) || max < 1) max = 1;
-            if (max > 2000) max = 2000;
-            return { olderThanHours, max };
-        }
-
-        async function previewCleanup() {
-            const { olderThanHours, max } = getCleanupParams();
-            const q = `?olderThanHours=${encodeURIComponent(olderThanHours)}&max=${encodeURIComponent(max)}`;
-
-            const r = await api(`/admin/rooms/cleanup/preview${q}`, { method: "GET" });
-            el("cleanupOut").textContent = pretty(r);
-            return r;
-        }
-
-        async function runCleanup() {
-            const { olderThanHours, max } = getCleanupParams();
-            const q = `?olderThanHours=${encodeURIComponent(olderThanHours)}&max=${encodeURIComponent(max)}`;
-
-            const prev = await previewCleanup();
-
-            const yes = confirm(
-                `Delete ${prev?.count ?? "these"} rooms older than ${olderThanHours}h?\n\n` +
-                `This cannot be undone.`
-            );
-            if (!yes) return;
-
-            const r = await api(`/admin/rooms/cleanup${q}`, { method: "POST" });
-            el("cleanupOut").textContent = pretty(r);
-            return r;
-        }
-
-        async function previewCloseIdle() {
-            const { olderThanHours, max } = getCleanupParams();
-            const q = `?olderThanHours=${encodeURIComponent(olderThanHours)}&max=${encodeURIComponent(max)}`;
-            const r = await api(`/admin/rooms/close-idle/preview${q}`, { method: "GET" });
-            el("cleanupOut").textContent = pretty(r);
-            return r;
-        }
-
-        async function runCloseIdle() {
-            const { olderThanHours, max } = getCleanupParams();
-            const prev = await previewCloseIdle();
-
-            const yes = confirm(
-                `Close ${prev?.count ?? "these"} IDLE rooms (no active game) older than ${olderThanHours}h?\n\n` +
-                `This cannot be undone.`
-            );
-            if (!yes) return;
-
-            const q = `?olderThanHours=${encodeURIComponent(olderThanHours)}&max=${encodeURIComponent(max)}`;
-            const r = await api(`/admin/rooms/close-idle${q}`, { method: "POST" });
-            el("cleanupOut").textContent = pretty(r);
-            return r;
-        }
-
-        // Wire buttons
-        el("btnPreviewCloseIdle").onclick = async () => {
-            el("btnPreviewCloseIdle").disabled = true;
-            try { await previewCloseIdle(); }
-            catch (e) { el("cleanupOut").textContent = pretty({ ok: false, error: String(e) }); }
-            finally { el("btnPreviewCloseIdle").disabled = false; }
-        };
-
-        el("btnRunCloseIdle").onclick = async () => {
-            el("btnRunCloseIdle").disabled = true;
-            try { await runCloseIdle(); }
-            catch (e) { el("cleanupOut").textContent = pretty({ ok: false, error: String(e) }); }
-            finally { el("btnRunCloseIdle").disabled = false; }
-        };
-
-        el("btnPreviewCleanup").onclick = async () => {
-            el("btnPreviewCleanup").disabled = true;
-            try { await previewCleanup(); }
-            catch (e) { el("cleanupOut").textContent = pretty({ ok: false, error: String(e) }); }
-            finally { el("btnPreviewCleanup").disabled = false; }
-        };
-
-        el("btnRunCleanup").onclick = async () => {
-            el("btnRunCleanup").disabled = true;
-            try { await runCleanup(); }
-            catch (e) { el("cleanupOut").textContent = pretty({ ok: false, error: String(e) }); }
-            finally { el("btnRunCleanup").disabled = false; }
-        };
-
-        // Presets
-        function setHours(h) { el("cleanupHours").value = String(h); }
-        el("btnPreset1h").onclick = () => setHours(1);
-        el("btnPreset6h").onclick = () => setHours(6);
-        el("btnPreset24h").onclick = () => setHours(24);
-        el("btnPreset72h").onclick = () => setHours(72);
-
-        function roomId() {
-            return el("roomCode").value.trim();
-        }
-
-        function setSelectedGame(id) {
-            selectedGameId = id;
-            el("selectedGamePill").textContent = `Selected: ${id}`;
-            el("secretWord").style.display = (id === "contexto") ? "block" : "none";
-        }
+        function roomId() { return el("roomCode").value.trim(); }
 
         function syncRoomFromStorage() {
             const stored = localStorage.getItem("roomId");
@@ -320,9 +241,245 @@
             }
         }
 
-        // IMPORTANT: update this if your create-room endpoint differs
-        async function createRoom() {
+        // ---------- Cleanup ----------
+        function getCleanupParams() {
+            const olderThanHours = Math.max(1, parseInt(el("cleanupHours").value || "24", 10));
+            let max = parseInt(el("cleanupMax").value || "200", 10);
+            if (Number.isNaN(max) || max < 1) max = 1;
+            if (max > 2000) max = 2000;
+            return { olderThanHours, max };
+        }
 
+        async function previewCleanup() {
+            const { olderThanHours, max } = getCleanupParams();
+            const q = `?olderThanHours=${encodeURIComponent(olderThanHours)}&max=${encodeURIComponent(max)}`;
+            const r = await api(`/admin/rooms/cleanup/preview${q}`, { method: "GET" });
+            el("cleanupOut").textContent = pretty(r);
+            return r;
+        }
+
+        async function runCleanup() {
+            const { olderThanHours, max } = getCleanupParams();
+            const prev = await previewCleanup();
+
+            const yes = confirm(
+                `Delete ${prev?.count ?? "these"} rooms older than ${olderThanHours}h?\n\nThis cannot be undone.`
+            );
+            if (!yes) return;
+
+            const q = `?olderThanHours=${encodeURIComponent(olderThanHours)}&max=${encodeURIComponent(max)}`;
+            const r = await api(`/admin/rooms/cleanup${q}`, { method: "POST" });
+            el("cleanupOut").textContent = pretty(r);
+            return r;
+        }
+
+        async function previewCloseIdle() {
+            const { olderThanHours, max } = getCleanupParams();
+            const q = `?olderThanHours=${encodeURIComponent(olderThanHours)}&max=${encodeURIComponent(max)}`;
+            const r = await api(`/admin/rooms/close-idle/preview${q}`, { method: "GET" });
+            el("cleanupOut").textContent = pretty(r);
+            return r;
+        }
+
+        async function runCloseIdle() {
+            const { olderThanHours, max } = getCleanupParams();
+            const prev = await previewCloseIdle();
+
+            const yes = confirm(
+                `Close ${prev?.count ?? "these"} IDLE rooms older than ${olderThanHours}h?\n\nThis cannot be undone.`
+            );
+            if (!yes) return;
+
+            const q = `?olderThanHours=${encodeURIComponent(olderThanHours)}&max=${encodeURIComponent(max)}`;
+            const r = await api(`/admin/rooms/close-idle${q}`, { method: "POST" });
+            el("cleanupOut").textContent = pretty(r);
+            return r;
+        }
+
+        function setHours(h) { el("cleanupHours").value = String(h); }
+
+        // ---------- Game action wiring (reusable buttons) ----------
+        let selectedGameId = "contexto";
+
+        function showSettingsFor(gameId) {
+            const ids = ["contexto", "hangman", "higher_lower", "trivia", "deal"];
+            for (const id of ids) {
+                const box = el(`settings_${id}`);
+                if (!box) continue;
+                box.style.display = (id === gameId) ? "" : "none";
+            }
+        }
+
+        function setSelectedGame(id) {
+            selectedGameId = (id || "contexto").toLowerCase();
+            el("selectedGamePill").textContent = `Selected: ${selectedGameId}`;
+            showSettingsFor(selectedGameId);
+            applyGameButtons();
+        }
+
+        function setBtn(id, { text, show, onClick }) {
+            const b = el(id);
+            if (!b) return;
+            b.style.display = show ? "" : "none";
+            if (text != null) b.textContent = text;
+            b.onclick = onClick || null;
+        }
+
+        async function postRoomGame(code, gamePath, body) {
+            return api(`/rooms/${encodeURIComponent(code)}/games/${gamePath}`, {
+                method: "POST",
+                headers: body ? { "Content-Type": "application/json" } : undefined,
+                body: body ? JSON.stringify(body) : undefined
+            });
+        }
+
+        function gameCfg(code) {
+            const g = selectedGameId;
+
+            if (g === "contexto") {
+                return {
+                    start: async () => {
+                        const secretWord = el("secretWord").value.trim();
+                        if (secretWord) {
+                            return postRoomGame(code, "contexto/start", { secretWord });
+                        }
+                        return postRoomGame(code, "contexto/next");
+                    },
+                    newGame: async () => postRoomGame(code, "contexto/next"),
+                    stop: async () => api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" }),
+                };
+            }
+
+            if (g === "hangman") {
+                return {
+                    start: async () => {
+                        const word = (el("hangmanWord")?.value ?? "").trim() || (prompt("Hangman word (temporary):") || "").trim();
+                        if (!word) throw new Error("Word required.");
+                        const maxWrongRaw = (el("hangmanMaxWrong")?.value ?? "").trim();
+                        const maxWrong = maxWrongRaw ? Number(maxWrongRaw) : 6;
+                        return postRoomGame(code, "hangman/start", { word, maxWrong: Number.isFinite(maxWrong) ? maxWrong : 6 });
+                    },
+                    stop: async () => api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" }),
+                };
+            }
+
+            if (g === "higher_lower") {
+                return {
+                    start: async () => postRoomGame(code, "higher_lower/start"),
+                    actionA: { label: "Higher", run: async () => postRoomGame(code, "higher_lower/guess", { choice: "higher" }) },
+                    actionB: { label: "Lower", run: async () => postRoomGame(code, "higher_lower/guess", { choice: "lower" }) },
+                    cont: { label: "Continue", run: async () => postRoomGame(code, "higher_lower/continue") },
+                    stop: async () => api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" }),
+                };
+            }
+
+            // trivia / deal default
+            return {
+                start: async () => postRoomGame(code, `${g}/start`),
+                stop: async () => api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" }),
+            };
+        }
+
+        function applyGameButtons() {
+            const code = roomId();
+            const hasRoom = !!code;
+
+            // defaults
+            setBtn("btnActionA", { show: false });
+            setBtn("btnActionB", { show: false });
+            setBtn("btnContinue", { show: false });
+
+            // Start
+            setBtn("btnStart", {
+                text: "Start",
+                show: true,
+                onClick: async () => {
+                    if (!hasRoom) return alert("Enter a room code first.");
+                    const cfg = gameCfg(code);
+                    el("gameOut").textContent = pretty(await cfg.start());
+                    await refreshState();
+                    await refreshLeaderboard();
+                }
+            });
+
+            // Stop (always uses /games/stop so it matches your existing backend)
+            setBtn("btnStop", {
+                text: "Stop",
+                show: true,
+                onClick: async () => {
+                    if (!hasRoom) return alert("Enter a room code first.");
+                    const cfg = gameCfg(code);
+                    el("gameOut").textContent = pretty(await cfg.stop());
+                    await refreshState();
+                }
+            });
+
+            // New Game
+            setBtn("btnNewGame", {
+                text: "New Game",
+                show: true,
+                onClick: async () => {
+                    if (!hasRoom) return alert("Enter a room code first.");
+                    const cfg = gameCfg(code);
+                    if (!cfg.newGame) {
+                        el("gameOut").textContent = pretty({ ok: false, error: "New Game not implemented for this game yet." });
+                        return;
+                    }
+                    el("gameOut").textContent = pretty(await cfg.newGame());
+                    await refreshState();
+                    await refreshLeaderboard();
+                }
+            });
+
+            // Leaderboard
+            setBtn("btnLeaderboard", {
+                text: "Leaderboard",
+                show: true,
+                onClick: refreshLeaderboard
+            });
+
+            // Optional action buttons
+            const cfg = hasRoom ? gameCfg(code) : null;
+
+            if (cfg?.actionA) {
+                setBtn("btnActionA", {
+                    text: cfg.actionA.label,
+                    show: true,
+                    onClick: async () => {
+                        el("gameOut").textContent = pretty(await cfg.actionA.run());
+                        await refreshState();
+                        await refreshLeaderboard();
+                    }
+                });
+            }
+
+            if (cfg?.actionB) {
+                setBtn("btnActionB", {
+                    text: cfg.actionB.label,
+                    show: true,
+                    onClick: async () => {
+                        el("gameOut").textContent = pretty(await cfg.actionB.run());
+                        await refreshState();
+                        await refreshLeaderboard();
+                    }
+                });
+            }
+
+            if (cfg?.cont) {
+                setBtn("btnContinue", {
+                    text: cfg.cont.label,
+                    show: true,
+                    onClick: async () => {
+                        el("gameOut").textContent = pretty(await cfg.cont.run());
+                        await refreshState();
+                        await refreshLeaderboard();
+                    }
+                });
+            }
+        }
+
+        // ---------- Room create ----------
+        async function createRoom() {
             try {
                 let r;
                 try {
@@ -341,185 +498,40 @@
                 saveRoomToStorage(code);
                 el("adminOut").textContent = pretty({ ok: true, createdRoom: code, raw: r });
                 await refreshState();
+                applyGameButtons();
             } catch (e) {
                 el("adminOut").textContent = String(e);
             }
         }
 
-        async function startSelectedGame() {
-            const code = roomId();
-            if (!code) return alert("Enter a room code first.");
-
-            const g = (selectedGameId || "").toLowerCase();
-            const starters = {
-                contexto: () => startContexto(code),
-                hangman: () => startHangman(code),
-                // deal: () => startDeal(code), // later
-            };
-
-            const fn = starters[g];
-            if (!fn) return alert(`No start handler for: ${selectedGameId}`);
-
-            const r = await fn();
-            el("gameOut").textContent = pretty(r);
-
-            await refreshState();
-            await refreshLeaderboard();
-        }
-
-        async function startContexto(code) {
-            const secretWord = el("secretWord").value.trim();
-
-            const path = secretWord
-                ? `/rooms/${encodeURIComponent(code)}/games/contexto/start`
-                : `/rooms/${encodeURIComponent(code)}/games/contexto/next`;
-
-            const opts = secretWord
-                ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ secretWord }) }
-                : { method: "POST" };
-
-            return await api(path, opts);
-        }
-
-        async function startHangman(code) {
-            // MVP: until you add server-side random words, use an input or prompt.
-            const word = (el("hangmanWord")?.value ?? "").trim() || (prompt("Hangman word (temporary):") || "").trim();
-            if (!word) throw new Error("Word required.");
-
-            const maxWrongRaw = (el("hangmanMaxWrong")?.value ?? "").trim();
-            const maxWrong = maxWrongRaw ? Number(maxWrongRaw) : 6;
-
-            return await api(`/rooms/${encodeURIComponent(code)}/games/hangman/start`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ word, maxWrong: Number.isFinite(maxWrong) ? maxWrong : 6 })
-            });
-        }
-
-        // Auth / nav
-
+        // ---------- Auth / nav ----------
         function updateAdminLink(me) {
-            const a = document.getElementById("adminLink");
-            const b = document.getElementById("adminUsers");
+            const a = el("adminLink");
+            const b = el("adminUsers");
             if (!a || !b) return;
 
             const isAdmin = me?.isAuth && (me?.role || "").toLowerCase() === "admin";
             a.classList.toggle("hidden", !isAdmin);
             b.classList.toggle("hidden", !isAdmin);
-            a.href = "/admin";
-            b.href = "admin-users.html";
+
+            a.onclick = () => (location.href = "/admin");
+            b.onclick = () => (location.href = "/admin-users.html");
         }
 
-        el("btnLobby").onclick = () => location.href = "/lobby.html";
-
-        el("btnLogout").onclick = async () => {
-            try {
-                el("adminOut").textContent = pretty(await api("/member/logout", { method: "POST" }));
-            } catch (e) {
-                el("adminOut").textContent = String(e);
-            }
-            location.href = "/user.html";
-        };
-
-        el("btnMe").onclick = async () => {
-            try {
-                const me = await api("/member/me");
-                el("adminOut").textContent = pretty(me);
-
-                el("meLabel").textContent = me.isAuth
-                    ? `👤 ${me.name ?? "Signed in"} (${me.role ?? "user"})`
-                    : "Not logged in";
-            } catch (e) {
-                el("meLabel").textContent = "Not logged in";
-                el("adminOut").textContent = String(e);
-            }
-        };
-
-        // Room actions
-        el("btnGetState").onclick = refreshState;
-        el("btnCreateRoom").onclick = createRoom;
-
-        el("btnOpenOverlay").onclick = () => {
-            const code = roomId();
-            if (!code) return alert("Enter a room code first.");
-            window.open(`/overlay.html?roomId=${encodeURIComponent(code)}`, "_blank");
-        };
-
-        // Game controls
-        el("gameSelect").onchange = (e) => setSelectedGame(e.target.value);
-
-        el("btnStart").onclick = () => startSelectedGame().catch(e => alert(String(e)));
-
-        el("btnStop").onclick = async () => {
-            try {
-                const code = roomId();
-                if (!code) return alert("Enter a room code first.");
-                const r = await api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" });
-                el("gameOut").textContent = pretty(r);
-                await refreshState();
-            } catch (e) {
-                el("gameOut").textContent = String(e);
-            }
-        };
-
-        el("btnNewGame").onclick = async () => {
-            try {
-                const code = roomId();
-                if (!code) return alert("Enter a room code first.");
-
-                if (selectedGameId === "contexto") {
-                    // New Game = next round
-                    el("secretWord").value = "";
-                    const r = await api(`/rooms/${encodeURIComponent(code)}/games/contexto/next`, { method: "POST" });
-                    el("gameOut").textContent = pretty(r);
-                    await refreshState();
-                    await refreshLeaderboard();
-                    return;
-                }
-
-                el("gameOut").textContent = pretty({ ok: false, error: "New Game not implemented for this game yet." });
-            } catch (e) {
-                el("gameOut").textContent = String(e);
-            }
-        };
-
-        el("btnLeaderboard").onclick = refreshLeaderboard;
-
-        // Admin tools
-        el("btnPing").onclick = async () => {
-            try {
-                // Change to any lightweight endpoint you know exists
-                const me = await api("/member/me");
-
-                el("adminOut").textContent = pretty({ ok: true, ping: "ok", me });
-            } catch (e) {
-                el("adminOut").textContent = String(e);
-            }
-        };
-
-        el("btnClearRoomLocal").onclick = () => {
-            localStorage.removeItem("roomId");
-            el("adminOut").textContent = pretty({ ok: true, cleared: "localStorage.roomId" });
-        };
-
-        // Init
-
-        async function boot() {
-            await requireAdmin();
-            syncRoomFromStorage();
-            wireDebugToggle();
-            setSelectedGame("contexto");
-            el("btnMe").click();
+        async function requireAdmin() {
+            const me = await api("/member/me");
+            if (!me.isAuth) { location.href = "/user.html"; return; }
+            if (me.role !== "admin") { location.href = "/lobby.html"; return; }
+            updateAdminLink(me);
+            return me;
         }
-        boot().catch(() => location.href = "/user.html");
 
-
+        // ---------- Debug toggle ----------
         function wireDebugToggle() {
             const key = "admin_show_debug";
-            const cb = document.getElementById("toggleDebug");
+            const cb = el("toggleDebug");
             if (!cb) return;
 
-            // load saved preference
             const saved = localStorage.getItem(key);
             const enabled = saved === "1";
 
@@ -533,13 +545,98 @@
             });
         }
 
-        async function requireAdmin() {
-            const me = await api("/member/me");
-            if (!me.isAuth) return location.href = "/user.html";
-            if (me.role !== "admin") return location.href = "/lobby.html";
-            updateAdminLink(me);
+        // ---------- Wire buttons ----------
+        el("btnPreviewCloseIdle").onclick = async () => {
+            el("btnPreviewCloseIdle").disabled = true;
+            try { await previewCloseIdle(); }
+            catch (e) { el("cleanupOut").textContent = pretty({ ok: false, error: String(e) }); }
+            finally { el("btnPreviewCloseIdle").disabled = false; }
+        };
+
+        el("btnRunCloseIdle").onclick = async () => {
+            el("btnRunCloseIdle").disabled = true;
+            try { await runCloseIdle(); }
+            catch (e) { el("cleanupOut").textContent = pretty({ ok: false, error: String(e) }); }
+            finally { el("btnRunCloseIdle").disabled = false; }
+        };
+
+        el("btnPreviewCleanup").onclick = async () => {
+            el("btnPreviewCleanup").disabled = true;
+            try { await previewCleanup(); }
+            catch (e) { el("cleanupOut").textContent = pretty({ ok: false, error: String(e) }); }
+            finally { el("btnPreviewCleanup").disabled = false; }
+        };
+
+        el("btnRunCleanup").onclick = async () => {
+            el("btnRunCleanup").disabled = true;
+            try { await runCleanup(); }
+            catch (e) { el("cleanupOut").textContent = pretty({ ok: false, error: String(e) }); }
+            finally { el("btnRunCleanup").disabled = false; }
+        };
+
+        el("btnPreset1h").onclick = () => setHours(1);
+        el("btnPreset6h").onclick = () => setHours(6);
+        el("btnPreset24h").onclick = () => setHours(24);
+        el("btnPreset72h").onclick = () => setHours(72);
+
+        el("btnGetState").onclick = refreshState;
+        el("btnCreateRoom").onclick = createRoom;
+
+        el("btnOpenOverlay").onclick = () => {
+            const code = roomId();
+            if (!code) return alert("Enter a room code first.");
+            window.open(`/overlay.html?roomId=${encodeURIComponent(code)}`, "_blank");
+        };
+
+        el("btnLobby").onclick = () => location.href = "/lobby.html";
+
+        el("btnLogout").onclick = async () => {
+            try { el("adminOut").textContent = pretty(await api("/member/logout", { method: "POST" })); }
+            catch (e) { el("adminOut").textContent = String(e); }
+            location.href = "/user.html";
+        };
+
+        el("btnMe").onclick = async () => {
+            try {
+                const me = await api("/member/me");
+                el("adminOut").textContent = pretty(me);
+                el("meLabel").textContent = me.isAuth
+                    ? `👤 ${me.name ?? "Signed in"} (${me.role ?? "user"})`
+                    : "Not logged in";
+                updateAdminLink(me);
+            } catch (e) {
+                el("meLabel").textContent = "Not logged in";
+                el("adminOut").textContent = String(e);
+            }
+        };
+
+        el("btnPing").onclick = async () => {
+            try {
+                const me = await api("/member/me");
+                el("adminOut").textContent = pretty({ ok: true, ping: "ok", me });
+            } catch (e) {
+                el("adminOut").textContent = String(e);
+            }
+        };
+
+        el("btnClearRoomLocal").onclick = () => {
+            localStorage.removeItem("roomId");
+            el("adminOut").textContent = pretty({ ok: true, cleared: "localStorage.roomId" });
+        };
+
+        el("gameSelect").onchange = (e) => setSelectedGame(e.target.value);
+        el("roomCode").addEventListener("input", () => applyGameButtons());
+
+        // ---------- Boot ----------
+        async function boot() {
+            await requireAdmin();
+            syncRoomFromStorage();
+            wireDebugToggle();
+            setSelectedGame("contexto");
+            el("btnMe").click();
+            applyGameButtons();
         }
-        requireAdmin().catch(() => location.href = "/user.html");
+        boot().catch(() => location.href = "/user.html");
     </script>
 </body>
 </html>
