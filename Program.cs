@@ -10,6 +10,7 @@ using Misfitz_Games.Hubs;
 using Misfitz_Games.Services;
 using Misfitz_Games.Services.Games.Contexto;
 using Misfitz_Games.Services.Games.Hangman;
+using Misfitz_Games.Services.Games.HigherLower;
 using Misfitz_Games.Services.Games.Trivia;
 using Misfitz_Games.Services.Infrastructure.Redis;
 using Misfitz_Games.Services.Room;
@@ -138,6 +139,7 @@ public static class Program
         builder.Services.AddSingleton<ContextoRankIndexStore>();
         builder.Services.AddSingleton<HangmanService>();
         builder.Services.AddHttpClient<TriviaService>();
+        builder.Services.AddSingleton<HigherLowerService>();
 
         // Effects / hardware services
         builder.Services.AddHttpClient<TuyaPlugService>();

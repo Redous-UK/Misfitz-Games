@@ -4,6 +4,7 @@ using Misfitz_Games.Models;
 using Misfitz_Games.Models.Games;
 using Misfitz_Games.Services.Games;
 using Misfitz_Games.Services.Games.Hangman;
+using Misfitz_Games.Services.Games.HigherLower;
 using Misfitz_Games.Services.Games.Trivia;
 using System.Text.Json;
 
@@ -39,6 +40,7 @@ public static class RoomStateProjector
         GameType.Hangman => ("hangman", ProjectHangman(room.GameState)),
         GameType.Trivia => ("trivia", ProjectTrivia(room.GameState)),
         GameType.Deal => ("deal", ProjectPlaceholder("deal")),
+        GameType.HigherLower => ("higher_lower", ProjectPlaceholder("higher_lower")),
         _ => ("none", ProjectNone()),
     };
 
@@ -85,6 +87,21 @@ public static class RoomStateProjector
             var typed = je.Deserialize<TriviaRoundState>(JsonOpts);
             if (typed is not null)
                 return TriviaView.PublicView(typed);
+        }
+
+        return ProjectNone();
+    }
+
+    private static object ProjectHigherLower(object? gameState)
+    {
+        if (gameState is HigherLowerState st)
+            return HigherLowerView.PublicView(st);
+
+        if (gameState is JsonElement je)
+        {
+            var typed = je.Deserialize<HigherLowerState>(JsonOpts);
+            if (typed is not null)
+                return HigherLowerView.PublicView(typed);
         }
 
         return ProjectNone();

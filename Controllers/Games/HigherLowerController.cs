@@ -1,8 +1,8 @@
-﻿using System.Security.Claims;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
+using Misfitz_Games.Controllers.Rooms;
 using Misfitz_Games.Models;
 using Misfitz_Games.Models.Games;
+using Misfitz_Games.Services.Games.HigherLower;
 using Misfitz_Games.Services.Room;
 
 namespace Misfitz_Games.Controllers.Games;
@@ -10,157 +10,183 @@ namespace Misfitz_Games.Controllers.Games;
 [ApiController]
 public sealed class HigherLowerController(
     IRoomStateStore store,
-    RoomBroadcastService broadcaster
-) : ControllerBase
+    RoomGameBroadcaster bus,
+    HigherLowerService higherLower
+) : RoomGameControllerBase(store, bus)
 {
-    static int NextNum() => Random.Shared.Next(1, 100);
-
-    static string GetUserId(ClaimsPrincipal user) =>
-        user.FindFirstValue("userId")
-        ?? user.FindFirstValue(ClaimTypes.NameIdentifier)
-        ?? "anon";
-
-    async Task<(Guid roomId, RoomState state)?> LoadByCodeAsync(string roomCode, CancellationToken ct)
+    public sealed class HigherLowerGuessRequest
     {
-        var roomId = await store.ResolveRoomIdAsync(roomCode, ct);
-        if (roomId is null) return null;
-
-        var state = await store.GetStateAsync(roomId.Value, ct);
-        if (state is null) return null;
-
-        return (roomId.Value, state);
+        public string? Choice { get; set; } // "higher" | "lower"
     }
 
-    static HigherLowerState? GetGame(RoomState state)
-        => state.GameState as HigherLowerState;
-
     // ----------------------------
-    // Start
+    // Higher / Lower: Start
     // ----------------------------
-    [Authorize(Policy = "MemberOrAdmin")]
-    [HttpPost("/rooms/{roomCode}/games/higherlower/start")]
-    public async Task<IActionResult> Start(string roomCode, CancellationToken ct)
+    [HttpPost("/rooms/{roomRef}/games/higher_lower/start")]
+    public async Task<IActionResult> Start(string roomRef, CancellationToken ct)
     {
-        var loaded = await LoadByCodeAsync(roomCode, ct);
-        if (loaded is null) return NotFound(new { ok = false, error = "Room not found" });
+        var loaded = await LoadRoomStateAsync(roomRef, ct);
+        if (loaded is null) return RoomNotFound();
 
-        var (roomId, state) = loaded.Value;
+        var (roomId, room) = loaded.Value;
 
-        var game = new HigherLowerState
-        {
-            Current = NextNum(),
-            Next = NextNum(),
-            Streak = 0,
-            BestStreak = 0,
-            UpdatedAtUtc = DateTimeOffset.UtcNow
-        };
-
-        var nextState = state with
+        var round = higherLower.NewGame();
+        var updated = room with
         {
             ActiveGame = GameType.HigherLower,
-            GameState = game,
+            GameState = round,
             UpdatedAtUtc = DateTimeOffset.UtcNow
         };
 
-        await store.SaveStateAsync(nextState, ct);
-        await store.IncrementGamesPlayedAsync(roomId, 1, ct);
-        await broadcaster.BroadcastStateAsync(roomId, ct);
+        await SaveRoomStateAsync(roomId, updated, ct);
+        await Store.IncrementGamesPlayedAsync(roomId, 1, ct);
 
-        return Ok(new { ok = true, state = nextState });
-    }
+        var publicState = HigherLowerView.PublicView(round);
+        await BroadcastAsync(roomId, updated.ActiveGame, "higher_lower", publicState, new { type = "start" }, ct);
+        await ToastAsync(roomId, "Higher / Lower started!", ct);
 
-    public sealed class GuessReq { public string? Pick { get; set; } }
-
-    // ----------------------------
-    // Guess (higher/lower)
-    // ----------------------------
-    [HttpPost("/rooms/{roomCode}/games/higherlower/guess")]
-    public async Task<IActionResult> Guess(string roomCode, [FromBody] GuessReq req, CancellationToken ct)
-    {
-        var loaded = await LoadByCodeAsync(roomCode, ct);
-        if (loaded is null) return NotFound(new { ok = false, error = "Room not found" });
-
-        var (roomId, state) = loaded.Value;
-
-        if (state.ActiveGame != GameType.HigherLower)
-            return BadRequest(new { ok = false, error = "Higher/Lower not active" });
-
-        var game = GetGame(state);
-        if (game is null)
-            return StatusCode(500, new { ok = false, error = "Missing Higher/Lower state payload" });
-
-        var pick = (req?.Pick ?? "").Trim().ToLowerInvariant();
-        if (pick is not ("higher" or "lower"))
-            return BadRequest(new { ok = false, error = "Pick must be 'higher' or 'lower'." });
-
-        var userId = GetUserId(User);
-
-        if (!game.AnswersByUserId.TryAdd(userId, pick))
-            return BadRequest(new { ok = false, error = "Already answered this round." });
-
-        game.UpdatedAtUtc = DateTimeOffset.UtcNow;
-
-        var nextState = state with
-        {
-            GameState = game,
-            UpdatedAtUtc = DateTimeOffset.UtcNow
-        };
-
-        await store.SaveStateAsync(nextState, ct);
-        await broadcaster.BroadcastStateAsync(roomId, ct);
-
-        return Ok(new { ok = true, answers = game.AnswersByUserId.Count });
+        return Ok(new { ok = true, state = publicState });
     }
 
     // ----------------------------
-    // Reveal + advance
+    // Higher / Lower: Guess
     // ----------------------------
-    [Authorize(Policy = "MemberOrAdmin")]
-    [HttpPost("/rooms/{roomCode}/games/higherlower/reveal")]
-    public async Task<IActionResult> Reveal(string roomCode, CancellationToken ct)
+    [HttpPost("/rooms/{roomRef}/games/higher_lower/guess")]
+    public async Task<IActionResult> Guess(string roomRef, [FromBody] HigherLowerGuessRequest req, CancellationToken ct)
     {
-        var loaded = await LoadByCodeAsync(roomCode, ct);
-        if (loaded is null) return NotFound(new { ok = false, error = "Room not found" });
+        var loaded = await LoadRoomStateAsync(roomRef, ct);
+        if (loaded is null) return RoomNotFound();
 
-        var (roomId, state) = loaded.Value;
+        var (roomId, room) = loaded.Value;
 
-        if (state.ActiveGame != GameType.HigherLower)
-            return BadRequest(new { ok = false, error = "Higher/Lower not active" });
+        if (!TryRequireGameState(room, GameType.HigherLower, out HigherLowerState round, out var err))
+            return err!;
 
-        var game = GetGame(state);
-        if (game is null)
-            return StatusCode(500, new { ok = false, error = "Missing Higher/Lower state payload" });
+        var choice = (req?.Choice ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(choice))
+            return BadRequest(new { ok = false, error = "Choice is required (higher|lower)." });
 
-        // Rule: ties count as "higher"
-        var correct = (game.Next >= game.Current) ? "higher" : "lower";
+        string? message = null;
 
-        var anyCorrect = game.AnswersByUserId.Values.Any(v => v == correct);
-        if (anyCorrect)
+        try
         {
-            game.Streak += 1;
-            game.BestStreak = Math.Max(game.BestStreak, game.Streak);
+            higherLower.GuessInPlace(round, choice);
+
+            // Friendly message for UI + toast
+            message = round.LastWasCorrect == true
+                ? "Correct!"
+                : "Unlucky!";
         }
-        else
+        catch (Exception ex)
         {
-            game.Streak = 0;
+            return BadRequest(new { ok = false, error = ex.Message });
         }
 
-        // advance
-        game.Current = game.Next;
-        game.Next = NextNum();
-        game.AnswersByUserId.Clear();
-        game.UpdatedAtUtc = DateTimeOffset.UtcNow;
-
-        var nextState = state with
+        var updated = room with
         {
-            GameState = game,
+            GameState = round,
             UpdatedAtUtc = DateTimeOffset.UtcNow
         };
 
-        await store.SaveStateAsync(nextState, ct);
-        await store.IncrementGuessesTotalAsync(roomId, 1, ct);
-        await broadcaster.BroadcastStateAsync(roomId, ct);
+        await SaveRoomStateAsync(roomId, updated, ct);
+        await Store.IncrementGuessesTotalAsync(roomId, 1, ct);
 
-        return Ok(new { ok = true, correctPick = correct, state = nextState });
+        var publicState = HigherLowerView.PublicView(round);
+        var lastEvent = new
+        {
+            type = "guess",
+            choice = round.LastChoice,
+            correct = round.LastWasCorrect,
+            revealed = round.RevealedNext?.Label,
+            streak = round.Streak,
+            bestStreak = round.BestStreak,
+            message
+        };
+
+        await BroadcastAsync(roomId, updated.ActiveGame, "higher_lower", publicState, lastEvent, ct);
+
+        if (round.LastWasCorrect == false)
+            await ToastAsync(roomId, $"{message} Streak ended at {round.Streak}.", ct);
+
+        return Ok(new { ok = true, state = publicState, lastEvent });
+    }
+
+    // ----------------------------
+    // Higher / Lower: Continue (after loss reveal)
+    // ----------------------------
+    [HttpPost("/rooms/{roomRef}/games/higher_lower/continue")]
+    public async Task<IActionResult> Continue(string roomRef, CancellationToken ct)
+    {
+        var loaded = await LoadRoomStateAsync(roomRef, ct);
+        if (loaded is null) return RoomNotFound();
+
+        var (roomId, room) = loaded.Value;
+
+        if (!TryRequireGameState(room, GameType.HigherLower, out HigherLowerState round, out var err))
+            return err!;
+
+        if (round.Status != HigherLowerStatus.Revealed)
+            return BadRequest(new { ok = false, error = "Not in revealed state." });
+
+        higherLower.ContinueAfterLossInPlace(round);
+
+        var updated = room with
+        {
+            GameState = round,
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        };
+
+        await SaveRoomStateAsync(roomId, updated, ct);
+
+        var publicState = HigherLowerView.PublicView(round);
+        await BroadcastAsync(roomId, updated.ActiveGame, "higher_lower", publicState, new { type = "continue" }, ct);
+
+        return Ok(new { ok = true, state = publicState });
+    }
+
+    // ----------------------------
+    // Higher / Lower: Stop
+    // ----------------------------
+    [HttpPost("/rooms/{roomRef}/games/higher_lower/stop")]
+    public async Task<IActionResult> Stop(string roomRef, CancellationToken ct)
+    {
+        var loaded = await LoadRoomStateAsync(roomRef, ct);
+        if (loaded is null) return RoomNotFound();
+
+        var (roomId, room) = loaded.Value;
+
+        var updated = room with
+        {
+            ActiveGame = GameType.None,
+            GameState = null,
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        };
+
+        await SaveRoomStateAsync(roomId, updated, ct);
+
+        await BroadcastAsync(roomId, updated.ActiveGame, "higher_lower", new { game = "higher_lower", isActive = false }, new { type = "stop" }, ct);
+        await ToastAsync(roomId, "Higher / Lower stopped.", ct);
+
+        return Ok(new { ok = true });
+    }
+
+    // ----------------------------
+    // Higher / Lower: State
+    // ----------------------------
+    [HttpGet("/rooms/{roomRef}/games/higher_lower/state")]
+    public async Task<IActionResult> State(string roomRef, CancellationToken ct)
+    {
+        var loaded = await LoadRoomStateAsync(roomRef, ct);
+        if (loaded is null) return RoomNotFound();
+
+        var (_, room) = loaded.Value;
+
+        if (room.ActiveGame != GameType.HigherLower ||
+            !GameStateJson.TryDeserialize(room.GameState, out HigherLowerState round))
+        {
+            return Ok(new { ok = true, state = new { game = "higher_lower", isActive = false } });
+        }
+
+        return Ok(new { ok = true, state = HigherLowerView.PublicView(round) });
     }
 }

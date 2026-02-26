@@ -78,8 +78,8 @@
                             <div style="font-size:32px; letter-spacing:6px;" id="hangmanMasked">_ _ _ _</div>
                         </div>
                         <!--<div class="muted" style="margin-top:8px;">
-            Wrong: <span id="hangmanWrong">0/6</span>
-        </div>-->
+                    Wrong: <span id="hangmanWrong">0/6</span>
+                </div>-->
                         <div class="muted" style="margin-top:8px;">
                             Guessed: <span id="hangmanGuessed"></span>
                         </div>
@@ -186,7 +186,65 @@
                     </div>
                 </div>
 
-</section>
+            </section>
+
+            <!-- Higher/Lower panel -->
+            <section id="panel-higher_lower" class="card" hidden>
+                <div class="card">
+                    <div class="mg-header">
+                        <div class="mg-header-left">
+                            <div class="mg-title">Higher or Lower</div>
+                            <div class="mg-sub">Guess if the next card is higher or lower. Tie currently counts as a loss.</div>
+                        </div>
+                        <div class="mg-header-right">
+                            <span id="gameBadgeHL" class="badge warn">No game</span>
+                        </div>
+                    </div>
+
+                    <div class="titleRow" style="margin-top:10px;">
+                        <div>
+                            <div class="muted">CURRENT</div>
+                            <div id="hlCurrent" style="font-size:44px; font-weight:900; letter-spacing:2px;">—</div>
+                        </div>
+
+                        <div style="text-align:right;">
+                            <div class="muted">STREAK</div>
+                            <div style="font-size:18px; font-weight:800;">
+                                <span id="hlStreak">0</span>
+                                <span class="muted"> / best </span>
+                                <span id="hlBest">0</span>
+                            </div>
+                            <div id="hlStatus" class="muted" style="margin-top:6px;">—</div>
+                        </div>
+                    </div>
+
+                    <div id="hlRevealRow" class="card hidden" style="margin-top:12px;">
+                        <div class="row" style="justify-content:space-between; align-items:center;">
+                            <div>
+                                <div class="muted">REVEALED</div>
+                                <div id="hlRevealed" style="font-size:34px; font-weight:900;">—</div>
+                            </div>
+                            <div id="hlResultBadge" class="badge bad">Wrong</div>
+                        </div>
+                    </div>
+
+                    <div class="row" style="margin-top:12px;">
+                        <button id="hlStartBtn">Start</button>
+                        <button id="hlHigherBtn" disabled>Higher</button>
+                        <button id="hlLowerBtn" disabled>Lower</button>
+                        <button id="hlContinueBtn" class="mini" disabled>Continue</button>
+                        <button id="hlStopBtn" class="mini" disabled>Stop</button>
+                    </div>
+
+                    <div id="debugBlockHL" class="debug-out">
+                        <div class="sectionTitle">DEBUG STATE</div>
+                        <pre id="stateOutHL" class="debug-out">{}</pre>
+                    </div>
+                </div>
+            </section>
+
+
+
 
             <!-- Room panel -->
             <div class="card">
@@ -312,6 +370,7 @@
         function normalizeGameId(id) {
             id = String(id ?? "none").trim().toLowerCase();
             if (id === "dailytrivia" || id === "daily_trivia") return "trivia";
+            if (id === "higherlower") return "higher_lower";
             return id;
         }
 
@@ -392,6 +451,11 @@
                 render: (gs, state) => {
                     setText("stateOutDeal", pretty(state));
                 }
+            },
+            higher_lower: {
+                render: (gs, state) => {
+                    setText("stateOutHL", pretty(state));
+                }
             }
         };
 
@@ -431,12 +495,12 @@
                 const li = document.createElement("li");
                 li.className = "item";
                 li.innerHTML = `
-                                      <div>
-                                        <div class="who">${escapeHtml(user)}</div>
-                                        <div class="small">${escapeHtml(guess)}</div>
-                                      </div>
-                                      ${right}
-                                    `;
+                                          <div>
+                                            <div class="who">${escapeHtml(user)}</div>
+                                            <div class="small">${escapeHtml(guess)}</div>
+                                          </div>
+                                          ${right}
+                                        `;
                 ul.appendChild(li);
             }
         }
@@ -463,15 +527,15 @@
                 const li = document.createElement("li");
                 li.className = "item";
                 li.innerHTML = `
-                                      <div>
-                                        <div class="who">${escapeHtml(userId)}</div>
-                                        <div class="small">score</div>
-                                      </div>
-                                      <div class="right">
-                                        <div class="small">&nbsp;</div>
-                                        <div class="who">${escapeHtml(String(score))}</div>
-                                      </div>
-                                    `;
+                                          <div>
+                                            <div class="who">${escapeHtml(userId)}</div>
+                                            <div class="small">score</div>
+                                          </div>
+                                          <div class="right">
+                                            <div class="small">&nbsp;</div>
+                                            <div class="who">${escapeHtml(String(score))}</div>
+                                          </div>
+                                        `;
                 ul.appendChild(li);
             }
         }
@@ -498,7 +562,6 @@
                     gs?.isLose ? "❌ Game Over!" :
                         (gs?.isActive === false ? "No active hangman round." : "Guess a letter or word…");
         }
-
 
         // --- render (Trivia) ---
         function renderTriviaPublic(gs) {
@@ -559,15 +622,15 @@
                         const li = document.createElement("li");
                         li.className = "item";
                         li.innerHTML = `
-                                  <div>
-                                    <div class="who">${escapeHtml(key)}</div>
-                                    <div class="small">${escapeHtml(text)}</div>
-                                  </div>
-                                  <div class="right">
-                                    <div class="small">&nbsp;</div>
-                                    <div class="who">&nbsp;</div>
-                                  </div>
-                                `;
+                                      <div>
+                                        <div class="who">${escapeHtml(key)}</div>
+                                        <div class="small">${escapeHtml(text)}</div>
+                                      </div>
+                                      <div class="right">
+                                        <div class="small">&nbsp;</div>
+                                        <div class="who">&nbsp;</div>
+                                      </div>
+                                    `;
 
                         // Click-to-answer (web play)
                         if (gs?.active && !gs?.revealed && joinedRef) {
@@ -619,15 +682,15 @@
                         const li = document.createElement("li");
                         li.className = "item";
                         li.innerHTML = `
-                                  <div>
-                                    <div class="who">${escapeHtml(e.k)}</div>
-                                    <div class="small">score</div>
-                                  </div>
-                                  <div class="right">
-                                    <div class="small">&nbsp;</div>
-                                    <div class="who">${escapeHtml(String(e.v))}</div>
-                                  </div>
-                                `;
+                                      <div>
+                                        <div class="who">${escapeHtml(e.k)}</div>
+                                        <div class="small">score</div>
+                                      </div>
+                                      <div class="right">
+                                        <div class="small">&nbsp;</div>
+                                        <div class="who">${escapeHtml(String(e.v))}</div>
+                                      </div>
+                                    `;
                         scoresUl.appendChild(li);
                     }
                 }
@@ -668,6 +731,86 @@
             else elMsg.classList.add("warn");
 
             elMsg.textContent = text;
+        }
+
+        // --- render (Higher/Lower) ---
+        function renderHigherLowerPublic(gs) {
+            // Badge
+            const badge = el("gameBadgeHL");
+            if (badge) {
+                const active = gs?.isActive === true;
+                badge.textContent = active ? "Active" : (gs?.status ? gs.status : "No game");
+                badge.className = "badge " + (active ? "ok" : "warn");
+            }
+
+            // Main values
+            setText("hlCurrent", gs?.current?.label ?? "—");
+            setText("hlStreak", String(gs?.streak ?? 0));
+            setText("hlBest", String(gs?.bestStreak ?? 0));
+
+            const status = (gs?.status ?? "—").toString();
+            const lastChoice = gs?.lastChoice ? ` • last: ${gs.lastChoice}` : "";
+            const lastRes =
+                (gs?.lastWasCorrect === true) ? " • ✅" :
+                    (gs?.lastWasCorrect === false) ? " • ❌" : "";
+            setText("hlStatus", `${status}${lastChoice}${lastRes}`);
+
+            // Reveal block
+            const revealRow = el("hlRevealRow");
+            const revealed = gs?.revealedNext?.label ?? null;
+
+            if (revealRow) {
+                const show = (status === "revealed" && revealed);
+                revealRow.classList.toggle("hidden", !show);
+            }
+            setText("hlRevealed", revealed ?? "—");
+
+            const resultBadge = el("hlResultBadge");
+            if (resultBadge) {
+                const ok = gs?.lastWasCorrect === true;
+                const bad = gs?.lastWasCorrect === false;
+                resultBadge.textContent = ok ? "Correct" : bad ? "Wrong" : "—";
+                resultBadge.className = "badge " + (ok ? "ok" : bad ? "bad" : "warn");
+            }
+
+            // Buttons
+            const hasRoom = !!joinedRef;
+            const isInRound = status === "inround";
+            const isRevealed = status === "revealed";
+
+            el("hlStartBtn") && (el("hlStartBtn").disabled = !hasRoom);
+            el("hlHigherBtn") && (el("hlHigherBtn").disabled = !(hasRoom && isInRound));
+            el("hlLowerBtn") && (el("hlLowerBtn").disabled = !(hasRoom && isInRound));
+            el("hlContinueBtn") && (el("hlContinueBtn").disabled = !(hasRoom && isRevealed));
+            el("hlStopBtn") && (el("hlStopBtn").disabled = !hasRoom);
+        }
+
+        async function hlStart() {
+            if (!joinedRef) return;
+            await api(`/rooms/${encodeURIComponent(joinedRef)}/games/higher_lower/start`, { method: "POST" });
+            await refreshAll();
+        }
+
+        async function hlGuess(choice) {
+            if (!joinedRef) return;
+            await api(`/rooms/${encodeURIComponent(joinedRef)}/games/higher_lower/guess`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ choice })
+            });
+            await refreshAll();
+        }
+
+        async function hlContinue() {
+            if (!joinedRef) return;
+            await api(`/rooms/${encodeURIComponent(joinedRef)}/games/higher_lower/continue`, { method: "POST" });
+            await refreshAll();
+        }
+
+        async function hlStop() {
+            if (!joinedRef) return;
+            await api(`/rooms/${encodeURIComponent(joinedRef)}/games/higher_lower/stop`, { method: "POST" });
+            await refreshAll();
         }
 
         // --- state/polling ---
@@ -988,6 +1131,13 @@
             el("hangmanGuessInput")?.addEventListener("keydown", (ev) => {
                 if (ev.key === "Enter") sendHangmanGuess();
             });
+
+            // Higher/Lower
+            el("hlStartBtn") && (el("hlStartBtn").onclick = () => hlStart());
+            el("hlHigherBtn") && (el("hlHigherBtn").onclick = () => hlGuess("higher"));
+            el("hlLowerBtn") && (el("hlLowerBtn").onclick = () => hlGuess("lower"));
+            el("hlContinueBtn") && (el("hlContinueBtn").onclick = () => hlContinue());
+            el("hlStopBtn") && (el("hlStopBtn").onclick = () => hlStop());
 
             document.addEventListener("visibilitychange", () => {
                 if (!document.hidden && joinedRef) {
