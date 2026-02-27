@@ -7,6 +7,7 @@ using Misfitz_Games.Models.Games;
 using Misfitz_Games.Services.Games;
 using Misfitz_Games.Services.Games.Hangman;
 using Misfitz_Games.Services.Games.HigherLower;
+using Misfitz_Games.Services.Games.RiddleMeThis;
 using Misfitz_Games.Services.Games.Trivia;
 using System.Text.Json;
 
@@ -40,24 +41,28 @@ public static class RoomStateProjector
 
     private static (string gameId, object gameStatePublic) ProjectGame(RoomState room) => room.ActiveGame switch
     {
-        GameType.Contexto => ("contexto", ProjectContexto(room.GameState, room)),
-        GameType.Hangman => ("hangman", ProjectHangman(room.GameState, room)),
-        GameType.Trivia => ("trivia", ProjectTrivia(room.GameState, room)),
-        GameType.Deal => ("deal", ProjectPlaceholder("deal")),
-        GameType.HigherLower => ("higher_lower", ProjectHigherLower(room.GameState, room)),
-        GameType.None => ("none", ProjectNone(room)),
-        _ => ("unknown", ProjectNone(room))
+        GameType.Contexto       => ("contexto", ProjectContexto(room.GameState, room)),
+        GameType.Hangman        => ("hangman", ProjectHangman(room.GameState, room)),
+        GameType.Trivia         => ("trivia", ProjectTrivia(room.GameState, room)),
+        GameType.Deal           => ("deal", ProjectPlaceholder("deal")),
+        GameType.HigherLower    => ("higher_lower", ProjectHigherLower(room.GameState, room)),
+        GameType.RiddleMeThis   => ("riddle_me_this", ProjectRiddleMeThis(room.GameState, room)),
+        GameType.None           => ("none", ProjectNone()),
+        _                       => ("none", ProjectUnknown(room))
     };
 
-    private static object ProjectNone(RoomState room)
+    private static object ProjectNone() => new { };
+
+    private static object ProjectUnknown(RoomState room)
     {
-        Logger.LogWarning(
-            "RoomStateProjector: ActiveGame not mapped. RoomId={RoomId}, ActiveGame={ActiveGame}",
+        Logger.LogError(
+            "RoomStateProjector: Failed to project game state. RoomId={RoomId}, ActiveGame={ActiveGame}, GameStateType={Type}",
             room.RoomId,
-            room.ActiveGame
+            room.ActiveGame,
+            room.GameState?.GetType().Name ?? "null"
         );
 
-        return new { };
+        return new { error = "invalid_game_state" };
     }
 
     private static object ProjectPlaceholder(string id) => new { active = false, isActive = false, comingSoon = true, id };
@@ -74,7 +79,7 @@ public static class RoomStateProjector
                 return ContextoPublic.From(typed);
         }
 
-        return ProjectNone(room);
+        return ProjectUnknown(room);
     }
 
     private static object ProjectHangman(object? gameState, RoomState room)
@@ -89,7 +94,7 @@ public static class RoomStateProjector
                 return HangmanView.PublicView(typed);
         }
 
-        return ProjectNone(room);
+        return ProjectUnknown(room);
     }
 
     private static object ProjectTrivia(object? gameState, RoomState room)
@@ -104,7 +109,7 @@ public static class RoomStateProjector
                 return TriviaView.PublicView(typed);
         }
 
-        return ProjectNone(room);
+        return ProjectUnknown(room);
     }
 
     private static object ProjectHigherLower(object? gameState, RoomState room)
@@ -119,6 +124,21 @@ public static class RoomStateProjector
                 return HigherLowerView.PublicView(typed);
         }
 
-        return ProjectNone(room);
+        return ProjectUnknown(room);
+    }
+
+    private static object ProjectRiddleMeThis(object? gameState, RoomState room)
+    {
+        if (gameState is RiddleMeThisState st)
+            return RiddleMeThisView.PublicView(st);
+
+        if (gameState is JsonElement je)
+        {
+            var typed = je.Deserialize<RiddleMeThisState>(JsonOpts);
+            if (typed is not null)
+                return RiddleMeThisView.PublicView(typed);
+        }
+
+        return ProjectUnknown(room);
     }
 }
