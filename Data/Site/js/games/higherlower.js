@@ -1,5 +1,84 @@
 ﻿import { el, setText, pretty } from "../core/dom.js";
-  );
+
+function hlGet(obj, path, fallback = null) {
+    try {
+        const parts = path.split(".");
+        let cur = obj;
+        for (const p of parts) {
+            if (cur == null) return fallback;
+            cur = cur[p];
+        }
+        return (cur === undefined || cur === null) ? fallback : cur;
+    } catch { return fallback; }
+}
+
+function hlStatus(gs) {
+    const raw =
+        hlGet(gs, "status") ??
+        hlGet(gs, "Status") ??
+        hlGet(gs, "state") ??
+        hlGet(gs, "State");
+
+    if (typeof raw === "number") {
+        if (raw === 1) return "inround";
+        if (raw === 2) return "revealed";
+        return "idle";
+    }
+
+    const s = String(raw ?? "idle").toLowerCase();
+    if (s.includes("inround") || s.includes("in_round")) return "inround";
+    if (s.includes("revealed")) return "revealed";
+    return s;
+}
+
+function hlCardLabel(card) {
+    if (!card || typeof card !== "object") return null;
+
+    const label =
+        card.label ?? card.Label ??
+        card.display ?? card.Display ??
+        card.text ?? card.Text ??
+        card.name ?? card.Name ??
+        null;
+
+    if (label) return String(label);
+
+    const rank =
+        card.rank ?? card.Rank ??
+        card.value ?? card.Value ??
+        card.number ?? card.Number ??
+        null;
+
+    const suit =
+        card.suit ?? card.Suit ??
+        card.suite ?? card.Suite ??
+        null;
+
+    if (rank != null && suit != null) return `${String(rank)}${String(suit)}`;
+    if (rank != null) return String(rank);
+    return null;
+}
+
+function hlFindCurrent(gs) {
+    return (
+        hlGet(gs, "current") ??
+        hlGet(gs, "Current") ??
+        hlGet(gs, "currentCard") ??
+        hlGet(gs, "CurrentCard") ??
+        hlGet(gs, "card") ??
+        hlGet(gs, "Card") ??
+        null
+    );
+}
+
+function hlFindRevealed(gs) {
+    return (
+        hlGet(gs, "revealedNext") ??
+        hlGet(gs, "RevealedNext") ??
+        hlGet(gs, "next") ??
+        hlGet(gs, "Next") ??
+        null
+    );
 }
 
 export function bindHigherLower(ctx) {

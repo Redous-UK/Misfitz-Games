@@ -40,7 +40,7 @@ public static class RoomStateProjector
         GameType.Hangman => ("hangman", ProjectHangman(room.GameState)),
         GameType.Trivia => ("trivia", ProjectTrivia(room.GameState)),
         GameType.Deal => ("deal", ProjectPlaceholder("deal")),
-        GameType.HigherLower => ("higher_lower", ProjectPlaceholder("higher_lower")),
+        GameType.HigherLower => ("higher_lower", ProjectHigherLower(room.GameState)),
         _ => ("none", ProjectNone()),
     };
 

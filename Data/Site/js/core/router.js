@@ -1,86 +1,29 @@
-﻿import { el, pretty, setText } from "../core/dom.js";
-try { await postPresence(state.joinedRef); }
-catch (e) { console.warn("presence tick failed", e); }
-  };
-
-await tick();
-state.presenceHandle = setInterval(tick, PRESENCE_MS);
+﻿export function normalizeGameId(id) {
+    id = String(id ?? "none").trim().toLowerCase();
+    if (id === "dailytrivia" || id === "daily_trivia") return "trivia";
+    if (id === "higherlower") return "higher_lower";
+    return id;
 }
 
-async function join() {
-    const ref = normalizeRef(el("roomRef")?.value);
-    if (!isRoomRef(ref)) return alert("Enter a valid room code (8 digits) or custom code (4-12 A-Z0-9).");
-
-    state.joinedRef = (/^\d{8}$/.test(ref) || ref.includes("-")) ? ref : ref.toUpperCase();
-
-    el("btnJoin") && (el("btnJoin").disabled = true);
-    el("btnLeave") && (el("btnLeave").disabled = false);
-
-    const overlayLink = el("overlayLink");
-    if (overlayLink) overlayLink.href = `/overlay.html?roomId=${encodeURIComponent(state.joinedRef)}&game=${encodeURIComponent(state.selectedGame)}`;
-
-    await startPresence();
-    await refreshAll();
-
-    if (state.pollTimer) clearInterval(state.pollTimer);
-    state.pollTimer = setInterval(refreshAll, POLL_MS);
+export function mapGameType(n) {
+    switch (Number(n)) {
+        case 1: return "contexto";
+        case 2: return "hangman";
+        case 3: return "trivia";
+        case 4: return "deal";
+        case 5: return "higher_lower";
+        default: return null;
+    }
 }
 
-function leave() {
-    state.joinedRef = "";
-
-    if (state.pollTimer) clearInterval(state.pollTimer);
-    state.pollTimer = null;
-
-    if (state.presenceHandle) clearInterval(state.presenceHandle);
-    state.presenceHandle = null;
-
-    el("btnJoin") && (el("btnJoin").disabled = false);
-    el("btnLeave") && (el("btnLeave").disabled = true);
-    el("btnGuess") && (el("btnGuess").disabled = true);
-
-    el("roomLine") && (el("roomLine").textContent = "—");
-    setStatus("Not connected", "warn");
-    setGameBadge(state.selectedGame, "No game", "warn");
-
-    // hide all panels
-    showOnlyPanel("none");
+export function panelExists(gameId) {
+    return !!document.getElementById(`panel-${gameId}`);
 }
 
-function wireTopLevel() {
-    el("btnJoin") && (el("btnJoin").onclick = join);
-    el("btnLeave") && (el("btnLeave").onclick = leave);
-    el("btnRefresh") && (el("btnRefresh").onclick = refreshAll);
-
-    document.addEventListener("visibilitychange", () => {
-        if (!document.hidden && state.joinedRef) {
-            startPresence();
-            refreshAll();
-        }
+export function showOnlyPanel(gameId) {
+    const target = String(gameId ?? "").toLowerCase();
+    document.querySelectorAll('[id^="panel-"]').forEach(node => {
+        const id = node.id.replace("panel-", "").toLowerCase();
+        node.hidden = (id !== target);
     });
 }
-
-window.addEventListener("DOMContentLoaded", async () => {
-    try {
-        const me = await refreshMe();
-        if (!me) return;
-
-        wireTopLevel();
-        bindAllGames();
-
-        const qs = new URLSearchParams(location.search);
-        const qRoom = qs.get("roomId");
-        const qGame = (qs.get("game") || "contexto").toLowerCase();
-
-        state.selectedGame = qGame;
-        showOnlyPanel(state.selectedGame);
-
-        if (qRoom) {
-            const roomRef = el("roomRef");
-            if (roomRef) roomRef.value = qRoom;
-            await join();
-        }
-    } catch {
-        location.href = "/user.html";
-    }
-});
