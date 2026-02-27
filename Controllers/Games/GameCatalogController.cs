@@ -21,6 +21,7 @@ public sealed class GameCatalogController : ControllerBase
                 new { id = "connect_four", name = "Connect Four", description = "Coming soon.", enabled = false, image = "/assets/Games/connect_four.png"},
                 new { id = "pictionary", name = "Pictionary", description = "Coming soon.", enabled = false, image = "/assets/Games/pictionary.png"},
                 new { id = "charades", name = "Charades", description = "Coming soon.", enabled = false, image = "/assets/Games/charades.png"},
+                new { id = "riddles", name = "Riddles", description = "Riddle me this! Can you solve the riddles and puzzles we throw at you?", enabled = true, image = "/assets/Games/riddles.png"},
               //new { id = "family_feud", name = "Family Feud", description = "Coming soon.", enabled = false, image = "/assets/Games/family_feud.png"},
                 new { id = "bingo", name = "Bingo", description = "Coming soon.", enabled = false, image = "/assets/Games/bingo.png"},
               //new { id = "roulette", name = "Roulette", description = "Coming soon.", enabled = false, image = "/assets/Games/roulette.png"},
