@@ -1,4 +1,6 @@
-﻿using Misfitz_Games.Controllers;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Misfitz_Games.Controllers;
 using Misfitz_Games.Controllers.Games;
 using Misfitz_Games.Models;
 using Misfitz_Games.Models.Games;
@@ -16,6 +18,8 @@ public static class RoomStateProjector
     {
         PropertyNameCaseInsensitive = true
     };
+
+    public static ILogger Logger { get; set; } = NullLogger.Instance;
 
     public static object ToPublic(RoomState room)
     {
@@ -36,18 +40,29 @@ public static class RoomStateProjector
 
     private static (string gameId, object gameStatePublic) ProjectGame(RoomState room) => room.ActiveGame switch
     {
-        GameType.Contexto => ("contexto", ProjectContexto(room.GameState)),
-        GameType.Hangman => ("hangman", ProjectHangman(room.GameState)),
-        GameType.Trivia => ("trivia", ProjectTrivia(room.GameState)),
+        GameType.Contexto => ("contexto", ProjectContexto(room.GameState, room)),
+        GameType.Hangman => ("hangman", ProjectHangman(room.GameState, room)),
+        GameType.Trivia => ("trivia", ProjectTrivia(room.GameState, room)),
         GameType.Deal => ("deal", ProjectPlaceholder("deal")),
-        GameType.HigherLower => ("higher_lower", ProjectHigherLower(room.GameState)),
-        _ => ("none", ProjectNone()),
+        GameType.HigherLower => ("higher_lower", ProjectHigherLower(room.GameState, room)),
+        GameType.None => ("none", ProjectNone(room)),
+        _ => ("unknown", ProjectNone(room))
     };
 
-    private static object ProjectNone() => new { active = false, isActive = false };
+    private static object ProjectNone(RoomState room)
+    {
+        Logger.LogWarning(
+            "RoomStateProjector: ActiveGame not mapped. RoomId={RoomId}, ActiveGame={ActiveGame}",
+            room.RoomId,
+            room.ActiveGame
+        );
+
+        return new { };
+    }
+
     private static object ProjectPlaceholder(string id) => new { active = false, isActive = false, comingSoon = true, id };
 
-    private static object ProjectContexto(object? gameState)
+    private static object ProjectContexto(object? gameState, RoomState room)
     {
         if (gameState is ContextoState cs)
             return ContextoPublic.From(cs);
@@ -59,10 +74,10 @@ public static class RoomStateProjector
                 return ContextoPublic.From(typed);
         }
 
-        return ProjectNone();
+        return ProjectNone(room);
     }
 
-    private static object ProjectHangman(object? gameState)
+    private static object ProjectHangman(object? gameState, RoomState room)
     {
         if (gameState is HangmanState hs)
             return HangmanView.PublicView(hs);
@@ -74,10 +89,10 @@ public static class RoomStateProjector
                 return HangmanView.PublicView(typed);
         }
 
-        return ProjectNone();
+        return ProjectNone(room);
     }
 
-    private static object ProjectTrivia(object? gameState)
+    private static object ProjectTrivia(object? gameState, RoomState room)
     {
         if (gameState is TriviaRoundState round)
             return TriviaView.PublicView(round);
@@ -89,10 +104,10 @@ public static class RoomStateProjector
                 return TriviaView.PublicView(typed);
         }
 
-        return ProjectNone();
+        return ProjectNone(room);
     }
 
-    private static object ProjectHigherLower(object? gameState)
+    private static object ProjectHigherLower(object? gameState, RoomState room)
     {
         if (gameState is HigherLowerState st)
             return HigherLowerView.PublicView(st);
@@ -104,6 +119,6 @@ public static class RoomStateProjector
                 return HigherLowerView.PublicView(typed);
         }
 
-        return ProjectNone();
+        return ProjectNone(room);
     }
 }
