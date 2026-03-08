@@ -142,6 +142,7 @@ public static class Program
         builder.Services.AddHttpClient<TriviaService>();
         builder.Services.AddSingleton<HigherLowerService>();
         builder.Services.AddScoped<RiddleRepository>();
+        builder.Services.AddScoped<LeaderboardService>();
 
         // Effects / hardware services
         builder.Services.AddHttpClient<TuyaPlugService>();

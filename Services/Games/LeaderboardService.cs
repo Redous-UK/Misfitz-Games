@@ -2,45 +2,42 @@
 using Misfitz_Games.Data;
 using Misfitz_Games.Models;
 
-public sealed class LeaderboardService
+namespace Misfitz_Games.Services;
+
+public sealed class LeaderboardService(AppDbContext db)
 {
-    private readonly AppDbContext _db;
-
-    public LeaderboardService(AppDbContext db)
-    {
-        _db = db;
-    }
-
     public async Task AddScoreAsync(
         Guid roomId,
         string userId,
         string username,
         GameType gameType,
         int points,
-        bool countWin = false)
+        CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(userId))
-            return;
+        if (roomId == Guid.Empty) return;
+        if (string.IsNullOrWhiteSpace(userId)) return;
+        if (points == 0) return;
 
-        var row = await _db.RoomPlayerScores
-            .FirstOrDefaultAsync(x => x.RoomId == roomId && x.UserId == userId);
+        var row = await db.RoomPlayerScores
+            .FirstOrDefaultAsync(x => x.RoomId == roomId && x.UserId == userId, ct);
 
-        if (row == null)
+        if (row is null)
         {
             row = new RoomPlayerScore
             {
                 RoomId = roomId,
-                UserId = userId,
-                Username = username ?? ""
+                UserId = userId.Trim(),
+                Username = string.IsNullOrWhiteSpace(username) ? "Player" : username.Trim()
             };
 
-            _db.RoomPlayerScores.Add(row);
+            db.RoomPlayerScores.Add(row);
+        }
+        else if (!string.IsNullOrWhiteSpace(username))
+        {
+            row.Username = username.Trim();
         }
 
-        row.Username = string.IsNullOrWhiteSpace(username) ? row.Username : username;
         row.TotalScore += points;
-        row.GamesPlayed += 1;
-        row.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         switch (gameType)
         {
@@ -64,9 +61,76 @@ public sealed class LeaderboardService
                 break;
         }
 
-        if (countWin)
-            row.Wins += 1;
+        row.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task MarkPlayedAsync(
+        Guid roomId,
+        string userId,
+        string username,
+        CancellationToken ct = default)
+    {
+        if (roomId == Guid.Empty) return;
+        if (string.IsNullOrWhiteSpace(userId)) return;
+
+        var row = await db.RoomPlayerScores
+            .FirstOrDefaultAsync(x => x.RoomId == roomId && x.UserId == userId, ct);
+
+        if (row is null)
+        {
+            row = new RoomPlayerScore
+            {
+                RoomId = roomId,
+                UserId = userId.Trim(),
+                Username = string.IsNullOrWhiteSpace(username) ? "Player" : username.Trim()
+            };
+
+            db.RoomPlayerScores.Add(row);
+        }
+        else if (!string.IsNullOrWhiteSpace(username))
+        {
+            row.Username = username.Trim();
+        }
+
+        row.GamesPlayed += 1;
+        row.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task MarkWinAsync(
+        Guid roomId,
+        string userId,
+        string username,
+        CancellationToken ct = default)
+    {
+        if (roomId == Guid.Empty) return;
+        if (string.IsNullOrWhiteSpace(userId)) return;
+
+        var row = await db.RoomPlayerScores
+            .FirstOrDefaultAsync(x => x.RoomId == roomId && x.UserId == userId, ct);
+
+        if (row is null)
+        {
+            row = new RoomPlayerScore
+            {
+                RoomId = roomId,
+                UserId = userId.Trim(),
+                Username = string.IsNullOrWhiteSpace(username) ? "Player" : username.Trim()
+            };
+
+            db.RoomPlayerScores.Add(row);
+        }
+        else if (!string.IsNullOrWhiteSpace(username))
+        {
+            row.Username = username.Trim();
+        }
+
+        row.Wins += 1;
+        row.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await db.SaveChangesAsync(ct);
     }
 }

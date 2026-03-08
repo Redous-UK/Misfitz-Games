@@ -15,7 +15,9 @@ public interface IRoomStateStore
     Task<Guid?> ResolveRoomIdAsync(string roomIdOrCode, CancellationToken ct = default);
     Task<bool> TryReserveRoomCodeAsync(string roomCode, Guid roomId, CancellationToken ct = default);
     Task ReleaseRoomCodeAsync(string roomCode, CancellationToken ct = default);
-    Task AddToLeaderboardAsync(Guid roomId, IReadOnlyDictionary<string, int> deltaByUserId, CancellationToken ct = default);
+    Task AddToLeaderboardAsync(Guid roomId, GameType gameType, IReadOnlyDictionary<string, int> scoresByUserId, IReadOnlyDictionary<string, string>? usernamesByUserId, string? winnerUserId, CancellationToken ct = default);
+    Task<IReadOnlyList<RoomPlayerScore>> GetLeaderboardAsync(Guid roomId, CancellationToken ct);
+    Task<RoomPlayerScore?> GetPlayerStatsAsync(Guid roomId, string userId, CancellationToken ct);
     Task<IReadOnlyList<(string userId, double score)>> GetLeaderboardAsync(Guid roomId, int top = 20, CancellationToken ct = default);
     Task IncrementGamesPlayedAsync(Guid roomId, long delta = 1, CancellationToken ct = default);
     Task IncrementGuessesTotalAsync(Guid roomId, long delta = 1, CancellationToken ct = default);
