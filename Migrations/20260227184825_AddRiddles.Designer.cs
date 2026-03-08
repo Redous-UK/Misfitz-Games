@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Misfitz_Games.Data;
 
@@ -10,9 +11,11 @@ using Misfitz_Games.Data;
 namespace Misfitz_Games.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260227184825_AddRiddles")]
+    partial class AddRiddles
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.11");
@@ -223,208 +226,9 @@ namespace Misfitz_Games.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("IsActive", "Category");
+
                     b.ToTable("Riddles");
-                });
-
-            modelBuilder.Entity("Misfitz_Games.Models.Games.RiddleCatalog", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("AcceptableAnswersJson")
-                        .HasMaxLength(1024)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Answer")
-                        .IsRequired()
-                        .HasMaxLength(512)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Difficulty")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("HintsJson")
-                        .HasMaxLength(1024)
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Question")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("RiddleCatalog");
-                });
-
-            modelBuilder.Entity("Misfitz_Games.Models.Games.RiddlePlayerStats", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("CorrectCount")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("PlayedCount")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<Guid>("RoomId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("TotalPoints")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTimeOffset>("UpdatedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Username")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RoomId", "UserId")
-                        .IsUnique();
-
-                    b.ToTable("RiddlePlayerStats");
-                });
-
-            modelBuilder.Entity("Misfitz_Games.Models.Games.RiddleRound", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Answer")
-                        .IsRequired()
-                        .HasMaxLength(512)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("BasePoints")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<Guid?>("CatalogRiddleId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset?>("EndedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("HintsJson")
-                        .HasMaxLength(1024)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Question")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset?>("RevealAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("RoomCode")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("RoomId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("RoundNumber")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTimeOffset?>("StartedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("TimeLimitSeconds")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTimeOffset>("UpdatedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("WinnerName")
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int?>("WinnerPoints")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("WinnerUserId")
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CatalogRiddleId");
-
-                    b.HasIndex("RoomCode");
-
-                    b.HasIndex("RoomId", "Status");
-
-                    b.ToTable("RiddleRound");
-                });
-
-            modelBuilder.Entity("Misfitz_Games.Models.Games.RiddleSubmission", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("AnswerText")
-                        .IsRequired()
-                        .HasMaxLength(512)
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsCorrect")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("PointsAwarded")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<Guid>("RoundId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset>("SubmittedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Username")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RoundId", "UserId");
-
-                    b.ToTable("RiddleSubmission");
                 });
 
             modelBuilder.Entity("Misfitz_Games.Models.Room", b =>
@@ -458,63 +262,6 @@ namespace Misfitz_Games.Migrations
                         .IsUnique();
 
                     b.ToTable("Rooms");
-                });
-
-            modelBuilder.Entity("Misfitz_Games.Models.RoomPlayerScore", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("ContextoScore")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("DealScore")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("GamesPlayed")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("HangmanScore")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("HigherLowerScore")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("RiddleScore")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<Guid>("RoomId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("TotalScore")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("TriviaScore")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTimeOffset>("UpdatedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Username")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("Wins")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RoomId", "UserId")
-                        .IsUnique();
-
-                    b.ToTable("RoomPlayerScores");
                 });
 
             modelBuilder.Entity("Misfitz_Games.Models.TikTokAccountLink", b =>
@@ -709,27 +456,6 @@ namespace Misfitz_Games.Migrations
                     b.Navigation("Effect");
 
                     b.Navigation("Group");
-                });
-
-            modelBuilder.Entity("Misfitz_Games.Models.Games.RiddleRound", b =>
-                {
-                    b.HasOne("Misfitz_Games.Models.Games.RiddleCatalog", "CatalogRiddle")
-                        .WithMany()
-                        .HasForeignKey("CatalogRiddleId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("CatalogRiddle");
-                });
-
-            modelBuilder.Entity("Misfitz_Games.Models.Games.RiddleSubmission", b =>
-                {
-                    b.HasOne("Misfitz_Games.Models.Games.RiddleRound", "Round")
-                        .WithMany()
-                        .HasForeignKey("RoundId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Round");
                 });
 
             modelBuilder.Entity("Misfitz_Games.Models.Room", b =>

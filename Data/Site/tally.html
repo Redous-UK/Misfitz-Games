@@ -1,0 +1,417 @@
+﻿<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Misfitz — Gift Tally</title>
+    <link rel="stylesheet" href="/site.css" />
+    <style>
+        .wrap {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 14px;
+        }
+
+        .titleRow {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .card {
+            background: var(--card, rgba(255,255,255,.04));
+            border: 1px solid rgba(255,255,255,.08);
+            border-radius: 16px;
+            padding: 14px;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        input {
+            background: rgba(0,0,0,.25);
+            border: 1px solid rgba(255,255,255,.12);
+            color: inherit;
+            padding: 10px 12px;
+            border-radius: 12px;
+        }
+
+        .grow {
+            flex: 1 1 auto;
+            min-width: 220px;
+        }
+
+        .btn {
+            cursor: pointer;
+            border: 1px solid rgba(255,255,255,.14);
+            background: rgba(255,255,255,.06);
+            color: inherit;
+            padding: 10px 12px;
+            border-radius: 12px;
+        }
+
+            .btn:hover {
+                background: rgba(255,255,255,.10);
+            }
+
+            .btn.danger {
+                border-color: rgba(255,90,90,.35);
+            }
+
+            .btn.primary {
+                border-color: rgba(120,180,255,.35);
+            }
+
+        .pill {
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,.12);
+            background: rgba(255,255,255,.06);
+            font-size: 12px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 10px 8px;
+            border-bottom: 1px solid rgba(255,255,255,.08);
+            text-align: left;
+        }
+
+        th {
+            font-size: 12px;
+            opacity: .8;
+        }
+
+        .count {
+            font-variant-numeric: tabular-nums;
+            font-size: 18px;
+        }
+
+        .name {
+            font-weight: 600;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        .mini {
+            padding: 8px 10px;
+            border-radius: 10px;
+        }
+
+        .muted {
+            opacity: .7;
+            font-size: 12px;
+        }
+
+        @media (max-width: 700px) {
+            .actions {
+                justify-content: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="titleRow">
+            <div>
+                <h1 style="margin:0;">Gift Tally Board</h1>
+                <div class="muted">Manual off-platform counter (name + plus/minus). Saved in this browser.</div>
+            </div>
+            <div class="row">
+                <span id="totalPill" class="pill">Total: 0</span>
+                <button id="resetBtn" class="btn danger">Reset All</button>
+                <button id="exportBtn" class="btn">Export</button>
+                <button id="importBtn" class="btn">Import</button>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top:12px;">
+            <div class="row">
+                <input id="nameInput" class="grow" placeholder="Name (e.g. Craig, Jenna, User123)" />
+                <input id="startInput" type="number" value="0" style="width:120px;" />
+                <button id="addBtn" class="btn primary">Add</button>
+            </div>
+            <div class="muted" style="margin-top:8px;">
+                Tip: press <b>Enter</b> to add. Use + / − to adjust. Click a name to rename.
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="row" style="justify-content:space-between;">
+                <div class="row">
+                    <input id="searchInput" class="grow" placeholder="Search…" />
+                </div>
+                <div class="row">
+                    <label class="muted">Sort:</label>
+                    <select id="sortSel" class="btn" style="padding:10px 12px;">
+                        <option value="countDesc">Count ↓</option>
+                        <option value="countAsc">Count ↑</option>
+                        <option value="nameAsc">Name A→Z</option>
+                        <option value="nameDesc">Name Z→A</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="margin-top:10px; overflow:auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:55%;">Name</th>
+                            <th style="width:15%;">Count</th>
+                            <th style="width:30%; text-align:right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody"></tbody>
+                </table>
+            </div>
+
+            <div id="emptyState" class="muted" style="display:none; padding:12px 4px;">
+                No entries yet. Add a name above.
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const KEY = "mg_gift_tally_v1";
+
+    const els = {
+      nameInput: document.getElementById("nameInput"),
+      startInput: document.getElementById("startInput"),
+      addBtn: document.getElementById("addBtn"),
+      tbody: document.getElementById("tbody"),
+      empty: document.getElementById("emptyState"),
+      totalPill: document.getElementById("totalPill"),
+      resetBtn: document.getElementById("resetBtn"),
+      exportBtn: document.getElementById("exportBtn"),
+      importBtn: document.getElementById("importBtn"),
+      searchInput: document.getElementById("searchInput"),
+      sortSel: document.getElementById("sortSel"),
+    };
+
+    function uid() {
+      return Math.random().toString(16).slice(2) + Date.now().toString(16);
+    }
+
+    function load() {
+      try {
+        const raw = localStorage.getItem(KEY);
+        if (!raw) return [];
+        const data = JSON.parse(raw);
+        return Array.isArray(data) ? data : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function save(items) {
+      localStorage.setItem(KEY, JSON.stringify(items));
+    }
+
+    function normalizeName(s) {
+      return (s || "").trim();
+    }
+
+    function totalCount(items) {
+      return items.reduce((sum, x) => sum + (Number(x.count) || 0), 0);
+    }
+
+    function applySort(items) {
+      const mode = els.sortSel.value;
+      const copy = [...items];
+      if (mode === "countDesc") copy.sort((a,b) => (b.count||0) - (a.count||0));
+      if (mode === "countAsc") copy.sort((a,b) => (a.count||0) - (b.count||0));
+      if (mode === "nameAsc") copy.sort((a,b) => (a.name||"").localeCompare(b.name||""));
+      if (mode === "nameDesc") copy.sort((a,b) => (b.name||"").localeCompare(a.name||""));
+      return copy;
+    }
+
+    function render() {
+      const items = load();
+      const q = (els.searchInput.value || "").trim().toLowerCase();
+      const filtered = q ? items.filter(x => (x.name||"").toLowerCase().includes(q)) : items;
+
+      const sorted = applySort(filtered);
+
+      els.tbody.innerHTML = "";
+      els.empty.style.display = items.length ? "none" : "block";
+      els.totalPill.textContent = `Total: ${totalCount(items)}`;
+
+      for (const item of sorted) {
+        const tr = document.createElement("tr");
+
+        const tdName = document.createElement("td");
+        tdName.innerHTML = `<span class="name">${escapeHtml(item.name)}</span>`;
+        tdName.style.cursor = "pointer";
+        tdName.title = "Click to rename";
+        tdName.onclick = () => renameItem(item.id);
+
+        const tdCount = document.createElement("td");
+        tdCount.innerHTML = `<span class="count">${Number(item.count)||0}</span>`;
+
+        const tdActions = document.createElement("td");
+        tdActions.style.textAlign = "right";
+        const actions = document.createElement("div");
+        actions.className = "actions";
+
+        const minus = document.createElement("button");
+        minus.className = "btn mini";
+        minus.textContent = "−";
+        minus.onclick = () => change(item.id, -1);
+
+        const plus = document.createElement("button");
+        plus.className = "btn mini primary";
+        plus.textContent = "+";
+        plus.onclick = () => change(item.id, +1);
+
+        const del = document.createElement("button");
+        del.className = "btn mini danger";
+        del.textContent = "Delete";
+        del.onclick = () => remove(item.id);
+
+        actions.append(minus, plus, del);
+        tdActions.appendChild(actions);
+
+        tr.append(tdName, tdCount, tdActions);
+        els.tbody.appendChild(tr);
+      }
+    }
+
+    function escapeHtml(s) {
+      return (s||"")
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+    }
+
+    function add() {
+      const name = normalizeName(els.nameInput.value);
+      const start = Number(els.startInput.value || 0);
+
+      if (!name) return;
+
+      const items = load();
+      // If name already exists, just bump it (nice for quick ops)
+      const existing = items.find(x => (x.name||"").toLowerCase() === name.toLowerCase());
+      if (existing) {
+        existing.count = (Number(existing.count)||0) + (isFinite(start) ? start : 0);
+      } else {
+        items.push({ id: uid(), name, count: isFinite(start) ? start : 0 });
+      }
+
+      save(items);
+      els.nameInput.value = "";
+      els.nameInput.focus();
+      render();
+    }
+
+    function change(id, delta) {
+      const items = load();
+      const x = items.find(i => i.id === id);
+      if (!x) return;
+      x.count = Math.max(0, (Number(x.count)||0) + delta);
+      save(items);
+      render();
+    }
+
+    function remove(id) {
+      const items = load().filter(x => x.id !== id);
+      save(items);
+      render();
+    }
+
+    function renameItem(id) {
+      const items = load();
+      const x = items.find(i => i.id === id);
+      if (!x) return;
+
+      const next = normalizeName(prompt("Rename:", x.name) || "");
+      if (!next) return;
+
+      // prevent dupes (merge)
+      const dupe = items.find(i => i.id !== id && (i.name||"").toLowerCase() === next.toLowerCase());
+      if (dupe) {
+        dupe.count = (Number(dupe.count)||0) + (Number(x.count)||0);
+        // delete old
+        const kept = items.filter(i => i.id !== id);
+        save(kept);
+      } else {
+        x.name = next;
+        save(items);
+      }
+      render();
+    }
+
+    function resetAll() {
+      if (!confirm("Reset ALL counts to 0?")) return;
+      const items = load();
+      for (const x of items) x.count = 0;
+      save(items);
+      render();
+    }
+
+    function exportJson() {
+      const data = JSON.stringify(load(), null, 2);
+      navigator.clipboard?.writeText(data).catch(()=>{});
+      alert("Export copied to clipboard (JSON). Paste it somewhere safe.");
+    }
+
+    async function importJson() {
+      const raw = prompt("Paste exported JSON here:");
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) throw new Error("Invalid");
+        // basic shape sanitize
+        const cleaned = parsed.map(x => ({
+          id: x.id || uid(),
+          name: normalizeName(x.name),
+          count: Math.max(0, Number(x.count)||0)
+        })).filter(x => x.name);
+
+        save(cleaned);
+        render();
+      } catch {
+        alert("Import failed — JSON was invalid.");
+      }
+    }
+
+    els.addBtn.onclick = add;
+    els.resetBtn.onclick = resetAll;
+    els.exportBtn.onclick = exportJson;
+    els.importBtn.onclick = importJson;
+
+    els.nameInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") add();
+    });
+
+    els.searchInput.addEventListener("input", render);
+    els.sortSel.addEventListener("change", render);
+
+    render();
+    </script>
+</body>
+</html>

@@ -7,6 +7,7 @@ public static class RiddleMeThisView
     public static object PublicView(RiddleMeThisState st) => new
     {
         round = st.Round,
+        category = st.Category,
         riddle = st.Riddle,
         isSolved = st.IsSolved,
         solvedByUserId = st.SolvedByUserId,

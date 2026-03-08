@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Misfitz_Games.Models;
 using Misfitz_Games.Models.Effects;
+using Misfitz_Games.Models.Games;
 
 namespace Misfitz_Games.Data;
 
@@ -16,6 +17,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<TikTokAccountLink> TikTokLinks => Set<TikTokAccountLink>();
     public DbSet<Room> Rooms => Set<Room>();
     public DbSet<UserIdMap> UserIdMaps => Set<UserIdMap>();
+    public DbSet<Riddle> Riddles => Set<Riddle>();
+    public DbSet<RoomPlayerScore> RoomPlayerScores => Set<RoomPlayerScore>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -74,6 +77,29 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<UserIdMap>()
             .HasIndex(x => x.UserGuid)
+            .IsUnique();
+
+        modelBuilder.Entity<RiddleRound>()
+            .HasIndex(x => new { x.RoomId, x.Status });
+
+        modelBuilder.Entity<RiddleRound>()
+            .HasIndex(x => x.RoomCode);
+
+        modelBuilder.Entity<RiddleSubmission>()
+            .HasIndex(x => new { x.RoundId, x.UserId });
+
+        modelBuilder.Entity<RiddlePlayerStats>()
+            .HasIndex(x => new { x.RoomId, x.UserId })
+            .IsUnique();
+
+        modelBuilder.Entity<RiddleRound>()
+            .HasOne(x => x.CatalogRiddle)
+            .WithMany()
+            .HasForeignKey(x => x.CatalogRiddleId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<RoomPlayerScore>()
+            .HasIndex(x => new { x.RoomId, x.UserId })
             .IsUnique();
     }
 }

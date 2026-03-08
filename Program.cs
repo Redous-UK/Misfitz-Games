@@ -11,6 +11,7 @@ using Misfitz_Games.Services;
 using Misfitz_Games.Services.Games.Contexto;
 using Misfitz_Games.Services.Games.Hangman;
 using Misfitz_Games.Services.Games.HigherLower;
+using Misfitz_Games.Services.Games.RiddleMeThis;
 using Misfitz_Games.Services.Games.Trivia;
 using Misfitz_Games.Services.Infrastructure.Redis;
 using Misfitz_Games.Services.Room;
@@ -140,6 +141,7 @@ public static class Program
         builder.Services.AddSingleton<HangmanService>();
         builder.Services.AddHttpClient<TriviaService>();
         builder.Services.AddSingleton<HigherLowerService>();
+        builder.Services.AddScoped<RiddleRepository>();
 
         // Effects / hardware services
         builder.Services.AddHttpClient<TuyaPlugService>();
@@ -479,7 +481,7 @@ public static class Program
         using (var scope = app.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
+            
             if (!skipMigrate)
             {
 
