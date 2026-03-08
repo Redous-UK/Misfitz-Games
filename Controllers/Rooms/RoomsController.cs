@@ -1,16 +1,17 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Misfitz_Games.Data;
 using Misfitz_Games.Models;
 using Misfitz_Games.Services.Room;
 
 namespace Misfitz_Games.Controllers.Rooms;
 
 [ApiController]
-public class RoomsController(IRoomStateStore store, RoomBroadcastService broadcaster) : ControllerBase
+public class RoomsController(IRoomStateStore store, RoomBroadcastService broadcaster, AppDbContext db) : ControllerBase
 {
-
     private static string NormalizeCustomCode(string code)
-    => (code ?? "").Trim().ToUpperInvariant();
+        => (code ?? "").Trim().ToUpperInvariant();
 
     private static bool IsValidCustomCode(string code)
     {
@@ -35,13 +36,13 @@ public class RoomsController(IRoomStateStore store, RoomBroadcastService broadca
             var players = state?.Players?.Count ?? 0;
 
             items.Add(new RoomSummaryDto(
-            RoomId: r.RoomId,
-            Name: r.Name,
-            RoomCode: r.RoomCode,
-            CreatedAtUtc: r.CreatedAtUtc,
-            PlayerCount: players,
-            HasActiveGame: activeGame != GameType.None,
-            ActiveGame: activeGame == GameType.None ? null : activeGame.ToString()
+                RoomId: r.RoomId,
+                Name: r.Name,
+                RoomCode: r.RoomCode,
+                CreatedAtUtc: r.CreatedAtUtc,
+                PlayerCount: players,
+                HasActiveGame: activeGame != GameType.None,
+                ActiveGame: activeGame == GameType.None ? null : activeGame.ToString()
             ));
         }
 
@@ -58,7 +59,6 @@ public class RoomsController(IRoomStateStore store, RoomBroadcastService broadca
         return room is null
             ? NotFound(new { ok = false, error = "Room not found" })
             : Ok(room);
-
     }
 
     [HttpGet("/rooms/{roomRef}/state")]
@@ -70,10 +70,7 @@ public class RoomsController(IRoomStateStore store, RoomBroadcastService broadca
         var room = await store.GetStateAsync(roomId.Value, ct);
         if (room is null) return NotFound(new { error = "Room state not found." });
 
-        // ✅ Always return the same shape (projected public)
         var pub = RoomStateProjector.ToPublic(room);
-
-        // If you like wrapper: { state = pub } (your JS supports both)
         return Ok(new { state = pub });
     }
 
@@ -113,5 +110,118 @@ public class RoomsController(IRoomStateStore store, RoomBroadcastService broadca
         return Ok(new { ok = true, state = pub });
     }
 
+    [HttpGet("/rooms/{roomRef}/leaderboard")]
+    public async Task<IActionResult> GetRoomLeaderboard(string roomRef, CancellationToken ct)
+    {
+        var roomId = await store.ResolveRoomIdAsync(roomRef, ct);
+        if (roomId is null) return NotFound(new { ok = false, error = "Room not found" });
 
+        var scores = await db.RoomPlayerScores
+            .Where(x => x.RoomId == roomId.Value)
+            .OrderByDescending(x => x.TotalScore)
+            .Take(20)
+            .Select(x => new
+            {
+                x.UserId,
+                x.Username,
+                x.TotalScore,
+                x.TriviaScore,
+                x.HangmanScore,
+                x.ContextoScore,
+                x.RiddleScore,
+                x.HigherLowerScore,
+                x.DealScore,
+                x.Wins,
+                x.GamesPlayed,
+                x.UpdatedAtUtc
+            })
+            .ToListAsync(ct);
+
+        return Ok(new { roomId = roomId.Value, leaderboard = scores });
+    }
+
+    [HttpGet("/rooms/{roomRef}/leaderboard/{game}")]
+    public async Task<IActionResult> GetGameLeaderboard(string roomRef, string game, CancellationToken ct)
+    {
+        var roomId = await store.ResolveRoomIdAsync(roomRef, ct);
+        if (roomId is null) return NotFound(new { ok = false, error = "Room not found" });
+
+        var baseQuery = db.RoomPlayerScores.Where(x => x.RoomId == roomId.Value);
+
+        var results = game.Trim().ToLowerInvariant() switch
+        {
+            "trivia" => await baseQuery.OrderByDescending(x => x.TriviaScore).ThenBy(x => x.Username)
+                .Take(20)
+                .Select(x => new { x.UserId, x.Username, Score = x.TriviaScore, x.TotalScore, Game = "Trivia", x.Wins, x.GamesPlayed, x.UpdatedAtUtc })
+                .ToListAsync(ct),
+
+            "hangman" => await baseQuery.OrderByDescending(x => x.HangmanScore).ThenBy(x => x.Username)
+                .Take(20)
+                .Select(x => new { x.UserId, x.Username, Score = x.HangmanScore, x.TotalScore, Game = "Hangman", x.Wins, x.GamesPlayed, x.UpdatedAtUtc })
+                .ToListAsync(ct),
+
+            "contexto" => await baseQuery.OrderByDescending(x => x.ContextoScore).ThenBy(x => x.Username)
+                .Take(20)
+                .Select(x => new { x.UserId, x.Username, Score = x.ContextoScore, x.TotalScore, Game = "Contexto", x.Wins, x.GamesPlayed, x.UpdatedAtUtc })
+                .ToListAsync(ct),
+
+            "riddle" or "riddlemethis" => await baseQuery.OrderByDescending(x => x.RiddleScore).ThenBy(x => x.Username)
+                .Take(20)
+                .Select(x => new { x.UserId, x.Username, Score = x.RiddleScore, x.TotalScore, Game = "RiddleMeThis", x.Wins, x.GamesPlayed, x.UpdatedAtUtc })
+                .ToListAsync(ct),
+
+            "higherlower" or "higher-lower" => await baseQuery.OrderByDescending(x => x.HigherLowerScore).ThenBy(x => x.Username)
+                .Take(20)
+                .Select(x => new { x.UserId, x.Username, Score = x.HigherLowerScore, x.TotalScore, Game = "HigherLower", x.Wins, x.GamesPlayed, x.UpdatedAtUtc })
+                .ToListAsync(ct),
+
+            "deal" => await baseQuery.OrderByDescending(x => x.DealScore).ThenBy(x => x.Username)
+                .Take(20)
+                .Select(x => new { x.UserId, x.Username, Score = x.DealScore, x.TotalScore, Game = "Deal", x.Wins, x.GamesPlayed, x.UpdatedAtUtc })
+                .ToListAsync(ct),
+
+            _ => await baseQuery.OrderByDescending(x => x.TotalScore).ThenBy(x => x.Username)
+                .Take(20)
+                .Select(x => new { x.UserId, x.Username, Score = x.TotalScore, x.TotalScore, Game = "Total", x.Wins, x.GamesPlayed, x.UpdatedAtUtc })
+                .ToListAsync(ct)
+        };
+
+        return Ok(new
+        {
+            roomId = roomId.Value,
+            game,
+            leaderboard = results
+        });
+    }
+
+    [HttpGet("/rooms/{roomRef}/player/{userId}/stats")]
+    public async Task<IActionResult> GetPlayerStats(string roomRef, string userId, CancellationToken ct)
+    {
+        var roomId = await store.ResolveRoomIdAsync(roomRef, ct);
+        if (roomId is null) return NotFound(new { ok = false, error = "Room not found" });
+
+        var stats = await db.RoomPlayerScores
+            .Where(x => x.RoomId == roomId.Value && x.UserId == userId)
+            .Select(x => new
+            {
+                x.UserId,
+                x.Username,
+                x.TotalScore,
+                x.TriviaScore,
+                x.HangmanScore,
+                x.ContextoScore,
+                x.RiddleScore,
+                x.HigherLowerScore,
+                x.DealScore,
+                x.Wins,
+                x.GamesPlayed,
+                x.UpdatedAtUtc
+            })
+            .FirstOrDefaultAsync(ct);
+
+        if (stats is null)
+            return NotFound(new { ok = false, error = "Player stats not found for this room" });
+
+        return Ok(new { roomId = roomId.Value, stats });
+    }
 }
