@@ -86,7 +86,7 @@ public class IngestController(
             }
         }
 
-        // ---- Persist leaderboard when a Contexto round ends ----
+       /* // ---- Persist leaderboard when a Contexto round ends ----
         if (!Equals(next, prevState)
             && prevState.ActiveGame == GameType.Contexto
             && next.ActiveGame == GameType.Contexto)
@@ -102,7 +102,7 @@ public class IngestController(
                     await store.AddToLeaderboardAsync(prevState.RoomId, cur.ScoresByUserId, ct);
                 }
             }
-        }
+        }   */
 
         // Save only if changed
         if (!Equals(next, prevState))

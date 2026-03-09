@@ -18,8 +18,11 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
     private static string StateKey(Guid roomId) => $"room:{roomId:D}:state";
     private static string RoomsIndexKey => "rooms:index";
     private static string RoomCodeKey(string code) => $"roomcode:{NormalizeCode(code)}";
-    private static string LeaderboardKey(Guid roomId) => $"room:{roomId:D}:leaderboard";
     private static string RoomStatsKey(Guid roomId) => $"room:{roomId:D}:stats";
+    private static string LeaderboardKey(Guid roomId) => $"room:{roomId:D}:leaderboard";
+    private static string LeaderboardGameKey(Guid roomId, GameType gameType) => $"room:{roomId:D}:leaderboard:{gameType.ToString().ToLowerInvariant()}";
+    private static string LeaderboardUserKey(Guid roomId, string userId) => $"room:{roomId:D}:leaderboard:user:{userId}";
+    private static string LeaderboardPersistedRoundKey(Guid roomId, string roundKey) => $"room:{roomId:D}:leaderboard:round:{roundKey}";
 
     private static string NormalizeCode(string code)
         => (code ?? "").Trim().ToUpperInvariant();
@@ -110,9 +113,16 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
     {
         var db = await DbAsync().ConfigureAwait(false);
 
+        var prevState = await GetStateAsync(state.RoomId, ct).ConfigureAwait(false);
+
+        var leaderboardUpdate = LeaderboardUpdateFactory.TryCreate(prevState, state);
+        if (leaderboardUpdate is not null)
+            await AddToLeaderboardAsync(leaderboardUpdate, ct).ConfigureAwait(false);
+
         var json = JsonSerializer.Serialize(state, JsonOpts);
         await db.StringSetAsync(StateKey(state.RoomId), json).ConfigureAwait(false);
     }
+
 
     // ----------------------------
     // Room code mapping / resolving
@@ -169,29 +179,182 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
     // ----------------------------
     // Leaderboard
     // ----------------------------
-    public async Task AddToLeaderboardAsync(Guid roomId, IReadOnlyDictionary<string, int> deltaByUserId, CancellationToken ct = default)
+    public async Task AddToLeaderboardAsync(LeaderboardUpdate update, CancellationToken ct = default)
     {
         var db = await DbAsync().ConfigureAwait(false);
 
-        foreach (var kv in deltaByUserId)
+        if (update.ScoresByUserId is null || update.ScoresByUserId.Count == 0)
+            return;
+
+        var dedupeKey = LeaderboardPersistedRoundKey(update.RoomId, update.RoundKey);
+        var firstWrite = await db.StringSetAsync(
+            dedupeKey,
+            "1",
+            expiry: TimeSpan.FromDays(30),
+            when: When.NotExists
+        ).ConfigureAwait(false);
+
+        if (!firstWrite)
+            return;
+
+        foreach (var kv in update.ScoresByUserId)
         {
-            if (string.IsNullOrWhiteSpace(kv.Key)) continue;
-            await db.SortedSetIncrementAsync(LeaderboardKey(roomId), kv.Key, kv.Value).ConfigureAwait(false);
+            var userId = (kv.Key ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(userId))
+                continue;
+
+            await db.SortedSetIncrementAsync(
+                LeaderboardKey(update.RoomId),
+                userId,
+                kv.Value
+            ).ConfigureAwait(false);
+
+            await db.SortedSetIncrementAsync(
+                LeaderboardGameKey(update.RoomId, update.GameType),
+                userId,
+                kv.Value
+            ).ConfigureAwait(false);
+
+            var username = update.UsernamesByUserId.TryGetValue(userId, out var name) && !string.IsNullOrWhiteSpace(name)
+                ? name
+                : userId;
+
+            await db.HashSetAsync(
+                LeaderboardUserKey(update.RoomId, userId),
+                new[]
+                {
+                new HashEntry("username", username),
+                new HashEntry("updatedAtUtc", DateTimeOffset.UtcNow.ToString("O"))
+                }
+            ).ConfigureAwait(false);
+        }
+
+        if (!string.IsNullOrWhiteSpace(update.WinnerUserId))
+        {
+            await db.HashIncrementAsync(
+                LeaderboardUserKey(update.RoomId, update.WinnerUserId),
+                "wins",
+                1
+            ).ConfigureAwait(false);
         }
     }
 
-    public async Task<IReadOnlyList<(string userId, double score)>> GetLeaderboardAsync(Guid roomId, int top = 20, CancellationToken ct = default)
+    public async Task<IReadOnlyList<LeaderboardEntryDto>> GetLeaderboardAsync(
+        Guid roomId,
+        int top = 20,
+        CancellationToken ct = default)
+    {
+        return await GetLeaderboardInternalAsync(
+            LeaderboardKey(roomId),
+            roomId,
+            top
+        ).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<LeaderboardEntryDto>> GetLeaderboardAsync(
+        Guid roomId,
+        GameType gameType,
+        int top = 20,
+        CancellationToken ct = default)
+    {
+        return await GetLeaderboardInternalAsync(
+            LeaderboardGameKey(roomId, gameType),
+            roomId,
+            top
+        ).ConfigureAwait(false);
+    }
+
+    public async Task<LeaderboardPlayerStatsDto?> GetLeaderboardPlayerAsync(
+        Guid roomId,
+        string userId,
+        CancellationToken ct = default)
+    {
+        userId = (userId ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(userId))
+            return null;
+
+        var db = await DbAsync().ConfigureAwait(false);
+
+        var entries = await db.HashGetAllAsync(LeaderboardUserKey(roomId, userId)).ConfigureAwait(false);
+        if (entries.Length == 0)
+            return null;
+
+        string username = userId;
+        int wins = 0;
+        DateTimeOffset? updatedAtUtc = null;
+
+        foreach (var e in entries)
+        {
+            var name = e.Name.ToString();
+            var value = e.Value.ToString();
+
+            if (name == "username" && !string.IsNullOrWhiteSpace(value))
+                username = value;
+            else if (name == "wins" && int.TryParse(value, out var parsedWins))
+                wins = parsedWins;
+            else if (name == "updatedAtUtc" && DateTimeOffset.TryParse(value, out var parsedDt))
+                updatedAtUtc = parsedDt;
+        }
+
+        return new LeaderboardPlayerStatsDto(
+            UserId: userId,
+            Username: username,
+            Wins: wins,
+            UpdatedAtUtc: updatedAtUtc
+        );
+    }
+
+    private async Task<IReadOnlyList<LeaderboardEntryDto>> GetLeaderboardInternalAsync(
+        string sortedSetKey,
+        Guid roomId,
+        int top)
     {
         var db = await DbAsync().ConfigureAwait(false);
 
         var entries = await db.SortedSetRangeByRankWithScoresAsync(
-            LeaderboardKey(roomId),
+            sortedSetKey,
             start: 0,
-            stop: top - 1,
+            stop: Math.Max(0, top - 1),
             order: Order.Descending
         ).ConfigureAwait(false);
 
-        return [.. entries.Select(e => (userId: e.Element.ToString(), score: e.Score))];
+        var results = new List<LeaderboardEntryDto>(entries.Length);
+
+        foreach (var entry in entries)
+        {
+            var userId = entry.Element.ToString();
+            if (string.IsNullOrWhiteSpace(userId))
+                continue;
+
+            var userHash = await db.HashGetAllAsync(LeaderboardUserKey(roomId, userId)).ConfigureAwait(false);
+
+            string username = userId;
+            int wins = 0;
+            DateTimeOffset? updatedAtUtc = null;
+
+            foreach (var h in userHash)
+            {
+                var name = h.Name.ToString();
+                var value = h.Value.ToString();
+
+                if (name == "username" && !string.IsNullOrWhiteSpace(value))
+                    username = value;
+                else if (name == "wins" && int.TryParse(value, out var parsedWins))
+                    wins = parsedWins;
+                else if (name == "updatedAtUtc" && DateTimeOffset.TryParse(value, out var parsedDt))
+                    updatedAtUtc = parsedDt;
+            }
+
+            results.Add(new LeaderboardEntryDto(
+                UserId: userId,
+                Username: username,
+                Score: entry.Score,
+                Wins: wins,
+                UpdatedAtUtc: updatedAtUtc
+            ));
+        }
+
+        return results;
     }
 
     public async Task IncrementGamesPlayedAsync(Guid roomId, long delta = 1, CancellationToken ct = default)
@@ -239,9 +402,9 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
         await db.KeyDeleteAsync(RoomStatsKey(roomId)).ConfigureAwait(false);
     }
 
-    // ----------------------------
-    // Delete room
-    // ----------------------------
+// ----------------------------
+// Delete room
+// ----------------------------
     public async Task<bool> DeleteRoomAsync(Guid roomId, CancellationToken ct = default)
     {
         var db = await DbAsync().ConfigureAwait(false);
@@ -258,7 +421,15 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
         await db.KeyDeleteAsync(
         [
             RoomKey(roomId),
-            StateKey(roomId)
+            StateKey(roomId),
+            LeaderboardKey(roomId),
+            LeaderboardGameKey(roomId, GameType.Contexto),
+            LeaderboardGameKey(roomId, GameType.Deal),
+            LeaderboardGameKey(roomId, GameType.Hangman),
+            LeaderboardGameKey(roomId, GameType.Trivia),
+            LeaderboardGameKey(roomId, GameType.HigherLower),
+            LeaderboardGameKey(roomId, GameType.RiddleMeThis),
+            RoomStatsKey(roomId)
         ]).ConfigureAwait(false);
 
         // Release code mapping

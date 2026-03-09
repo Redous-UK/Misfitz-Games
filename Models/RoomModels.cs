@@ -65,3 +65,18 @@ public sealed record AppUser(
     long Id,
     string Username
 );
+
+public sealed record LeaderboardEntryDto(
+    string UserId,
+    string Username,
+    double Score,
+    int Wins,
+    DateTimeOffset? UpdatedAtUtc
+);
+
+public sealed record LeaderboardPlayerStatsDto(
+    string UserId,
+    string Username,
+    int Wins,
+    DateTimeOffset? UpdatedAtUtc
+);

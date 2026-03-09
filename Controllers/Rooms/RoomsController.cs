@@ -22,6 +22,36 @@ public class RoomsController(IRoomStateStore store, RoomBroadcastService broadca
     private static string NewNumericCode()
         => Random.Shared.Next(0, 100_000_000).ToString("D8");
 
+    private static bool TryParseGameType(string game, out GameType gameType)
+    {
+        switch ((game ?? "").Trim().ToLowerInvariant())
+        {
+            case "contexto":
+                gameType = GameType.Contexto;
+                return true;
+            case "deal":
+                gameType = GameType.Deal;
+                return true;
+            case "hangman":
+                gameType = GameType.Hangman;
+                return true;
+            case "trivia":
+                gameType = GameType.Trivia;
+                return true;
+            case "higherlower":
+            case "higher-lower":
+                gameType = GameType.HigherLower;
+                return true;
+            case "riddle":
+            case "riddlemethis":
+                gameType = GameType.RiddleMeThis;
+                return true;
+            default:
+                gameType = GameType.None;
+                return false;
+        }
+    }
+
     [HttpGet("/rooms")]
     public async Task<IActionResult> List(CancellationToken ct)
     {
@@ -111,6 +141,60 @@ public class RoomsController(IRoomStateStore store, RoomBroadcastService broadca
     }
 
     [HttpGet("/rooms/{roomRef}/leaderboard")]
+    public async Task<IActionResult> GetRoomLeaderboard(string roomRef, CancellationToken ct)
+    {
+        var roomId = await store.ResolveRoomIdAsync(roomRef, ct);
+        if (roomId is null)
+            return NotFound(new { ok = false, error = "Room not found" });
+
+        var leaderboard = await store.GetLeaderboardAsync(roomId.Value, 20, ct);
+
+        return Ok(new
+        {
+            roomId = roomId.Value,
+            leaderboard
+        });
+    }
+
+    [HttpGet("/rooms/{roomRef}/leaderboard/{game}")]
+    public async Task<IActionResult> GetGameLeaderboard(string roomRef, string game, CancellationToken ct)
+    {
+        var roomId = await store.ResolveRoomIdAsync(roomRef, ct);
+        if (roomId is null)
+            return NotFound(new { ok = false, error = "Room not found" });
+
+        if (!TryParseGameType(game, out var gameType))
+            return BadRequest(new { ok = false, error = "Unknown game type" });
+
+        var leaderboard = await store.GetLeaderboardAsync(roomId.Value, gameType, 20, ct);
+
+        return Ok(new
+        {
+            roomId = roomId.Value,
+            game = gameType.ToString(),
+            leaderboard
+        });
+    }
+
+    [HttpGet("/rooms/{roomRef}/player/{userId}/stats")]
+    public async Task<IActionResult> GetPlayerStats(string roomRef, string userId, CancellationToken ct)
+    {
+        var roomId = await store.ResolveRoomIdAsync(roomRef, ct);
+        if (roomId is null)
+            return NotFound(new { ok = false, error = "Room not found" });
+
+        var stats = await store.GetLeaderboardPlayerAsync(roomId.Value, userId, ct);
+        if (stats is null)
+            return NotFound(new { ok = false, error = "Player stats not found for this room" });
+
+        return Ok(new
+        {
+            roomId = roomId.Value,
+            stats
+        });
+    }
+
+/*    [HttpGet("/rooms/{roomRef}/leaderboard")]
     public async Task<IActionResult> GetRoomLeaderboard(string roomRef, CancellationToken ct)
     {
         var roomId = await store.ResolveRoomIdAsync(roomRef, ct);
@@ -223,5 +307,5 @@ public class RoomsController(IRoomStateStore store, RoomBroadcastService broadca
             return NotFound(new { ok = false, error = "Player stats not found for this room" });
 
         return Ok(new { roomId = roomId.Value, stats });
-    }
-}
+    }*/
+} 
