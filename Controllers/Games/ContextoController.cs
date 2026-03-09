@@ -100,7 +100,7 @@ public sealed class ContextoController(
     // Contexto: Start (explicit secret)
     // ----------------------------
     // Keep your existing GUID route (admin panel uses it today)
-    [HttpPost("/rooms/{roomId:guid}/games/contexto/start")]
+    [HttpPost("/rooms/{roomRef}/games/contexto/start")]
     public async Task<IActionResult> StartContexto(Guid roomId, [FromBody] ContextoStartRequest req, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(req.SecretWord))
