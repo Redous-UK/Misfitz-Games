@@ -177,7 +177,7 @@ public sealed class ContextoController(
         return Ok(new { ok = true, state = ContextoPublic.From(cs) });
     }
 
-    // ----------------------------
+   /* // ----------------------------
     // Leaderboard (keep route; make it robust against JsonElement)
     // ----------------------------
     [HttpGet("/rooms/{roomRef}/leaderboard")]
@@ -201,7 +201,7 @@ public sealed class ContextoController(
         }
 
         return Ok(new { ok = true, roomId, game = room.ActiveGame.ToString(), top = Array.Empty<object>() });
-    }
+    }  */
 
     // ----------------------------
     // Internal: apply guess in a typed, consistent way
