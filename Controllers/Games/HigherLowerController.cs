@@ -22,7 +22,7 @@ public sealed class HigherLowerController(
     // ----------------------------
     // Higher / Lower: Start
     // ----------------------------
-    [HttpPost("/rooms/{roomRef}/games/higher_lower/start")]
+    [HttpPost("/rooms/{roomRef}/games/{game}/start")]
     public async Task<IActionResult> Start(string roomRef, CancellationToken ct)
     {
         var loaded = await LoadRoomStateAsync(roomRef, ct);
@@ -51,7 +51,7 @@ public sealed class HigherLowerController(
     // ----------------------------
     // Higher / Lower: Guess
     // ----------------------------
-    [HttpPost("/rooms/{roomRef}/games/higher_lower/guess")]
+    [HttpPost("/rooms/{roomRef}/games/{game}/guess")]
     public async Task<IActionResult> Guess(string roomRef, [FromBody] HigherLowerGuessRequest req, CancellationToken ct)
     {
         var loaded = await LoadRoomStateAsync(roomRef, ct);
@@ -114,7 +114,7 @@ public sealed class HigherLowerController(
     // ----------------------------
     // Higher / Lower: Continue (after loss reveal)
     // ----------------------------
-    [HttpPost("/rooms/{roomRef}/games/higher_lower/continue")]
+    [HttpPost("/rooms/{roomRef}/games/{game}/continue")]
     public async Task<IActionResult> Continue(string roomRef, CancellationToken ct)
     {
         var loaded = await LoadRoomStateAsync(roomRef, ct);
@@ -147,7 +147,7 @@ public sealed class HigherLowerController(
     // ----------------------------
     // Higher / Lower: Stop
     // ----------------------------
-    [HttpPost("/rooms/{roomRef}/games/higher_lower/stop")]
+    [HttpPost("/rooms/{roomRef}/games/{game}/stop")]
     public async Task<IActionResult> Stop(string roomRef, CancellationToken ct)
     {
         var loaded = await LoadRoomStateAsync(roomRef, ct);
@@ -173,7 +173,7 @@ public sealed class HigherLowerController(
     // ----------------------------
     // Higher / Lower: State
     // ----------------------------
-    [HttpGet("/rooms/{roomRef}/games/higher_lower/state")]
+    [HttpGet("/rooms/{roomRef}/games/{game}/state")]
     public async Task<IActionResult> State(string roomRef, CancellationToken ct)
     {
         var loaded = await LoadRoomStateAsync(roomRef, ct);

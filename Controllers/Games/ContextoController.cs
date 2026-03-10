@@ -26,7 +26,7 @@ public sealed class ContextoController(
     // Contexto: Guess
     // ----------------------------
     [Authorize(Policy = "Player")]
-    [HttpPost("/rooms/{roomRef}/games/contexto/guess")]
+    [HttpPost("/rooms/{roomRef}/games/{game}/guess")]
     public async Task<IActionResult> Guess(string roomRef, [FromBody] GuessReq req, CancellationToken ct)
     {
         var guess = (req?.Guess ?? "").Trim();
@@ -93,7 +93,7 @@ public sealed class ContextoController(
     // ----------------------------
     // Contexto: Start (explicit secret)
     // ----------------------------
-    [HttpPost("/rooms/{roomRef}/games/contexto/start")]
+    [HttpPost("/rooms/{roomRef}/games/{game}/start")]
     public async Task<IActionResult> StartContexto(string roomRef, [FromBody] ContextoStartRequest req, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(req.SecretWord))
@@ -142,7 +142,7 @@ public sealed class ContextoController(
     // ----------------------------
     // Contexto: Next round (random secret)
     // ----------------------------
-    [HttpPost("/rooms/{roomRef}/games/contexto/next")]
+    [HttpPost("/rooms/{roomRef}/games/{game}/next")]
     public async Task<IActionResult> NextContextoRound(string roomRef, CancellationToken ct)
     {
         var roomId = await Store.ResolveRoomIdAsync(roomRef, ct);
@@ -189,7 +189,7 @@ public sealed class ContextoController(
     // ----------------------------
     // Contexto: Public state endpoint
     // ----------------------------
-    [HttpGet("/rooms/{roomRef}/games/contexto/state")]
+    [HttpGet("/rooms/{roomRef}/games/{game}/state")]
     public async Task<IActionResult> State(string roomRef, CancellationToken ct)
     {
         var loaded = await LoadRoomStateAsync(roomRef, ct);

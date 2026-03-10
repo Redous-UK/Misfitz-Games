@@ -17,10 +17,10 @@ public sealed class HangmanController(
     //HangmanService hangman
 ) : RoomGameControllerBase(store, bus)
 {
-    [HttpPost("/rooms/{roomIdOrCode}/games/hangman/start")]
-    public async Task<IActionResult> Start(string roomIdOrCode, [FromBody] HangmanStartRequest req, CancellationToken ct)
+    [HttpPost("/rooms/{roomRef}/games/{game}/start")]
+    public async Task<IActionResult> Start(string roomRef, [FromBody] HangmanStartRequest req, CancellationToken ct)
     {
-        var loaded = await LoadRoomStateAsync(roomIdOrCode, ct);
+        var loaded = await LoadRoomStateAsync(roomRef, ct);
         if (loaded is null) return RoomNotFound(); // if you want to distinguish, split LoadRoomStateAsync
 
         var (roomId, room) = loaded.Value;
@@ -50,10 +50,10 @@ public sealed class HangmanController(
         return Ok(new { state = publicState });
     }
 
-    [HttpPost("/rooms/{roomIdOrCode}/games/hangman/guess")]
-    public async Task<IActionResult> Guess(string roomIdOrCode, [FromBody] HangmanGuessRequest req, CancellationToken ct)
+    [HttpPost("/rooms/{roomRef}/games/{game}/guess")]
+    public async Task<IActionResult> Guess(string roomRef, [FromBody] HangmanGuessRequest req, CancellationToken ct)
     {
-        var loaded = await LoadRoomStateAsync(roomIdOrCode, ct);
+        var loaded = await LoadRoomStateAsync(roomRef, ct);
         if (loaded is null) return RoomNotFound();
 
         var (roomId, room) = loaded.Value;
@@ -86,10 +86,10 @@ public sealed class HangmanController(
         return Ok(new { correct, message, state = publicState });
     }
 
-    [HttpGet("/rooms/{roomIdOrCode}/games/hangman/state")]
-    public async Task<IActionResult> State(string roomIdOrCode, CancellationToken ct)
+    [HttpGet("/rooms/{roomRef}/games/{game}/state")]
+    public async Task<IActionResult> State(string roomRef, CancellationToken ct)
     {
-        var loaded = await LoadRoomStateAsync(roomIdOrCode, ct);
+        var loaded = await LoadRoomStateAsync(roomRef, ct);
         if (loaded is null) return RoomNotFound();
 
         var (_, room) = loaded.Value;

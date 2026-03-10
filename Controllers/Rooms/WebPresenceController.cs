@@ -12,8 +12,8 @@ public class WebPresenceController(
 ) : ControllerBase
 {
     [Authorize] // cookie auth required
-    [HttpPost("/rooms/{roomCode}/presence")]
-    public async Task<IActionResult> TouchPresence([FromRoute] string roomCode, CancellationToken ct)
+    [HttpPost("/rooms/{roomRef}/presence")]
+    public async Task<IActionResult> TouchPresence([FromRoute] string roomRef, CancellationToken ct)
     {
         // Be tolerant to claim type differences
         var userId =
@@ -30,7 +30,7 @@ public class WebPresenceController(
         if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(username))
             return Unauthorized(new { ok = false, error = "Invalid auth session" });
 
-        var resolvedRoomId = await store.ResolveRoomIdAsync(roomCode, ct);
+        var resolvedRoomId = await store.ResolveRoomIdAsync(roomRef, ct);
         if (resolvedRoomId is null)
             return NotFound(new { ok = false, error = "Room not found" });
 

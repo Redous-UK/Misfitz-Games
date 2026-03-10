@@ -45,7 +45,7 @@ public sealed class RiddleMeThisController(
     public sealed record StartReq(string? Category = null);
     public sealed record GuessReq(string Guess);
 
-    [HttpPost("/rooms/{roomRef}/games/riddle_me_this/start")]
+    [HttpPost("/rooms/{roomRef}/games/{game}/start")]
     public async Task<IActionResult> Start(string roomRef, [FromBody] StartReq? req, CancellationToken ct)
     {
         var loaded = await LoadRoomStateAsync(roomRef, ct);
@@ -87,7 +87,7 @@ public sealed class RiddleMeThisController(
         return Ok(new { ok = true });
     }
 
-    [HttpPost("/rooms/{roomRef}/games/riddle_me_this/guess")]
+    [HttpPost("/rooms/{roomRef}/games/{game}/guess")]
     public async Task<IActionResult> Guess(string roomRef, [FromBody] GuessReq req, CancellationToken ct)
     {
         if (req is null || string.IsNullOrWhiteSpace(req.Guess))
@@ -143,7 +143,7 @@ public sealed class RiddleMeThisController(
         return Ok(new { ok = true, isCorrect });
     }
 
-    [HttpPost("/rooms/{roomRef}/games/riddle_me_this/reveal")]
+    [HttpPost("/rooms/{roomRef}/games/{game}/reveal")]
     public async Task<IActionResult> Reveal(string roomRef, CancellationToken ct)
     {
         var loaded = await LoadRoomStateAsync(roomRef, ct);
@@ -164,7 +164,7 @@ public sealed class RiddleMeThisController(
         return Ok(new { ok = true });
     }
 
-    [HttpPost("/rooms/{roomRef}/games/riddle_me_this/next")]
+    [HttpPost("/rooms/{roomRef}/games/{game}/next")]
     public async Task<IActionResult> Next(string roomRef, CancellationToken ct)
     {
         var loaded = await LoadRoomStateAsync(roomRef, ct);
