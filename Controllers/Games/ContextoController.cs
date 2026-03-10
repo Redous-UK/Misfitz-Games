@@ -30,7 +30,6 @@ public sealed class ContextoController(
     // Contexto: Guess
     // ----------------------------
     [Authorize(Policy = "Player")]
-    [HttpPost("/rooms/{roomRef}/games/{game}/guess")]
     [HttpPost("/rooms/{roomRef}/games/contexto/guess")]
     public async Task<IActionResult> Guess(string roomRef, string? game, [FromBody] GuessReq? req, CancellationToken ct)
     {
@@ -63,7 +62,7 @@ public sealed class ContextoController(
         if (typedState is null && !GameStateJson.TryDeserialize(nextState.GameState, out typedState))
             return StatusCode(500, new { ok = false, error = "Failed to read updated Contexto state." });
 
-        var publicState = ContextoPublic.From(typedState);
+        var publicState = ContextoPublic.From(typedState!);
 
         await BroadcastAsync(
             roomId,
@@ -106,7 +105,6 @@ public sealed class ContextoController(
     // ----------------------------
     // Contexto: Start (explicit secret)
     // ----------------------------
-    [HttpPost("/rooms/{roomRef}/games/{game}/start")]
     [HttpPost("/rooms/{roomRef}/games/contexto/start")]
     public async Task<IActionResult> StartContexto(string roomRef, string? game, [FromBody] ContextoStartRequest? req, CancellationToken ct)
     {
@@ -133,7 +131,7 @@ public sealed class ContextoController(
                 ActiveGame: GameType.None,
                 GameState: null,
                 UpdatedAtUtc: DateTimeOffset.UtcNow,
-                Players: new List<PlayerPresence>(),
+                Players: [],
                 HostUserId: null
             );
         }
@@ -159,7 +157,6 @@ public sealed class ContextoController(
     // ----------------------------
     // Contexto: Next round (random secret)
     // ----------------------------
-    [HttpPost("/rooms/{roomRef}/games/{game}/next")]
     [HttpPost("/rooms/{roomRef}/games/contexto/next")]
     public async Task<IActionResult> NextContextoRound(string roomRef, string? game, CancellationToken ct)
     {
@@ -183,7 +180,7 @@ public sealed class ContextoController(
                 ActiveGame: GameType.None,
                 GameState: null,
                 UpdatedAtUtc: DateTimeOffset.UtcNow,
-                Players: new List<PlayerPresence>(),
+                Players: [],
                 HostUserId: null
             );
         }
@@ -210,7 +207,6 @@ public sealed class ContextoController(
     // ----------------------------
     // Contexto: Public state endpoint
     // ----------------------------
-    [HttpGet("/rooms/{roomRef}/games/{game}/state")]
     [HttpGet("/rooms/{roomRef}/games/contexto/state")]
     public async Task<IActionResult> State(string roomRef, string? game, CancellationToken ct)
     {
@@ -275,7 +271,7 @@ internal static class ContextoPublic
                     g.TsUtc
                 })
                 .ToList(),
-            top = (cs.ScoresByUserId ?? new Dictionary<string, int>())
+            top = (cs.ScoresByUserId ?? [])
                 .OrderByDescending(kv => kv.Value)
                 .Take(20)
                 .Select(kv => new { userId = kv.Key, score = kv.Value })

@@ -39,13 +39,14 @@ public sealed class RiddleMeThisController(
         ("", "What has a heart that doesn’t beat?", "artichoke"),
         ("", "I’m full of holes but I can still hold water. What am I?", "sponge"),
         ("", "What has a thumb and four fingers, but is not a hand?", "glove"),
-        ("", "I canbe cracked, made, told, and played. What am I?", "joke")
+        ("", "I can be cracked, made, told, and played. What am I?", "joke")
     ];
 
     public sealed record StartReq(string? Category = null);
     public sealed record GuessReq(string Guess);
 
     [HttpPost("/rooms/{roomRef}/games/riddle_me_this/start")]
+    [HttpPost("/rooms/{roomRef}/games/riddles/start")]
     public async Task<IActionResult> Start(string roomRef, [FromBody] StartReq? req, CancellationToken ct)
     {
         var loaded = await LoadRoomStateAsync(roomRef, ct);
@@ -88,6 +89,7 @@ public sealed class RiddleMeThisController(
     }
 
     [HttpPost("/rooms/{roomRef}/games/riddle_me_this/guess")]
+    [HttpPost("/rooms/{roomRef}/games/riddles/guess")]
     public async Task<IActionResult> Guess(string roomRef, [FromBody] GuessReq req, CancellationToken ct)
     {
         if (req is null || string.IsNullOrWhiteSpace(req.Guess))
@@ -144,6 +146,7 @@ public sealed class RiddleMeThisController(
     }
 
     [HttpPost("/rooms/{roomRef}/games/riddle_me_this/reveal")]
+    [HttpPost("/rooms/{roomRef}/games/riddles/reveal")]
     public async Task<IActionResult> Reveal(string roomRef, CancellationToken ct)
     {
         var loaded = await LoadRoomStateAsync(roomRef, ct);
@@ -165,6 +168,7 @@ public sealed class RiddleMeThisController(
     }
 
     [HttpPost("/rooms/{roomRef}/games/riddle_me_this/next")]
+    [HttpPost("/rooms/{roomRef}/games/riddles/next")]
     public async Task<IActionResult> Next(string roomRef, CancellationToken ct)
     {
         var loaded = await LoadRoomStateAsync(roomRef, ct);
@@ -206,5 +210,20 @@ public sealed class RiddleMeThisController(
         await BroadcastAsync(roomId, GameType.RiddleMeThis, "riddle_me_this", pub, lastEvent: new { type = "next" }, ct);
 
         return Ok(new { ok = true });
+    }
+
+    [HttpGet("/rooms/{roomRef}/games/riddle_me_this/state")]
+    [HttpGet("/rooms/{roomRef}/games/riddles/state")]
+    public async Task<IActionResult> State(string roomRef, CancellationToken ct)
+    {
+        var loaded = await LoadRoomStateAsync(roomRef, ct);
+        if (loaded is null) return RoomNotFound();
+
+        var (_, room) = loaded.Value;
+
+        if (!TryRequireGameState<RiddleMeThisState>(room, GameType.RiddleMeThis, out var st, out _))
+            return Ok(new { ok = true, state = new { game = "riddle_me_this", isActive = false } });
+
+        return Ok(new { ok = true, state = RiddleMeThisView.PublicView(st) });
     }
 }

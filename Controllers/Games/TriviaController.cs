@@ -56,7 +56,6 @@ public sealed class TriviaController(
         public string? Choice { get; set; }
     }
 
-    [HttpPost("/rooms/{roomRef}/games/{game}/start")]
     [HttpPost("/rooms/{roomRef}/games/trivia/start")]
     public async Task<IActionResult> Start(string roomRef, [FromBody] TriviaStartRequest req, CancellationToken ct)
     {
@@ -112,7 +111,7 @@ public sealed class TriviaController(
         return Ok(new { state = publicState });
     }
 
-    [HttpPost("/rooms/{roomRef}/games/{game}/answer")]
+
     [HttpPost("/rooms/{roomRef}/games/trivia/answer")]
     public async Task<IActionResult> Answer(string roomRef, [FromBody] TriviaAnswerRequest req, CancellationToken ct)
     {
@@ -191,7 +190,6 @@ public sealed class TriviaController(
         return Ok(new { state = publicState, correct });
     }
 
-    [HttpPost("/rooms/{roomRef}/games/{game}/reveal")]
     [HttpPost("/rooms/{roomRef}/games/trivia/reveal")]
     public async Task<IActionResult> Reveal(string roomRef, CancellationToken ct)
     {
@@ -224,7 +222,6 @@ public sealed class TriviaController(
         return Ok(new { state = publicState });
     }
 
-    [HttpPost("/rooms/{roomRef}/games/{game}/stop")]
     [HttpPost("/rooms/{roomRef}/games/trivia/stop")]
     public async Task<IActionResult> Stop(string roomRef, CancellationToken ct)
     {
@@ -266,7 +263,6 @@ public sealed class TriviaController(
         return Ok(new { ok = true });
     }
 
-    [HttpGet("/rooms/{roomRef}/games/{game}/state")]
     [HttpGet("/rooms/{roomRef}/games/trivia/state")]
     [HttpGet("/rooms/{roomRef}/games/trivia/status")]
     public async Task<IActionResult> Status(string roomRef, CancellationToken ct)
