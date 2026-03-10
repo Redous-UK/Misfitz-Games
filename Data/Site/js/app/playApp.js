@@ -7,7 +7,7 @@ import { fetchRoomState, fetchStats, fetchLeaderboard, postPresence } from "../c
 import { bindContexto, renderContexto } from "../games/contexto.js";
 import { bindHangman, renderHangman } from "../games/hangman.js";
 import { bindTrivia, renderTrivia } from "../games/trivia.js";
-import { bindHigherLower, renderHigherLower } from "../games/higherLower.js";
+import { bindHigherLower, renderHigherLower } from "../games/higherlower.js";
 
 const POLL_MS = 1200;
 const PRESENCE_MS = 5000;

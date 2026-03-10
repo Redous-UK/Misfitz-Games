@@ -16,6 +16,7 @@ public sealed class HangmanController(
     RoomGameBroadcaster bus
 ) : RoomGameControllerBase(store, bus)
 {
+    [HttpPost("/rooms/{roomRef}/games/{game}/start")]
     [HttpPost("/rooms/{roomRef}/games/hangman/start")]
     public async Task<IActionResult> Start(string roomRef, [FromBody] HangmanStartRequest req, CancellationToken ct)
     {
@@ -66,6 +67,7 @@ public sealed class HangmanController(
         return Ok(new { ok = true, state = publicState });
     }
 
+    [HttpPost("/rooms/{roomRef}/games/{game}/guess")]
     [HttpPost("/rooms/{roomRef}/games/hangman/guess")]
     public async Task<IActionResult> Guess(string roomRef, [FromBody] HangmanGuessRequest req, CancellationToken ct)
     {
@@ -102,6 +104,7 @@ public sealed class HangmanController(
         return Ok(new { ok = true, correct, message, state = publicState });
     }
 
+    [HttpGet("/rooms/{roomRef}/games/{game}/state")]
     [HttpGet("/rooms/{roomRef}/games/hangman/state")]
     public async Task<IActionResult> State(string roomRef, CancellationToken ct)
     {

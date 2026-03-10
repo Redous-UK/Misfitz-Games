@@ -18,17 +18,25 @@ public sealed class ContextoController(
     ContextoEngine contexto
 ) : RoomGameControllerBase(store, bus)
 {
-    public sealed record ContextoStartRequest(string SecretWord);
+    public sealed record ContextoStartRequest(string? SecretWord);
 
-    public sealed record GuessReq(string Guess);
+    public sealed record GuessReq(string? Guess);
+
+    private static bool IsContextoRoute(string? game)
+        => string.IsNullOrWhiteSpace(game)
+           || string.Equals(game, "contexto", StringComparison.OrdinalIgnoreCase);
 
     // ----------------------------
     // Contexto: Guess
     // ----------------------------
     [Authorize(Policy = "Player")]
     [HttpPost("/rooms/{roomRef}/games/{game}/guess")]
-    public async Task<IActionResult> Guess(string roomRef, [FromBody] GuessReq req, CancellationToken ct)
+    [HttpPost("/rooms/{roomRef}/games/contexto/guess")]
+    public async Task<IActionResult> Guess(string roomRef, string? game, [FromBody] GuessReq? req, CancellationToken ct)
     {
+        if (!IsContextoRoute(game))
+            return NotFound(new { ok = false, error = "Game not found." });
+
         var guess = (req?.Guess ?? "").Trim();
         if (guess.Length < 1 || guess.Length > 64)
             return BadRequest(new { ok = false, error = "Guess is required (1-64 chars)." });
@@ -51,7 +59,12 @@ public sealed class ContextoController(
         await SaveRoomStateAsync(roomId, nextState, ct);
         await Store.IncrementGuessesTotalAsync(roomId, 1, ct);
 
-        var publicState = ContextoPublic.From((ContextoState)nextState.GameState!);
+        var typedState = nextState.GameState as ContextoState;
+        if (typedState is null && !GameStateJson.TryDeserialize(nextState.GameState, out typedState))
+            return StatusCode(500, new { ok = false, error = "Failed to read updated Contexto state." });
+
+        var publicState = ContextoPublic.From(typedState);
+
         await BroadcastAsync(
             roomId,
             nextState.ActiveGame,
@@ -94,9 +107,13 @@ public sealed class ContextoController(
     // Contexto: Start (explicit secret)
     // ----------------------------
     [HttpPost("/rooms/{roomRef}/games/{game}/start")]
-    public async Task<IActionResult> StartContexto(string roomRef, [FromBody] ContextoStartRequest req, CancellationToken ct)
+    [HttpPost("/rooms/{roomRef}/games/contexto/start")]
+    public async Task<IActionResult> StartContexto(string roomRef, string? game, [FromBody] ContextoStartRequest? req, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(req.SecretWord))
+        if (!IsContextoRoute(game))
+            return NotFound(new { ok = false, error = "Game not found." });
+
+        if (string.IsNullOrWhiteSpace(req?.SecretWord))
             return BadRequest(new { ok = false, error = "SecretWord is required" });
 
         var roomId = await Store.ResolveRoomIdAsync(roomRef, ct);
@@ -121,7 +138,7 @@ public sealed class ContextoController(
             );
         }
 
-        var cs = ContextoEngine.NewRound(req.SecretWord);
+        var cs = ContextoEngine.NewRound(req.SecretWord.Trim());
         var next = room with
         {
             ActiveGame = GameType.Contexto,
@@ -143,8 +160,12 @@ public sealed class ContextoController(
     // Contexto: Next round (random secret)
     // ----------------------------
     [HttpPost("/rooms/{roomRef}/games/{game}/next")]
-    public async Task<IActionResult> NextContextoRound(string roomRef, CancellationToken ct)
+    [HttpPost("/rooms/{roomRef}/games/contexto/next")]
+    public async Task<IActionResult> NextContextoRound(string roomRef, string? game, CancellationToken ct)
     {
+        if (!IsContextoRoute(game))
+            return NotFound(new { ok = false, error = "Game not found." });
+
         var roomId = await Store.ResolveRoomIdAsync(roomRef, ct);
         if (roomId is null)
             return NotFound(new { ok = false, error = "Room not found" });
@@ -190,8 +211,12 @@ public sealed class ContextoController(
     // Contexto: Public state endpoint
     // ----------------------------
     [HttpGet("/rooms/{roomRef}/games/{game}/state")]
-    public async Task<IActionResult> State(string roomRef, CancellationToken ct)
+    [HttpGet("/rooms/{roomRef}/games/contexto/state")]
+    public async Task<IActionResult> State(string roomRef, string? game, CancellationToken ct)
     {
+        if (!IsContextoRoute(game))
+            return NotFound(new { ok = false, error = "Game not found." });
+
         var loaded = await LoadRoomStateAsync(roomRef, ct);
         if (loaded is null) return NotFound(new { ok = false, error = "Room not found" });
 
@@ -237,7 +262,7 @@ internal static class ContextoPublic
             isActive = cs.IsActive,
             startedAtUtc = cs.StartedAtUtc,
             endedAtUtc = cs.EndedAtUtc,
-            recentGuesses = cs.RecentGuesses
+            recentGuesses = (cs.RecentGuesses ?? Enumerable.Empty<ContextoGuess>())
                 .Take(10)
                 .Select(g => new
                 {
@@ -250,7 +275,7 @@ internal static class ContextoPublic
                     g.TsUtc
                 })
                 .ToList(),
-            top = cs.ScoresByUserId
+            top = (cs.ScoresByUserId ?? new Dictionary<string, int>())
                 .OrderByDescending(kv => kv.Value)
                 .Take(20)
                 .Select(kv => new { userId = kv.Key, score = kv.Value })
