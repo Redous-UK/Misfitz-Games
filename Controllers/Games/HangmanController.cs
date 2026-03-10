@@ -14,20 +14,36 @@ namespace Misfitz_Games.Controllers.Games;
 public sealed class HangmanController(
     IRoomStateStore store,
     RoomGameBroadcaster bus
-    //HangmanService hangman
 ) : RoomGameControllerBase(store, bus)
 {
-    [HttpPost("/rooms/{roomRef}/games/{game}/start")]
+    [HttpPost("/rooms/{roomRef}/games/hangman/start")]
     public async Task<IActionResult> Start(string roomRef, [FromBody] HangmanStartRequest req, CancellationToken ct)
     {
-        var loaded = await LoadRoomStateAsync(roomRef, ct);
-        if (loaded is null) return RoomNotFound(); // if you want to distinguish, split LoadRoomStateAsync
+        var roomId = await Store.ResolveRoomIdAsync(roomRef, ct);
+        if (roomId is null)
+            return NotFound(new { ok = false, error = "Room not found" });
 
-        var (roomId, room) = loaded.Value;
+        var room = await Store.GetStateAsync(roomId.Value, ct);
+        if (room is null)
+        {
+            var meta = await Store.GetRoomAsync(roomId.Value, ct);
+            if (meta is null)
+                return NotFound(new { ok = false, error = "Room not found" });
 
-        var word = (req.Word ?? "").Trim();
+            room = new RoomState(
+                RoomId: meta.RoomId,
+                RoomName: meta.Name,
+                ActiveGame: GameType.None,
+                GameState: null,
+                UpdatedAtUtc: DateTimeOffset.UtcNow,
+                Players: new List<PlayerPresence>(),
+                HostUserId: null
+            );
+        }
+
+        var word = (req.Word ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(word))
-            return BadRequest(new { error = "Word required (for now)." });
+            return BadRequest(new { ok = false, error = "Word required (for now)." });
 
         var maxWrong = (req.MaxWrong is > 0) ? req.MaxWrong.Value : 6;
 
@@ -41,16 +57,16 @@ public sealed class HangmanController(
             UpdatedAtUtc = DateTimeOffset.UtcNow
         };
 
-        await SaveRoomStateAsync(roomId, updated, ct);
-        await Store.IncrementGamesPlayedAsync(roomId, 1, ct);
+        await SaveRoomStateAsync(roomId.Value, updated, ct);
+        await Store.IncrementGamesPlayedAsync(roomId.Value, 1, ct);
 
-        await BroadcastAsync(roomId, updated.ActiveGame, "hangman", publicState, new { type = "start" }, ct);
-        await ToastAsync(roomId, "Hangman started!", ct);
+        await BroadcastAsync(roomId.Value, updated.ActiveGame, "hangman", publicState, new { type = "start" }, ct);
+        await ToastAsync(roomId.Value, "Hangman started!", ct);
 
-        return Ok(new { state = publicState });
+        return Ok(new { ok = true, state = publicState });
     }
 
-    [HttpPost("/rooms/{roomRef}/games/{game}/guess")]
+    [HttpPost("/rooms/{roomRef}/games/hangman/guess")]
     public async Task<IActionResult> Guess(string roomRef, [FromBody] HangmanGuessRequest req, CancellationToken ct)
     {
         var loaded = await LoadRoomStateAsync(roomRef, ct);
@@ -61,9 +77,9 @@ public sealed class HangmanController(
         if (!TryRequireGameState(room, GameType.Hangman, out HangmanState hangman, out var err))
             return err!;
 
-        var value = (req.Value ?? "").Trim();
+        var value = (req.Value ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(value))
-            return BadRequest(new { error = "Guess value required." });
+            return BadRequest(new { ok = false, error = "Guess value required." });
 
         var next = HangmanService.ApplyGuess(hangman, value, out var correct, out var message);
         var publicState = HangmanView.PublicView(next);
@@ -83,10 +99,10 @@ public sealed class HangmanController(
         if (!correct)
             await ToastAsync(roomId, message, ct);
 
-        return Ok(new { correct, message, state = publicState });
+        return Ok(new { ok = true, correct, message, state = publicState });
     }
 
-    [HttpGet("/rooms/{roomRef}/games/{game}/state")]
+    [HttpGet("/rooms/{roomRef}/games/hangman/state")]
     public async Task<IActionResult> State(string roomRef, CancellationToken ct)
     {
         var loaded = await LoadRoomStateAsync(roomRef, ct);
@@ -97,9 +113,9 @@ public sealed class HangmanController(
         if (room.ActiveGame != GameType.Hangman ||
             !GameStateJson.TryDeserialize(room.GameState, out HangmanState hangman))
         {
-            return Ok(new { state = new { game = "hangman", isActive = false } });
+            return Ok(new { ok = true, state = new { game = "hangman", isActive = false } });
         }
 
-        return Ok(new { state = HangmanView.PublicView(hangman) });
+        return Ok(new { ok = true, state = HangmanView.PublicView(hangman) });
     }
 }
