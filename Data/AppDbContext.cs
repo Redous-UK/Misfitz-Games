@@ -18,6 +18,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Room> Rooms => Set<Room>();
     public DbSet<UserIdMap> UserIdMaps => Set<UserIdMap>();
     public DbSet<Riddle> Riddles => Set<Riddle>();
+    public DbSet<RiddleCatalog> RiddleCatalogs => Set<RiddleCatalog>();
     public DbSet<RoomPlayerScore> RoomPlayerScores => Set<RoomPlayerScore>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -81,6 +82,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<RiddleRound>()
             .HasIndex(x => new { x.RoomId, x.Status });
+
+        modelBuilder.Entity<RiddleCatalog>()
+            .HasIndex(x => new { x.Id })
+            .IsUnique();
 
         modelBuilder.Entity<RiddleRound>()
             .HasIndex(x => x.RoomCode);
