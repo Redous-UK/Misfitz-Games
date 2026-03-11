@@ -39,27 +39,19 @@ public sealed class RiddleCatalog
 {
     [Key]
     public Guid Id { get; set; } = Guid.NewGuid();
-
     [MaxLength(64)]
     public string Category { get; set; } = "General";
-
     [MaxLength(32)]
     public string Difficulty { get; set; } = "Easy"; // Easy/Medium/Hard
-
     [Required, MaxLength(2000)]
     public string Question { get; set; } = "";
-
     [Required, MaxLength(512)]
     public string Answer { get; set; } = ""; // canonical answer (normalized compare)
-
     [MaxLength(1024)]
     public string? AcceptableAnswersJson { get; set; } // JSON array of synonyms/alternates
-
     [MaxLength(1024)]
     public string? HintsJson { get; set; } // JSON array of hints
-
     public bool IsActive { get; set; } = true;
-
     public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
 }
 
