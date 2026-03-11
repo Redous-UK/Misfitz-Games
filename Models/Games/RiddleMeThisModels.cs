@@ -4,7 +4,7 @@ namespace Misfitz_Games.Models.Games;
 
 public sealed record RiddleMeThisState(
     int Round,
-    long RiddleId,
+    string RiddleId,
     string Category,
     string Riddle,
     string Answer,              // keep server-side; don’t expose in public view
@@ -12,7 +12,8 @@ public sealed record RiddleMeThisState(
     string? SolvedByUserId,
     DateTimeOffset StartedAtUtc,
     DateTimeOffset? SolvedAtUtc,
-    List<RiddleGuess> RecentGuesses
+    List<RiddleGuess> RecentGuesses,
+    List<string> UsedRiddleIds
 );
 
 public sealed record RiddleGuess(
@@ -20,6 +21,11 @@ public sealed record RiddleGuess(
     string Guess,
     bool IsCorrect,
     DateTimeOffset AtUtc
+);
+
+public sealed record UsedRiddleIds(
+long RiddleId,
+string Category
 );
 
 public sealed class Riddle

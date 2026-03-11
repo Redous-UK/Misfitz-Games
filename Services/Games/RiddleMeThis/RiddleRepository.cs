@@ -18,6 +18,27 @@ public sealed class RiddleRepository(AppDbContext db)
         return await q.OrderBy(_ => Guid.NewGuid()).FirstOrDefaultAsync(ct);
     }
 
+    public async Task<RiddleCatalog?> GetRandomUnusedAsync(
+    string? category,
+    IReadOnlyCollection<string> usedIds,
+    CancellationToken ct = default)
+    {
+        var query = db.RiddleCatalogs
+            .Where(x => x.IsActive);
+
+        if (!string.IsNullOrWhiteSpace(category))
+            query = query.Where(x => x.Category == category);
+
+        if (usedIds is { Count: > 0 })
+        {
+            query = query.Where(x => !usedIds.Contains(x.Id.ToString()));
+        }
+
+        return await query
+            .OrderBy(_ => Guid.NewGuid())
+            .FirstOrDefaultAsync(ct);
+    }
+
     public async Task<List<string>> GetCategoriesAsync(CancellationToken ct)
     {
         return await db.Riddles.AsNoTracking()
