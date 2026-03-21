@@ -906,7 +906,7 @@
                 },
                 stop: async (code) => api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" })
             },
-            riddlemethis: {
+            riddles: {
                 title: "Riddle Me This",
                 playUrl: (code) => `/play.html?roomId=${encodeURIComponent(code)}&game=riddlemethis`,
                 overlayUrl: (code) => `/overlay.html?roomId=${encodeURIComponent(code)}&game=riddlemethis`,
