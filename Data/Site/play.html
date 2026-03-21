@@ -241,38 +241,82 @@
                     </section>
 
                     <!-- Riddle Me This panel -->
-                    <section id="panel-riddlemethis" class="panel">
-                        <div class="mgCard">
-                            <div class="mgCardHeader">
-                                <h2>Riddle Me This</h2>
+                    <section id="panel-riddle-me-this" class="card" hidden>
+                        <div class="card">
+                            <div class="mg-header">
+                                <div class="mg-header-left">
+                                    <div class="mg-title">Riddle Me This</div>
+                                    <div class="mg-sub">Host controls for starting rounds, changing category, revealing answers, and moving to the next riddle.</div>
+                                </div>
+                                <div class="mg-header-right">
+                                    <span id="gameBadgeRiddleMeThis" class="badge warn">No game</span>
+                                </div>
                             </div>
 
-                            <div class="mgCardBody">
-                                <div class="mgRow">
-                                    <label class="mgLabel">Category</label>
-                                    <select id="rmtCategory" class="mgInput">
-                                        <option value="">Any Category</option>
-                                    </select>
-                                </div>
+                            <div class="row" style="margin-top:12px;">
+                                <select id="rmtCategory" class="grow">
+                                    <option value="">Any Category</option>
+                                </select>
+                                <button id="btnRmtStart">Start</button>
+                                <button id="btnRmtNext">Next</button>
+                                <button id="btnRmtReveal">Reveal</button>
+                                <button id="btnRmtRefresh">Refresh</button>
+                            </div>
 
-                                <div class="mgRow" style="margin-top:12px;">
-                                    <button id="btnRmtStart" class="mgBtn">Start</button>
-                                    <button id="btnRmtNext" class="mgBtn">Next</button>
-                                    <button id="btnRmtReveal" class="mgBtn">Reveal</button>
-                                    <button id="btnRmtRefresh" class="mgBtn">Refresh</button>
-                                </div>
+                            <div class="muted" style="margin-top:6px;">
+                                Pick a category, start a round, then reveal or move to the next riddle.
+                            </div>
 
-                                <div id="rmtStatus" class="mgMuted" style="margin-top:12px;">Ready.</div>
-
-                                <div class="mgCard" style="margin-top:12px;">
-                                    <div class="mgCardBody">
-                                        <div><strong>Round:</strong> <span id="rmtRound">-</span></div>
-                                        <div><strong>Category:</strong> <span id="rmtCategoryText">-</span></div>
-                                        <div><strong>Riddle:</strong> <span id="rmtRiddle">-</span></div>
-                                        <div><strong>Solved:</strong> <span id="rmtSolved">-</span></div>
-                                        <div><strong>Solved By:</strong> <span id="rmtSolvedBy">-</span></div>
+                            <div class="sectionTitle">CURRENT ROUND</div>
+                            <ul>
+                                <li class="item">
+                                    <div>
+                                        <div class="who">Round</div>
+                                        <div class="small">Current round number</div>
                                     </div>
-                                </div>
+                                    <div class="right"><div class="who" id="rmtRound">-</div></div>
+                                </li>
+                                <li class="item">
+                                    <div>
+                                        <div class="who">Category</div>
+                                        <div class="small">Selected / active category</div>
+                                    </div>
+                                    <div class="right"><div class="who" id="rmtCategoryText">-</div></div>
+                                </li>
+                                <li class="item">
+                                    <div>
+                                        <div class="who">Solved</div>
+                                        <div class="small">Whether this riddle has been solved</div>
+                                    </div>
+                                    <div class="right"><div class="who" id="rmtSolved">-</div></div>
+                                </li>
+                                <li class="item">
+                                    <div>
+                                        <div class="who">Solved By</div>
+                                        <div class="small">Winning player</div>
+                                    </div>
+                                    <div class="right"><div class="who" id="rmtSolvedBy">-</div></div>
+                                </li>
+                                <li class="item">
+                                    <div>
+                                        <div class="who">Started</div>
+                                        <div class="small">Round start time</div>
+                                    </div>
+                                    <div class="right"><div class="who" id="rmtStartedAt">-</div></div>
+                                </li>
+                            </ul>
+
+                            <div class="sectionTitle">RIDDLE</div>
+                            <div class="debug-out">
+                                <pre id="rmtRiddle" class="debug-out">-</pre>
+                            </div>
+
+                            <div class="sectionTitle">RECENT GUESSES</div>
+                            <ul id="rmtRecentGuesses"></ul>
+
+                            <div id="debugBlockRiddleMeThis" class="debug-out">
+                                <div class="sectionTitle">DEBUG STATE</div>
+                                <pre id="stateOutRiddleMeThis" class="debug-out">{}</pre>
                             </div>
                         </div>
                     </section>

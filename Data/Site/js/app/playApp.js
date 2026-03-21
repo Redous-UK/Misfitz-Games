@@ -219,6 +219,10 @@ async function refreshAll() {
         // enable/disable Contexto guess button only
         el("btnGuess") && (el("btnGuess").disabled = !(state.joinedRef && gameIdToRender === "contexto"));
 
+        if (normalizeGameId(gameIdToRender) === "riddle_me_this") {
+            await actions.rmtLoadCategories();
+        }
+
         if (!gameIdFromServer || gameIdFromServer === "none") {
             setGameBadge(state.selectedGame, `No game (selected: ${gameIdToRender})`, "warn");
         } else {
