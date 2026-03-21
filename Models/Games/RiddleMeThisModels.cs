@@ -23,11 +23,6 @@ public sealed record RiddleGuess(
     DateTimeOffset AtUtc
 );
 
-public sealed record UsedRiddleIds(
-long RiddleId,
-string Category
-);
-
 public sealed class Riddle
 {
     [Key]

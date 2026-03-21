@@ -8,6 +8,8 @@ import { bindContexto, renderContexto } from "../games/contexto.js";
 import { bindHangman, renderHangman } from "../games/hangman.js";
 import { bindTrivia, renderTrivia } from "../games/trivia.js";
 import { bindHigherLower, renderHigherLower } from "../games/higherlower.js";
+import { bindRiddleMeThis, renderRiddleMeThis } from "../games/riddle.js";
+
 
 const POLL_MS = 1200;
 const PRESENCE_MS = 5000;
@@ -116,6 +118,68 @@ const actions = {
         if (!state.joinedRef) return;
         await api(`/rooms/${encodeURIComponent(state.joinedRef)}/games/stop`, { method: "POST" });
         await refreshAll();
+    },
+    async rmtLoadCategories() {
+        if (!state.joinedRef) return;
+
+        const data = await api(`/rooms/${encodeURIComponent(state.joinedRef)}/games/riddle_me_this/categories`);
+        const select = el("rmtCategory");
+        if (!select) return;
+
+        const categories = Array.isArray(data?.categories) ? data.categories : [];
+        const saved = localStorage.getItem("rmtCategory") || "";
+
+        select.innerHTML = `<option value="">Any Category</option>`;
+
+        for (const cat of categories) {
+            const opt = document.createElement("option");
+            opt.value = cat;
+            opt.textContent = cat;
+            select.appendChild(opt);
+        }
+
+        if ([...select.options].some(o => o.value === saved)) {
+            select.value = saved;
+        }
+    },
+
+    async rmtStart() {
+        if (!state.joinedRef) return;
+
+        const category = (el("rmtCategory")?.value || "").trim();
+
+        await api(`/rooms/${encodeURIComponent(state.joinedRef)}/games/riddle_me_this/start`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ category: category || null })
+        });
+
+        await refreshAll();
+    },
+
+    async rmtNext() {
+        if (!state.joinedRef) return;
+
+        await api(`/rooms/${encodeURIComponent(state.joinedRef)}/games/riddle_me_this/next`, {
+            method: "POST"
+        });
+
+        await refreshAll();
+    },
+
+    async rmtReveal() {
+        if (!state.joinedRef) return;
+
+        await api(`/rooms/${encodeURIComponent(state.joinedRef)}/games/riddle_me_this/reveal`, {
+            method: "POST"
+        });
+
+        await refreshAll();
+    },
+
+    async rmtRefresh() {
+        if (!state.joinedRef) return;
+        await refreshAll();
     }
 };
 
@@ -124,7 +188,8 @@ const games = {
     contexto: { bind: bindContexto, render: renderContexto },
     hangman: { bind: bindHangman, render: renderHangman },
     trivia: { bind: bindTrivia, render: renderTrivia },
-    higher_lower: { bind: bindHigherLower, render: (gs, raw) => renderHigherLower(gs, raw, state.joinedRef) }
+    higher_lower: { bind: bindHigherLower, render: (gs, raw) => renderHigherLower(gs, raw, state.joinedRef) },
+    riddle: { bind: bindRiddle, render: renderRiddle }
 };
 
 function bindAllGames() {
@@ -211,6 +276,12 @@ function renderLeaderboard(lb) {
       </div>
     `;
         ul.appendChild(li);
+    }
+}
+
+function onPanelChanged(panelId) {
+    if (panelId === "panel-riddlemethis" && window.riddleMeThisGame) {
+        window.riddleMeThisGame.init();
     }
 }
 

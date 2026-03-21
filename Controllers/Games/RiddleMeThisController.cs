@@ -17,31 +17,6 @@ public sealed class RiddleMeThisController(
 {
     private RiddleRepository Riddles { get; } = riddles;
 
-    // Minimal riddle bank (swap to DB later)
-    private static readonly (string category, string riddle, string answer)[] Bank =
-    [
-        ("", "I speak without a mouth and hear without ears. I have no body, but I come alive with wind. What am I?", "echo"),
-        ("", "What has to be broken before you can use it?", "egg"),
-        ("", "I’m tall when I’m young, and I’m short when I’m old. What am I?", "candle"),
-        ("", "The more you take, the more you leave behind. What are they?", "footsteps"),
-        ("", "What has keys but can’t open locks?", "piano"),
-        ("", "What gets wetter the more it dries?", "towel"),
-        ("", "I have branches, but no fruit, trunk or leaves. What am I?", "bank"),
-        ("", "What can fill a room but takes up no space?", "light"),
-        ("", "The more of this there is, the less you see. What is it?", "darkness"),
-        ("", "What has one eye but can’t see?", "needle"),
-        ("", "The more you take away from me, the bigger I become. What am I?", "hole"),
-        ("", "What has many teeth but can’t bite?", "comb"),
-        ("", "I’m found in socks, scarves and mittens; and often in the paws of playful kittens. What am I?", "yarn"),
-        ("", "What can you catch but not throw?", "cold"),
-        ("", "I have a neck but no head, and I wear a cap. What am I?", "bottle"),
-        ("", "What can run but cant never walk?", "river"),
-        ("", "What has a heart that doesn’t beat?", "artichoke"),
-        ("", "I’m full of holes but I can still hold water. What am I?", "sponge"),
-        ("", "What has a thumb and four fingers, but is not a hand?", "glove"),
-        ("", "I can be cracked, made, told, and played. What am I?", "joke")
-    ];
-
     public sealed record StartReq(string? Category = null);
     public sealed record GuessReq(string Guess);
 
@@ -236,4 +211,17 @@ public sealed class RiddleMeThisController(
 
         return Ok(new { ok = true, state = RiddleMeThisView.PublicView(st) });
     }
+
+    [HttpGet("/rooms/{roomRef}/games/riddle_me_this/categories")]
+    [HttpGet("/rooms/{roomRef}/games/riddles/categories")]
+    public async Task<IActionResult> Categories(string roomRef, CancellationToken ct)
+    {
+        var loaded = await LoadRoomStateAsync(roomRef, ct);
+        if (loaded is null) return RoomNotFound();
+
+        var categories = await Riddles.GetCategoriesAsync(ct);
+        return Ok(new { ok = true, categories });
+    }
+
+
 }

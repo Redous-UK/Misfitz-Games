@@ -77,8 +77,8 @@
                                     <div style="font-size:32px; letter-spacing:6px;" id="hangmanMasked">_ _ _ _</div>
                                 </div>
                                 <!--<div class="muted" style="margin-top:8px;">
-                                Wrong: <span id="hangmanWrong">0/6</span>
-                            </div>-->
+                    Wrong: <span id="hangmanWrong">0/6</span>
+                </div>-->
                                 <div class="muted" style="margin-top:8px;">
                                     Guessed: <span id="hangmanGuessed"></span>
                                 </div>
@@ -240,6 +240,42 @@
                         </div>
                     </section>
 
+                    <!-- Riddle Me This panel -->
+                    <section id="panel-riddlemethis" class="panel">
+                        <div class="mgCard">
+                            <div class="mgCardHeader">
+                                <h2>Riddle Me This</h2>
+                            </div>
+
+                            <div class="mgCardBody">
+                                <div class="mgRow">
+                                    <label class="mgLabel">Category</label>
+                                    <select id="rmtCategory" class="mgInput">
+                                        <option value="">Any Category</option>
+                                    </select>
+                                </div>
+
+                                <div class="mgRow" style="margin-top:12px;">
+                                    <button id="btnRmtStart" class="mgBtn">Start</button>
+                                    <button id="btnRmtNext" class="mgBtn">Next</button>
+                                    <button id="btnRmtReveal" class="mgBtn">Reveal</button>
+                                    <button id="btnRmtRefresh" class="mgBtn">Refresh</button>
+                                </div>
+
+                                <div id="rmtStatus" class="mgMuted" style="margin-top:12px;">Ready.</div>
+
+                                <div class="mgCard" style="margin-top:12px;">
+                                    <div class="mgCardBody">
+                                        <div><strong>Round:</strong> <span id="rmtRound">-</span></div>
+                                        <div><strong>Category:</strong> <span id="rmtCategoryText">-</span></div>
+                                        <div><strong>Riddle:</strong> <span id="rmtRiddle">-</span></div>
+                                        <div><strong>Solved:</strong> <span id="rmtSolved">-</span></div>
+                                        <div><strong>Solved By:</strong> <span id="rmtSolvedBy">-</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
 
 
 
