@@ -54,7 +54,6 @@ public sealed class RiddleMeThisController(
 
         var (roomId, room) = loaded.Value;
 
-        // pick riddle
         var pick = await Riddles.GetRandomAsync(req?.Category, ct);
         if (pick is null)
             return BadRequest(new { error = "No riddles available (check DB / category / isActive)." });
@@ -70,7 +69,7 @@ public sealed class RiddleMeThisController(
             StartedAtUtc: DateTimeOffset.UtcNow,
             SolvedAtUtc: null,
             RecentGuesses: [],
-            UsedRiddleIds: []
+            UsedRiddleIds: [pick.Id.ToString()]
         );
 
         var next = room with
@@ -82,7 +81,6 @@ public sealed class RiddleMeThisController(
 
         await SaveRoomStateAsync(roomId, next, ct);
 
-        // broadcast public state
         var pub = RiddleMeThisView.PublicView(st);
         await BroadcastAsync(roomId, GameType.RiddleMeThis, "riddle_me_this", pub, lastEvent: new { type = "started" }, ct);
 
@@ -180,13 +178,13 @@ public sealed class RiddleMeThisController(
         if (!TryRequireGameState<RiddleMeThisState>(room, GameType.RiddleMeThis, out var st, out var err))
             return err!;
 
-        var usedIds = (st.UsedRiddleIds ?? []);
+        var usedIds = st.UsedRiddleIds?.ToList() ?? [];
 
         var pick = await Riddles.GetRandomUnusedAsync(st.Category, usedIds, ct);
 
         if (pick is null)
         {
-            usedIds.Clear(); // reset cycle once all active riddles have been used
+            usedIds.Clear(); // reset once all active riddles in this category have been used
             pick = await Riddles.GetRandomUnusedAsync(st.Category, usedIds, ct);
         }
 
@@ -194,7 +192,6 @@ public sealed class RiddleMeThisController(
             return BadRequest(new { error = "No riddles available (check DB / category / isActive)." });
 
         usedIds.Add(pick.Id.ToString());
-
 
         var nextSt = st with
         {

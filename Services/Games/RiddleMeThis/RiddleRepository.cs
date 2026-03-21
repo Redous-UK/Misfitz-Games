@@ -1,29 +1,32 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Misfitz_Games.Data;
-using Misfitz_Games.Models;
 using Misfitz_Games.Models.Games;
 
 namespace Misfitz_Games.Services.Games.RiddleMeThis;
 
 public sealed class RiddleRepository(AppDbContext db)
 {
-    public async Task<Riddle?> GetRandomAsync(string? category, CancellationToken ct)
+    public async Task<RiddleCatalog?> GetRandomAsync(string? category, CancellationToken ct = default)
     {
-        var q = db.Riddles.AsNoTracking().Where(r => r.IsActive);
+        var query = db.RiddleCatalogs
+            .AsNoTracking()
+            .Where(x => x.IsActive);
 
         if (!string.IsNullOrWhiteSpace(category))
-            q = q.Where(r => r.Category == category);
+            query = query.Where(x => x.Category == category);
 
-        // SQLite-friendly random:
-        return await q.OrderBy(_ => Guid.NewGuid()).FirstOrDefaultAsync(ct);
+        return await query
+            .OrderBy(_ => Guid.NewGuid())
+            .FirstOrDefaultAsync(ct);
     }
 
     public async Task<RiddleCatalog?> GetRandomUnusedAsync(
-    string? category,
-    IReadOnlyCollection<string> usedIds,
-    CancellationToken ct = default)
+        string? category,
+        IReadOnlyCollection<string> usedIds,
+        CancellationToken ct = default)
     {
         var query = db.RiddleCatalogs
+            .AsNoTracking()
             .Where(x => x.IsActive);
 
         if (!string.IsNullOrWhiteSpace(category))
@@ -39,23 +42,14 @@ public sealed class RiddleRepository(AppDbContext db)
             .FirstOrDefaultAsync(ct);
     }
 
-    public async Task<List<string>> GetCategoriesAsync(CancellationToken ct)
+    public async Task<List<string>> GetCategoriesAsync(CancellationToken ct = default)
     {
-        return await db.Riddles.AsNoTracking()
-            .Where(r => r.IsActive)
-            .Select(r => r.Category)
+        return await db.RiddleCatalogs
+            .AsNoTracking()
+            .Where(x => x.IsActive)
+            .Select(x => x.Category)
             .Distinct()
             .OrderBy(x => x)
             .ToListAsync(ct);
-    }
-
-    public async Task<long> CreateAsync(Riddle r, CancellationToken ct)
-    {
-        r.CreatedAtUtc = DateTimeOffset.UtcNow;
-        r.UpdatedAtUtc = DateTimeOffset.UtcNow;
-
-        db.Riddles.Add(r);
-        await db.SaveChangesAsync(ct);
-        return r.Id;
     }
 }
