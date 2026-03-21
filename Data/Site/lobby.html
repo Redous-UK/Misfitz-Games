@@ -712,11 +712,11 @@
             const header = document.createElement("div");
             header.style.marginBottom = "10px";
             header.innerHTML = `
-                                                                        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-                                                                          <div style="font-weight:700">${esc(schema.title || "Controls")} • <span style="opacity:.8">${esc(gameId)}</span></div>
-                                                                          <button id="resetGameSettingsBtn" class="control-button btn-secondary" style="width:auto;padding:8px 10px;">Reset</button>
-                                                                        </div>
-                                                                      `;
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+                        <div style="font-weight:700">${esc(schema.title || "Controls")} • <span style="opacity:.8">${esc(gameId)}</span></div>
+                        <button id="resetGameSettingsBtn" class="control-button btn-secondary" style="width:auto;padding:8px 10px;">Reset</button>
+                    </div>
+                    `;
             host.appendChild(header);
 
             header.querySelector("#resetGameSettingsBtn").addEventListener("click", () => {
@@ -899,6 +899,24 @@
                     const nc = gameSettings.twentyone?.numCards;
                     const numCards = Number.isFinite(nc) && nc > 0 ? nc : 5;
                     return await api(`/rooms/${encodeURIComponent(code)}/games/twentyone/start`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ difficulty, numCards })
+                    });
+                },
+                stop: async (code) => api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" })
+            },
+            riddlemethis: {
+                title: "Riddle Me This",
+                playUrl: (code) => `/play.html?roomId=${encodeURIComponent(code)}&game=riddlemethis`,
+                overlayUrl: (code) => `/overlay.html?roomId=${encodeURIComponent(code)}&game=riddlemethis`,
+                start: async (code) => {
+                    const difficulty = String(gameSettings.riddlemethis?.difficulty ?? "easy").trim().toLowerCase();
+                    const okDiff = (difficulty === "easy" || difficulty === "medium" || difficulty === "hard");
+                    if (!okDiff) throw new Error("Riddle Me This: difficulty must be easy, medium, or hard");
+                    const nc = gameSettings.riddlemethis?.numCards;
+                    const numCards = Number.isFinite(nc) && nc > 0 ? nc : 5;
+                    return await api(`/rooms/${encodeURIComponent(code)}/games/riddlemethis/start`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ difficulty, numCards })
