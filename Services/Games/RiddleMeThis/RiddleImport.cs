@@ -1,8 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Net.Http;
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Misfitz_Games.Data;
 using Misfitz_Games.Models.Games;
-using System.Net.Http.Json;
-using System.Text.Json;
 
 namespace Misfitz_Games.Services.Games.RiddleMeThis;
 
@@ -11,6 +11,14 @@ public sealed class RiddleImportService(
     AppDbContext db,
     ILogger<RiddleImportService> log)
 {
+
+
+    private static readonly JsonSerializerOptions JsonOpts = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+
     public async Task<int> ImportCategoryAsync(string category, CancellationToken ct = default)
     {
         category = (category ?? "").Trim().ToLowerInvariant();
@@ -18,8 +26,56 @@ public sealed class RiddleImportService(
             throw new ArgumentException("Category is required.", nameof(category));
 
         var url = $"https://riddles-api-eight.vercel.app/{category}";
-        var rows = await http.GetFromJsonAsync<List<ApiRiddleDto>>(url, cancellationToken: ct)
-                   ?? [];
+
+        using var res = await http.GetAsync(url, ct);
+        var raw = await res.Content.ReadAsStringAsync(ct);
+
+        if (!res.IsSuccessStatusCode)
+        {
+            log.LogWarning("Riddle import failed for {Category}. Status={Status}. Body={Body}",
+                category, (int)res.StatusCode, raw);
+            return 0;
+        }
+
+        List<ApiRiddleDto> rows = [];
+
+        try
+        {
+            // Case 1: upstream returns a plain JSON array
+            JsonSerializer.Deserialize<List<ApiRiddleDto>>(raw, JsonOpts);
+        }
+        catch (JsonException ex)
+        {
+            log.LogWarning(ex,
+                "Could not parse riddle API response as List<ApiRiddleDto> for {Category}. Raw body: {Body}",
+                category, raw);
+
+            // Optional fallback: try wrapped object shape like { data: [...] } or { riddles: [...] }
+            try
+            {
+                using var doc = JsonDocument.Parse(raw);
+                var root = doc.RootElement;
+
+                if (root.ValueKind == JsonValueKind.Object)
+                {
+                    if (root.TryGetProperty("data", out var dataEl) && dataEl.ValueKind == JsonValueKind.Array)
+                    {
+                        JsonSerializer.Deserialize<List<ApiRiddleDto>>(raw, JsonOpts);
+                    }
+                    else if (root.TryGetProperty("riddles", out var riddlesEl) && riddlesEl.ValueKind == JsonValueKind.Array)
+                    {
+                        JsonSerializer.Deserialize<List<ApiRiddleDto>>(raw, JsonOpts);
+                    }
+                }
+            }
+            catch (Exception innerEx)
+            {
+                log.LogWarning(innerEx,
+                    "Fallback parsing also failed for {Category}. Raw body: {Body}",
+                    category, raw);
+                return 0;
+            }
+        }
 
         var added = 0;
 
@@ -42,7 +98,9 @@ public sealed class RiddleImportService(
             db.RiddleCatalogs.Add(new RiddleCatalog
             {
                 Id = Guid.NewGuid(),
-                Category = string.IsNullOrWhiteSpace(item.Category) ? category : item.Category.Trim().ToLowerInvariant(),
+                Category = string.IsNullOrWhiteSpace(item.Category)
+                    ? category
+                    : item.Category.Trim().ToLowerInvariant(),
                 Difficulty = "easy",
                 Question = question,
                 Answer = answer,
