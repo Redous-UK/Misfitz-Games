@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.EntityFrameworkCore;
+using Misfitz_Games.Data;
+using Microsoft.AspNetCore.Mvc;
 using Misfitz_Games.Controllers.Rooms;
 using Misfitz_Games.Models;
 using Misfitz_Games.Models.Games;
@@ -12,7 +14,8 @@ namespace Misfitz_Games.Controllers.Games;
 public sealed class RiddleMeThisController(
     IRoomStateStore store,
     RoomGameBroadcaster bus,
-    RiddleRepository riddles
+    RiddleRepository riddles,
+    ILogger<RiddleImportService> log
 ) : RoomGameControllerBase(store, bus)
 {
     private RiddleRepository Riddles { get; } = riddles;
@@ -221,6 +224,89 @@ public sealed class RiddleMeThisController(
 
         var categories = await Riddles.GetCategoriesAsync(ct);
         return Ok(new { ok = true, categories });
+    }
+
+    [HttpPost("/admin/games/riddle_me_this/import/{category}")]
+    public async Task<IActionResult> ImportCategory(
+    [FromRoute] string category,
+    [FromServices] RiddleImportService importer,
+    CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(category))
+            return BadRequest(new { ok = false, error = "Category is required." });
+
+        var added = await importer.ImportCategoryAsync(category, ct);
+
+        return Ok(new
+        {
+            ok = true,
+            category,
+            added
+        });
+    }
+
+    [HttpPost("/admin/games/riddle_me_this/import")]
+    public async Task<IActionResult> ImportMany(
+        [FromBody] string[] categories,
+        [FromServices] RiddleImportService importer,
+        CancellationToken ct)
+    {
+        if (categories is null || categories.Length == 0)
+            return BadRequest(new { ok = false, error = "At least one category is required." });
+
+        var results = new List<object>();
+        var totalAdded = 0;
+
+        foreach (var raw in categories)
+        {
+            var category = (raw ?? "").Trim().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(category))
+                continue;
+
+            var added = await importer.ImportCategoryAsync(category, ct);
+            totalAdded += added;
+
+            results.Add(new
+            {
+                category,
+                added
+            });
+        }
+
+        return Ok(new
+        {
+            ok = true,
+            totalAdded,
+            results
+        });
+    }
+
+    [HttpGet("/admin/games/riddle_me_this/catalog/count")]
+    public async Task<IActionResult> CatalogCount(
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var total = await db.RiddleCatalogs.CountAsync(ct);
+        var active = await db.RiddleCatalogs.CountAsync(x => x.IsActive, ct);
+
+        var categories = await db.RiddleCatalogs
+            .Where(x => x.IsActive)
+            .GroupBy(x => x.Category)
+            .Select(g => new
+            {
+                category = g.Key,
+                count = g.Count()
+            })
+            .OrderBy(x => x.category)
+            .ToListAsync(ct);
+
+        return Ok(new
+        {
+            ok = true,
+            total,
+            active,
+            categories
+        });
     }
 
 
