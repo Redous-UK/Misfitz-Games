@@ -2,6 +2,7 @@
     id = String(id ?? "none").trim().toLowerCase();
     if (id === "dailytrivia" || id === "daily_trivia") return "trivia";
     if (id === "higherlower") return "higher_lower";
+    if (id === "riddle") return "riddle_me_this")
     return id;
 }
 
@@ -12,6 +13,7 @@ export function mapGameType(n) {
         case 3: return "trivia";
         case 4: return "deal";
         case 5: return "higher_lower";
+        case 6: return "riddle_me_this";
         default: return null;
     }
 }

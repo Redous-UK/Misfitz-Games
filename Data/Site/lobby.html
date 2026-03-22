@@ -916,7 +916,7 @@
                     if (!okDiff) throw new Error("Riddle Me This: difficulty must be easy, medium, or hard");
                     const nc = gameSettings.riddlemethis?.numCards;
                     const numCards = Number.isFinite(nc) && nc > 0 ? nc : 5;
-                    return await api(`/rooms/${encodeURIComponent(code)}/games/riddlemethis/start`, {
+                    return await api(`/rooms/${encodeURIComponent(code)}/games/riddle_me_this/start`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ difficulty, numCards })
@@ -1012,7 +1012,7 @@
         async function init() {
             wireSettingsPanel();
 
-            onClick("btnBack", () => (location.href = "/user2.html"));
+            onClick("btnBack", () => (location.href = "/user.html"));
 
             onClick("btnLogout", async () => {
                 try {
