@@ -26,6 +26,8 @@ public sealed class RiddleImportService(
         using var res = await http.GetAsync(url, ct);
         var raw = await res.Content.ReadAsStringAsync(ct);
 
+        log.LogInformation("Riddle import raw response for {Category}: {Raw}", category, raw);
+
         if (!res.IsSuccessStatusCode)
         {
             log.LogWarning("Riddle import failed for {Category}. Status={Status}. Body={Body}",
@@ -40,20 +42,20 @@ public sealed class RiddleImportService(
             using var doc = JsonDocument.Parse(raw);
             var root = doc.RootElement;
 
+            log.LogInformation("Riddle import root kind for {Category}: {Kind}", category, root.ValueKind);
+
             if (root.ValueKind == JsonValueKind.Array)
             {
                 rows = JsonSerializer.Deserialize<List<ApiRiddleDto>>(raw, JsonOpts) ?? [];
             }
             else if (root.ValueKind == JsonValueKind.Object)
             {
-                // Single riddle object
                 if (root.TryGetProperty("riddle", out _) || root.TryGetProperty("question", out _))
                 {
                     var one = JsonSerializer.Deserialize<ApiRiddleDto>(raw, JsonOpts);
                     if (one is not null)
                         rows.Add(one);
                 }
-                // Wrapped array shapes
                 else if (root.TryGetProperty("data", out var dataEl) && dataEl.ValueKind == JsonValueKind.Array)
                 {
                     rows = JsonSerializer.Deserialize<List<ApiRiddleDto>>(dataEl.GetRawText(), JsonOpts) ?? [];
@@ -66,13 +68,11 @@ public sealed class RiddleImportService(
         }
         catch (JsonException ex)
         {
-            log.LogWarning(ex,
-                "Could not parse riddle API response for {Category}. Raw body: {Body}",
-                category, raw);
+            log.LogWarning(ex, "Could not parse riddle API response for {Category}. Raw body: {Body}", category, raw);
             return 0;
         }
 
-        log.LogInformation("Fetched {Count} rows from upstream for category {Category}", rows.Count, category);
+        log.LogInformation("Parsed {Count} row(s) for category {Category}", rows.Count, category);
 
         var added = 0;
 
@@ -80,24 +80,31 @@ public sealed class RiddleImportService(
         {
             var question = (item.Riddle ?? item.Question ?? "").Trim();
             var answer = (item.Answer ?? "").Trim();
+            var itemCategory = string.IsNullOrWhiteSpace(item.Category) ? category : item.Category.Trim().ToLowerInvariant();
+
+            log.LogInformation("Parsed item -> Category={Category}, Question={Question}, Answer={Answer}",
+                itemCategory, question, answer);
 
             if (string.IsNullOrWhiteSpace(question) || string.IsNullOrWhiteSpace(answer))
+            {
+                log.LogInformation("Skipping because question or answer was blank.");
                 continue;
+            }
 
-            var exists = await db.RiddleCatalogs
-                .AnyAsync(x => x.Question == question, ct);
+            var exists = await db.RiddleCatalogs.AnyAsync(x => x.Question == question, ct);
 
             if (exists)
+            {
+                log.LogInformation("Skipping duplicate question: {Question}", question);
                 continue;
+            }
 
             var acceptableAnswersJson = JsonSerializer.Serialize(new[] { answer }, JsonOpts);
 
             db.RiddleCatalogs.Add(new RiddleCatalog
             {
                 Id = Guid.NewGuid(),
-                Category = string.IsNullOrWhiteSpace(item.Category)
-                    ? category
-                    : item.Category.Trim().ToLowerInvariant(),
+                Category = itemCategory,
                 Difficulty = "easy",
                 Question = question,
                 Answer = answer,
@@ -108,12 +115,19 @@ public sealed class RiddleImportService(
             });
 
             added++;
+            log.LogInformation("Queued insert for question: {Question}", question);
         }
 
         if (added > 0)
+        {
             await db.SaveChangesAsync(ct);
+            log.LogInformation("Saved {Count} new riddle(s) for category {Category}", added, category);
+        }
+        else
+        {
+            log.LogInformation("No riddles saved for category {Category}", category);
+        }
 
-        log.LogInformation("Imported {Count} riddles for category {Category}", added, category);
         return added;
     }
 }
