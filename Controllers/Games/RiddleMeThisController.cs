@@ -1,12 +1,11 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Misfitz_Games.Data;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Misfitz_Games.Controllers.Rooms;
+using Misfitz_Games.Data;
 using Misfitz_Games.Models;
 using Misfitz_Games.Models.Games;
 using Misfitz_Games.Services.Games.RiddleMeThis;
 using Misfitz_Games.Services.Room;
-using System.ComponentModel;
 
 namespace Misfitz_Games.Controllers.Games;
 
@@ -14,8 +13,7 @@ namespace Misfitz_Games.Controllers.Games;
 public sealed class RiddleMeThisController(
     IRoomStateStore store,
     RoomGameBroadcaster bus,
-    RiddleRepository riddles,
-    ILogger<RiddleImportService> log
+    RiddleRepository riddles
 ) : RoomGameControllerBase(store, bus)
 {
     private RiddleRepository Riddles { get; } = riddles;
@@ -34,7 +32,7 @@ public sealed class RiddleMeThisController(
 
         var pick = await Riddles.GetRandomAsync(req?.Category, ct);
         if (pick is null)
-            return BadRequest(new { error = "No riddles available (check DB / category / isActive)." });
+            return BadRequest(new { ok = false, error = "No riddles available (check DB / category / isActive)." });
 
         var st = new RiddleMeThisState(
             Round: 1,
@@ -60,7 +58,14 @@ public sealed class RiddleMeThisController(
         await SaveRoomStateAsync(roomId, next, ct);
 
         var pub = RiddleMeThisView.PublicView(st);
-        await BroadcastAsync(roomId, GameType.RiddleMeThis, "riddle_me_this", pub, lastEvent: new { type = "started" }, ct);
+        await BroadcastAsync(
+            roomId,
+            GameType.RiddleMeThis,
+            "riddle_me_this",
+            pub,
+            lastEvent: new { type = "started" },
+            ct
+        );
 
         return Ok(new { ok = true });
     }
@@ -70,7 +75,7 @@ public sealed class RiddleMeThisController(
     public async Task<IActionResult> Guess(string roomRef, [FromBody] GuessReq req, CancellationToken ct)
     {
         if (req is null || string.IsNullOrWhiteSpace(req.Guess))
-            return BadRequest(new { error = "Guess is required." });
+            return BadRequest(new { ok = false, error = "Guess is required." });
 
         var loaded = await LoadRoomStateAsync(roomRef, ct);
         if (loaded is null) return RoomNotFound();
@@ -83,7 +88,6 @@ public sealed class RiddleMeThisController(
         if (st.IsSolved)
             return Ok(new { ok = true, alreadySolved = true });
 
-        // TODO: Replace with your actual auth/user id resolver
         var userId = User?.Identity?.Name ?? "guest";
 
         static string Norm(string s) => new([.. s.Trim().ToLowerInvariant().Where(char.IsLetterOrDigit)]);
@@ -91,7 +95,8 @@ public sealed class RiddleMeThisController(
 
         var guesses = st.RecentGuesses.ToList();
         guesses.Add(new RiddleGuess(userId, req.Guess.Trim(), isCorrect, DateTimeOffset.UtcNow));
-        if (guesses.Count > 50) guesses.RemoveRange(0, guesses.Count - 50);
+        if (guesses.Count > 50)
+            guesses.RemoveRange(0, guesses.Count - 50);
 
         var nextSt = st with
         {
@@ -134,12 +139,16 @@ public sealed class RiddleMeThisController(
         if (!TryRequireGameState<RiddleMeThisState>(room, GameType.RiddleMeThis, out var st, out var err))
             return err!;
 
-        // reveal via toast + event, without exposing answer in public state
         await ToastAsync(roomId, $"Answer: {st.Answer}", ct);
-        await BroadcastAsync(roomId, GameType.RiddleMeThis, "riddle_me_this",
+
+        await BroadcastAsync(
+            roomId,
+            GameType.RiddleMeThis,
+            "riddle_me_this",
             RiddleMeThisView.PublicView(st),
             lastEvent: new { type = "reveal" },
-            ct);
+            ct
+        );
 
         return Ok(new { ok = true });
     }
@@ -162,12 +171,12 @@ public sealed class RiddleMeThisController(
 
         if (pick is null)
         {
-            usedIds.Clear(); // reset once all active riddles in this category have been used
+            usedIds.Clear();
             pick = await Riddles.GetRandomUnusedAsync(st.Category, usedIds, ct);
         }
 
         if (pick is null)
-            return BadRequest(new { error = "No riddles available (check DB / category / isActive)." });
+            return BadRequest(new { ok = false, error = "No riddles available (check DB / category / isActive)." });
 
         usedIds.Add(pick.Id.ToString());
 
@@ -195,7 +204,14 @@ public sealed class RiddleMeThisController(
         await SaveRoomStateAsync(roomId, nextRoom, ct);
 
         var pub = RiddleMeThisView.PublicView(nextSt);
-        await BroadcastAsync(roomId, GameType.RiddleMeThis, "riddle_me_this", pub, lastEvent: new { type = "next" }, ct);
+        await BroadcastAsync(
+            roomId,
+            GameType.RiddleMeThis,
+            "riddle_me_this",
+            pub,
+            lastEvent: new { type = "next" },
+            ct
+        );
 
         return Ok(new { ok = true });
     }
@@ -228,9 +244,9 @@ public sealed class RiddleMeThisController(
 
     [HttpPost("/admin/games/riddle_me_this/import/{category}")]
     public async Task<IActionResult> ImportCategory(
-    [FromRoute] string category,
-    [FromServices] RiddleImportService importer,
-    CancellationToken ct)
+        [FromRoute] string category,
+        [FromServices] RiddleImportService importer,
+        CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(category))
             return BadRequest(new { ok = false, error = "Category is required." });
@@ -241,7 +257,8 @@ public sealed class RiddleMeThisController(
         {
             ok = true,
             category,
-            added
+            added,
+            marker = "IMPORT_ENDPOINT_V2"
         });
     }
 
@@ -277,8 +294,7 @@ public sealed class RiddleMeThisController(
         {
             ok = true,
             totalAdded,
-            results,
-            marker = "Import_ENDPOINT_V2"
+            results
         });
     }
 
@@ -310,11 +326,66 @@ public sealed class RiddleMeThisController(
         });
     }
 
+    [HttpGet("/admin/games/riddle_me_this/catalog")]
+    public async Task<IActionResult> Catalog(
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var items = await db.RiddleCatalogs
+            .OrderBy(x => x.Category)
+            .ThenBy(x => x.Question)
+            .Take(50)
+            .Select(x => new
+            {
+                x.Id,
+                x.Category,
+                x.Question,
+                x.Answer,
+                x.IsActive
+            })
+            .ToListAsync(ct);
+
+        return Ok(new
+        {
+            ok = true,
+            count = items.Count,
+            items
+        });
+    }
+
+    [HttpGet("/admin/games/riddle_me_this/catalog/find")]
+    public async Task<IActionResult> FindCatalogQuestion(
+        [FromQuery] string question,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var q = (question ?? "").Trim();
+
+        var matches = await db.RiddleCatalogs
+            .Where(x => x.Question == q)
+            .Select(x => new
+            {
+                x.Id,
+                x.Category,
+                x.Question,
+                x.Answer,
+                x.IsActive
+            })
+            .ToListAsync(ct);
+
+        return Ok(new
+        {
+            ok = true,
+            count = matches.Count,
+            matches
+        });
+    }
+
     [HttpGet("/admin/games/riddle_me_this/import-debug/{category}")]
     public async Task<IActionResult> ImportDebug(
-    [FromRoute] string category,
-    [FromServices] IHttpClientFactory httpFactory,
-    CancellationToken ct)
+        [FromRoute] string category,
+        [FromServices] IHttpClientFactory httpFactory,
+        CancellationToken ct)
     {
         var http = httpFactory.CreateClient();
         var url = $"https://riddles-api-eight.vercel.app/{category}";
@@ -332,5 +403,32 @@ public sealed class RiddleMeThisController(
         });
     }
 
+    [HttpPost("/admin/games/riddle_me_this/seed-test")]
+    public async Task<IActionResult> SeedTest(
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var item = new RiddleCatalog
+        {
+            Id = Guid.NewGuid(),
+            Category = "science",
+            Difficulty = "easy",
+            Question = "TEST QUESTION " + DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            Answer = "test",
+            AcceptableAnswersJson = "[\"test\"]",
+            HintsJson = "[]",
+            IsActive = true,
+            CreatedAtUtc = DateTimeOffset.UtcNow
+        };
 
+        db.RiddleCatalogs.Add(item);
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new
+        {
+            ok = true,
+            item.Id,
+            item.Question
+        });
+    }
 }
