@@ -277,7 +277,8 @@ public sealed class RiddleMeThisController(
         {
             ok = true,
             totalAdded,
-            results
+            results,
+            marker = "Import_ENDPOINT_V2"
         });
     }
 
@@ -299,8 +300,6 @@ public sealed class RiddleMeThisController(
             })
             .OrderBy(x => x.category)
             .ToListAsync(ct);
-
-        log.LogInformation("Saved {Count} new riddle(s)", total);
 
         return Ok(new
         {
