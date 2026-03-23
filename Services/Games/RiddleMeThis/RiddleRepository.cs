@@ -15,9 +15,10 @@ public sealed class RiddleRepository(AppDbContext db)
         if (!string.IsNullOrWhiteSpace(category))
             query = query.Where(x => x.Category == category);
 
-        return await query
-            .OrderBy(_ => Guid.NewGuid())
-            .FirstOrDefaultAsync(ct);
+        var list = await query.ToListAsync(ct);
+        if (list.Count == 0) return null;
+
+        return list[Random.Shared.Next(list.Count)];
     }
 
     public async Task<RiddleCatalog?> GetRandomUnusedAsync(
@@ -32,14 +33,17 @@ public sealed class RiddleRepository(AppDbContext db)
         if (!string.IsNullOrWhiteSpace(category))
             query = query.Where(x => x.Category == category);
 
+        var list = await query.ToListAsync(ct);
+
         if (usedIds is { Count: > 0 })
         {
-            query = query.Where(x => !usedIds.Contains(x.Id.ToString()));
+            list = [..list
+                .Where(x => !usedIds.Contains(x.Id.ToString()))];
         }
 
-        return await query
-            .OrderBy(_ => Guid.NewGuid())
-            .FirstOrDefaultAsync(ct);
+        if (list.Count == 0) return null;
+
+        return list[Random.Shared.Next(list.Count)];
     }
 
     public async Task<List<string>> GetCategoriesAsync(CancellationToken ct = default)

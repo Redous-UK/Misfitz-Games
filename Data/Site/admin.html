@@ -87,6 +87,7 @@
                                 <option value="trivia">Daily Trivia</option>
                                 <option value="higher_lower">Higher or Lower</option>
                                 <option value="deal">Deal or No Deal</option>
+                                <option value="riddle_me_this">Riddle Me This</option>
                             </select>
                             <span class="pill" id="selectedGamePill">Selected: contexto</span>
                         </div>
@@ -119,6 +120,30 @@
 
                             <div id="settings_deal" class="row" style="margin-top:10px; display:none;">
                                 <span class="muted" style="font-size:12px;">No settings yet.</span>
+                            </div>
+
+                            <!-- Riddle Me This-->
+                            <div id="settings_riddle_me_this" class="row" style="margin-top:10px; display:none;">
+                                <div class="card" style="margin-top:12px;">
+                                    <div class="mg-header">
+                                        <div class="mg-header-left">
+                                            <div class="mg-title">Riddle Catalog</div>
+                                            <div class="mg-sub">Import riddles into the database before starting the game.</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row" style="margin-top:12px;">
+                                        <select id="riddleImportCategory" class="grow">
+                                            <option value="science">science</option>
+                                            <option value="animal">animal</option>
+                                            <option value="food">food</option>
+                                            <option value="history">history</option>
+                                        </select>
+                                        <button id="btnRiddleImport">Import Category</button>
+                                    </div>
+
+                                    <div id="riddleImportOut" class="muted" style="margin-top:8px;">No imports yet.</div>
+                                </div>
                             </div>
                         </div>
 
@@ -302,7 +327,7 @@
         let selectedGameId = "contexto";
 
         function showSettingsFor(gameId) {
-            const ids = ["contexto", "hangman", "higher_lower", "trivia", "deal"];
+            const ids = ["contexto", "hangman", "higher_lower", "trivia", "deal", "riddle_me_this"];
             for (const id of ids) {
                 const box = el(`settings_${id}`);
                 if (!box) continue;
@@ -369,6 +394,23 @@
                     actionA: { label: "Higher", run: async () => postRoomGame(code, "higher_lower/guess", { choice: "higher" }) },
                     actionB: { label: "Lower", run: async () => postRoomGame(code, "higher_lower/guess", { choice: "lower" }) },
                     cont: { label: "Continue", run: async () => postRoomGame(code, "higher_lower/continue") },
+                    stop: async () => api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" }),
+                };
+            }
+
+            if (g === "riddle_me_this") {
+                return {
+                    start: async () => postRoomGame(code, "riddle_me_this/start"),
+                    actionA: { label: "Show Answer", run: async () => postRoomGame(code, "riddle_me_this/answer") },
+                    actionB: {
+                        label: "Import Riddles", run: async () => {
+                            const category = el("riddleImportCategory").value;
+                            if (!category) return alert("Select a category to import.");
+                            const r = await api(`/admin/riddles/import?category=${encodeURIComponent(category)}`, { method: "POST" });
+                            el("riddleImportOut").textContent = pretty(r);
+                            return r;
+                        }
+                    },
                     stop: async () => api(`/rooms/${encodeURIComponent(code)}/games/stop`, { method: "POST" }),
                 };
             }

@@ -309,5 +309,27 @@ public sealed class RiddleMeThisController(
         });
     }
 
+    [HttpGet("/admin/games/riddle_me_this/import-debug/{category}")]
+    public async Task<IActionResult> ImportDebug(
+    [FromRoute] string category,
+    [FromServices] IHttpClientFactory httpFactory,
+    CancellationToken ct)
+    {
+        var http = httpFactory.CreateClient();
+        var url = $"https://riddles-api-eight.vercel.app/{category}";
+
+        using var res = await http.GetAsync(url, ct);
+        var raw = await res.Content.ReadAsStringAsync(ct);
+
+        return Ok(new
+        {
+            ok = true,
+            category,
+            status = (int)res.StatusCode,
+            contentType = res.Content.Headers.ContentType?.ToString(),
+            body = raw
+        });
+    }
+
 
 }
