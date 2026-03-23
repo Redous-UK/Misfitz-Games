@@ -406,7 +406,7 @@
                         label: "Import Riddles", run: async () => {
                             const category = el("riddleImportCategory").value;
                             if (!category) return alert("Select a category to import.");
-                            const r = await api(`/admin/riddles/import?category=${encodeURIComponent(category)}`, { method: "POST" });
+                            const r = await api(`/admin/games/riddle_me_this/import/${encodeURIComponent(category)}`, { method: "POST" });
                             el("riddleImportOut").textContent = pretty(r);
                             return r;
                         }
