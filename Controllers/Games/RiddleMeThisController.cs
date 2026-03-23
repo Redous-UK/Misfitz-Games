@@ -300,6 +300,8 @@ public sealed class RiddleMeThisController(
             .OrderBy(x => x.category)
             .ToListAsync(ct);
 
+        log.LogInformation("Saved {Count} new riddle(s)", total);
+
         return Ok(new
         {
             ok = true,
