@@ -144,6 +144,7 @@ public static class Program
         builder.Services.AddScoped<RiddleRepository>();
         builder.Services.AddScoped<RiddleImportService>();
         builder.Services.AddScoped<LeaderboardService>();
+        builder.Services.AddHttpClient<RiddleImportService>();
 
         // Effects / hardware services
         builder.Services.AddHttpClient<TuyaPlugService>();
