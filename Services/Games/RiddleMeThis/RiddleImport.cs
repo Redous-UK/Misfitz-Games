@@ -1,8 +1,7 @@
-﻿using System.Net.Http;
-using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Misfitz_Games.Data;
 using Misfitz_Games.Models.Games;
+using System.Text.Json;
 
 namespace Misfitz_Games.Services.Games.RiddleMeThis;
 
@@ -11,13 +10,10 @@ public sealed class RiddleImportService(
     AppDbContext db,
     ILogger<RiddleImportService> log)
 {
-
-
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         PropertyNameCaseInsensitive = true
     };
-
 
     public async Task<int> ImportCategoryAsync(string category, CancellationToken ct = default)
     {
@@ -37,45 +33,46 @@ public sealed class RiddleImportService(
             return 0;
         }
 
-        List<ApiRiddleDto> rows = [];
+        var rows = new List<ApiRiddleDto>();
 
         try
         {
-            // Case 1: upstream returns a plain JSON array
-            JsonSerializer.Deserialize<List<ApiRiddleDto>>(raw, JsonOpts);
+            using var doc = JsonDocument.Parse(raw);
+            var root = doc.RootElement;
+
+            if (root.ValueKind == JsonValueKind.Array)
+            {
+                rows = JsonSerializer.Deserialize<List<ApiRiddleDto>>(raw, JsonOpts) ?? [];
+            }
+            else if (root.ValueKind == JsonValueKind.Object)
+            {
+                // Single riddle object
+                if (root.TryGetProperty("riddle", out _) || root.TryGetProperty("question", out _))
+                {
+                    var one = JsonSerializer.Deserialize<ApiRiddleDto>(raw, JsonOpts);
+                    if (one is not null)
+                        rows.Add(one);
+                }
+                // Wrapped array shapes
+                else if (root.TryGetProperty("data", out var dataEl) && dataEl.ValueKind == JsonValueKind.Array)
+                {
+                    rows = JsonSerializer.Deserialize<List<ApiRiddleDto>>(dataEl.GetRawText(), JsonOpts) ?? [];
+                }
+                else if (root.TryGetProperty("riddles", out var riddlesEl) && riddlesEl.ValueKind == JsonValueKind.Array)
+                {
+                    rows = JsonSerializer.Deserialize<List<ApiRiddleDto>>(riddlesEl.GetRawText(), JsonOpts) ?? [];
+                }
+            }
         }
         catch (JsonException ex)
         {
             log.LogWarning(ex,
-                "Could not parse riddle API response as List<ApiRiddleDto> for {Category}. Raw body: {Body}",
+                "Could not parse riddle API response for {Category}. Raw body: {Body}",
                 category, raw);
-
-            // Optional fallback: try wrapped object shape like { data: [...] } or { riddles: [...] }
-            try
-            {
-                using var doc = JsonDocument.Parse(raw);
-                var root = doc.RootElement;
-
-                if (root.ValueKind == JsonValueKind.Object)
-                {
-                    if (root.TryGetProperty("data", out var dataEl) && dataEl.ValueKind == JsonValueKind.Array)
-                    {
-                        JsonSerializer.Deserialize<List<ApiRiddleDto>>(raw, JsonOpts);
-                    }
-                    else if (root.TryGetProperty("riddles", out var riddlesEl) && riddlesEl.ValueKind == JsonValueKind.Array)
-                    {
-                        JsonSerializer.Deserialize<List<ApiRiddleDto>>(raw, JsonOpts);
-                    }
-                }
-            }
-            catch (Exception innerEx)
-            {
-                log.LogWarning(innerEx,
-                    "Fallback parsing also failed for {Category}. Raw body: {Body}",
-                    category, raw);
-                return 0;
-            }
+            return 0;
         }
+
+        log.LogInformation("Fetched {Count} rows from upstream for category {Category}", rows.Count, category);
 
         var added = 0;
 
@@ -93,7 +90,7 @@ public sealed class RiddleImportService(
             if (exists)
                 continue;
 
-            var acceptableAnswersJson = JsonSerializer.Serialize(new[] { answer });
+            var acceptableAnswersJson = JsonSerializer.Serialize(new[] { answer }, JsonOpts);
 
             db.RiddleCatalogs.Add(new RiddleCatalog
             {
