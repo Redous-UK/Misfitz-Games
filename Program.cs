@@ -150,6 +150,7 @@ public static class Program
         builder.Services.AddHttpClient<TuyaPlugService>();
         builder.Services.AddScoped<EffectsService>();
         builder.Services.AddScoped<EffectsEngine>();
+        builder.Services.AddScoped<HueProvider>();
         builder.Services.AddDataProtection();
         builder.Services.AddScoped<TuyaOAuthService>();
 
@@ -196,18 +197,25 @@ public static class Program
             }
         });
 
-        // ===================== Site roots =====================
-        var dataRoot = "/data/site";
-        var backupsRoot = "/data/backups";
+        // ===================== Site roots (CLEAN CONFIG-DRIVEN) =====================
+        var siteConfig = builder.Configuration.GetSection("Site");
+
+        var usePersistent = siteConfig.GetValue<bool>("UsePersistentStorage");
+
+        var dataRoot = usePersistent
+            ? siteConfig["DataRoot"]!
+            : Path.Combine(app.Environment.ContentRootPath, siteConfig["DataRoot"]!);
+
+        var backupsRoot = usePersistent
+            ? siteConfig["BackupsRoot"]!
+            : Path.Combine(app.Environment.ContentRootPath, siteConfig["BackupsRoot"]!);
+
         var seedRoot = Path.Combine(app.Environment.ContentRootPath, "Data", "Site");
 
         Directory.CreateDirectory(dataRoot);
         Directory.CreateDirectory(backupsRoot);
 
-        // ===================== Data/Site -> /data/site sync (toggle) =====================
-        // SITE_PUSH_ALL=on  => overwrite everything (republish / fix broken site)
-        // SITE_PUSH_ALL=off => copy only missing files (safe)
-        // SITE_PUSH_CLEAN=on => delete files in /data/site not present in Data/Site (reset mirror)
+        // ===================== Data/Site -> storage sync (SAFE) =====================
         var pushAll = (Environment.GetEnvironmentVariable("SITE_PUSH_ALL") ?? "off").Trim().ToLowerInvariant();
         var clean = (Environment.GetEnvironmentVariable("SITE_PUSH_CLEAN") ?? "off").Trim().ToLowerInvariant();
 
@@ -216,10 +224,12 @@ public static class Program
 
         Console.WriteLine($"[SITE] SeedRoot: {seedRoot}");
         Console.WriteLine($"[SITE] DataRoot: {dataRoot}");
+        Console.WriteLine($"[SITE] Persistent: {usePersistent}");
         Console.WriteLine($"[SITE] Overwrite: {overwrite}");
         Console.WriteLine($"[SITE] Clean: {doClean}");
 
-        if (Directory.Exists(seedRoot))
+        // ✅ ONLY run sync in persistent environments (Render)
+        if (usePersistent && Directory.Exists(seedRoot))
         {
             try
             {
@@ -232,7 +242,7 @@ public static class Program
         }
         else
         {
-            Console.WriteLine("[SITE] Data/Site missing; skipping sync.");
+            Console.WriteLine("[SITE] Sync skipped (non-persistent environment).");
         }
 
         // NOTE: Removed BootstrapSite() here to avoid conflicting with the sync logic.
