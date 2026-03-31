@@ -9,7 +9,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
-namespace Misfitz_Games.Services.Tuya;
+namespace Misfitz_Games.Services.Effects;
 
 public class TuyaOAuthService
 {

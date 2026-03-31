@@ -189,7 +189,7 @@ const games = {
     hangman: { bind: bindHangman, render: renderHangman },
     trivia: { bind: bindTrivia, render: renderTrivia },
     higher_lower: { bind: bindHigherLower, render: (gs, raw) => renderHigherLower(gs, raw, state.joinedRef) },
-    riddle: { bind: bindRiddle, render: renderRiddle }
+    riddle: { bind: bindRiddleMeThis, render: renderRiddleMeThis }
 };
 
 function bindAllGames() {

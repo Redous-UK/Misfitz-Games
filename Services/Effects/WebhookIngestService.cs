@@ -2,7 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace Misfitz_Games.Services.Tuya;
+namespace Misfitz_Games.Services.Effects;
 
 public sealed class WebhookIngestService(IServiceScopeFactory scopeFactory, ILogger<WebhookIngestService> log)
 {

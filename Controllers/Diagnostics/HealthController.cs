@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Misfitz_Games.Services.Infrastructure.Redis;
-using Misfitz_Games.Services.Tuya;
+using Misfitz_Games.Services.Effects;
 using Npgsql;
 
 namespace Misfitz_Games.Controllers.Diagnostics;

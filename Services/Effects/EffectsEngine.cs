@@ -7,12 +7,22 @@ using Microsoft.EntityFrameworkCore;
 using Misfitz_Games.Data;
 using Misfitz_Games.Models.Effects;
 
-namespace Misfitz_Games.Services.Tuya;
+namespace Misfitz_Games.Services.Effects;
 
-public class EffectsEngine(AppDbContext db, TuyaPlugService tuya)
+public class EffectsEngine(AppDbContext db, TuyaPlugService tuya, HueProvider hue, ILogger<EffectsEngine> log)
 {
     private readonly AppDbContext _db = db;
     private readonly TuyaPlugService _tuya = tuya;
+    private readonly HueProvider _hue = hue;
+    private readonly ILogger<EffectsEngine> _log = log;
+
+    public async Task RunSceneAsync(string sceneKey, CancellationToken ct = default)
+    {
+        _log.LogInformation("Running scene {SceneKey}", sceneKey);
+        await _hue.ActivateSceneAsync(sceneKey, ct);
+    }
+
+
 
     // very simple in-memory cooldown (per instance)
     private static readonly Dictionary<string, DateTimeOffset> _cooldowns = [];

@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Misfitz_Games.Services.Tuya;
+using Misfitz_Games.Services.Effects;
 using System.Security.Claims;
 
 namespace Misfitz_Games.Controllers.Integrations;

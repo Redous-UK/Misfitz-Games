@@ -8,7 +8,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Misfitz_Games.Services.Tuya;
+namespace Misfitz_Games.Services.Effects;
 
 public class TuyaPlugService(IConfiguration cfg, HttpClient http)
 {

@@ -15,7 +15,7 @@ using Misfitz_Games.Services.Games.RiddleMeThis;
 using Misfitz_Games.Services.Games.Trivia;
 using Misfitz_Games.Services.Infrastructure.Redis;
 using Misfitz_Games.Services.Room;
-using Misfitz_Games.Services.Tuya;
+using Misfitz_Games.Services.Effects;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
