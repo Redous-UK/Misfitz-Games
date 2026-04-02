@@ -197,21 +197,20 @@ public static class Program
             }
         });
 
-        // ===================== Site roots (CLEAN CONFIG-DRIVEN) =====================
+        // ===================== Site roots =====================
         var siteConfig = builder.Configuration.GetSection("Site");
+        var isProduction = app.Environment.IsProduction();
 
-        var usePersistent = siteConfig.GetValue<bool>("UsePersistentStorage");
+        var writableRoot =
+            builder.Configuration["DATA_ROOT"]
+            ?? siteConfig["WritableRoot"]
+            ?? (isProduction ? "/data" : Path.Combine(app.Environment.ContentRootPath, "Data"));
 
-        var dataRoot = usePersistent
-            ? siteConfig["DataRoot"]!
-            : Path.Combine(app.Environment.ContentRootPath, siteConfig["DataRoot"]!);
-
-        var backupsRoot = usePersistent
-            ? siteConfig["BackupsRoot"]!
-            : Path.Combine(app.Environment.ContentRootPath, siteConfig["BackupsRoot"]!);
-
+        var dataRoot = Path.Combine(writableRoot, "Site");
+        var backupsRoot = Path.Combine(writableRoot, "Backups");
         var seedRoot = Path.Combine(app.Environment.ContentRootPath, "Data", "Site");
 
+        Directory.CreateDirectory(writableRoot);
         Directory.CreateDirectory(dataRoot);
         Directory.CreateDirectory(backupsRoot);
 
@@ -224,12 +223,12 @@ public static class Program
 
         Console.WriteLine($"[SITE] SeedRoot: {seedRoot}");
         Console.WriteLine($"[SITE] DataRoot: {dataRoot}");
-        Console.WriteLine($"[SITE] Persistent: {usePersistent}");
+        Console.WriteLine($"[SITE] Persistent: {isProduction}");
         Console.WriteLine($"[SITE] Overwrite: {overwrite}");
         Console.WriteLine($"[SITE] Clean: {doClean}");
 
         // ✅ ONLY run sync in persistent environments (Render)
-        if (usePersistent && Directory.Exists(seedRoot))
+        if (isProduction && Directory.Exists(seedRoot))
         {
             try
             {
