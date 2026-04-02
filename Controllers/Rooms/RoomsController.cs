@@ -13,18 +13,6 @@ public class RoomsController(IRoomStateStore store, RoomBroadcastService broadca
 
     private readonly AppDbContext _db = db;
 
-    private static string NormalizeCustomCode(string code)
-        => (code ?? "").Trim().ToUpperInvariant();
-
-    private static bool IsValidCustomCode(string code)
-    {
-        if (code.Length < 4 || code.Length > 12) return false;
-        return code.All(ch => (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9'));
-    }
-
-    private static string NewNumericCode()
-        => Random.Shared.Next(0, 100_000_000).ToString("D8");
-
     private static bool TryParseGameType(string game, out GameType gameType)
     {
         switch ((game ?? "").Trim().ToLowerInvariant())
