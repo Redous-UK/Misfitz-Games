@@ -79,8 +79,8 @@ public static class Program
                 o.Cookie.SecurePolicy = CookieSecurePolicy.Always;
                 o.Cookie.SameSite = SameSiteMode.Lax;
 
-                o.LoginPath = "/user.html";
-                o.AccessDeniedPath = "/user.html";
+                o.LoginPath = "/login.html";
+                o.AccessDeniedPath = "/login.html";
 
                 o.Events = new CookieAuthenticationEvents
                 {
@@ -577,7 +577,7 @@ public static class Program
 
         app.MapGet("/", context =>
         {
-            context.Response.Redirect("/user.html");
+            context.Response.Redirect("/login.html");
             return Task.CompletedTask;
         });
 

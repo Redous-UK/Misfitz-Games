@@ -37,7 +37,7 @@ function isRoomRef(s) {
 async function refreshMe() {
     const me = await api("/member/me");
     if (!me.isAuth) {
-        location.href = "/user.html";
+        location.href = "/login.html";
         return null;
     }
 
@@ -377,6 +377,6 @@ window.addEventListener("DOMContentLoaded", async () => {
             await join();
         }
     } catch {
-        location.href = "/user.html";
+        location.href = "/login.html";
     }
 });

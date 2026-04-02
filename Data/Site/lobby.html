@@ -1020,7 +1020,7 @@
                     const out = el("authOut");
                     if (out) out.textContent = pretty(r);
                 } finally {
-                    location.href = "/user.html";
+                    location.href = "/login.html";
                 }
             });
 
@@ -1086,7 +1086,7 @@
         document.addEventListener("DOMContentLoaded", () => {
             init().catch(e => {
                 console.error("Lobby init failed at DOMContent Level:", e);
-                location.href = "/user.html";
+                location.href = "/login.html";
             });
         });
     </script>

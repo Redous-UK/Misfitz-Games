@@ -177,7 +177,7 @@ function wireSettingsPanel() {
         try {
             await api("/member/logout", { method: "POST" });
         } catch { }
-        location.href = "/user.html";
+        location.href = "/login.html";
     });
 
     return true;
@@ -648,12 +648,12 @@ async function init() {
         me = await refreshMe();
     } catch (e) {
         console.warn("refreshMe failed:", e);
-        location.href = "/user.html";
+        location.href = "/login.html";
         return;
     }
 
     if (!me.isAuth) {
-        location.href = "/user.html";
+        location.href = "/login.html";
         return;
     }
 
@@ -674,6 +674,6 @@ async function init() {
 document.addEventListener("DOMContentLoaded", () => {
     init().catch((e) => {
         console.error("Lobby init failed:", e);
-        location.href = "/user.html";
+        location.href = "/login.html";
     });
 });

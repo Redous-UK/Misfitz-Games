@@ -562,7 +562,7 @@
 
         async function requireAdmin() {
             const me = await api("/member/me");
-            if (!me.isAuth) { location.href = "/user.html"; return; }
+            if (!me.isAuth) { location.href = "/login.html"; return; }
             if (me.role !== "admin") { location.href = "/lobby.html"; return; }
             updateAdminLink(me);
             return me;
@@ -635,7 +635,7 @@
         el("btnLogout").onclick = async () => {
             try { el("adminOut").textContent = pretty(await api("/member/logout", { method: "POST" })); }
             catch (e) { el("adminOut").textContent = String(e); }
-            location.href = "/user.html";
+            location.href = "/login.html";
         };
 
         el("btnMe").onclick = async () => {
@@ -678,7 +678,7 @@
             el("btnMe").click();
             applyGameButtons();
         }
-        boot().catch(() => location.href = "/user.html");
+        boot().catch(() => location.href = "/login.html");
     </script>
 </body>
 </html>

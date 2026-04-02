@@ -303,7 +303,7 @@
             const mustExist = ["btnLogin", "btnRegister", "btnLogout", "btnMe", "btnMe2", "btnRegFill", "btnGoLobby"];
             const missing = mustExist.filter((id) => !el(id));
             if (missing.length) {
-                alert("user.html is missing elements: " + missing.join(", "));
+                alert("login.html is missing elements: " + missing.join(", "));
                 console.error("Missing elements:", missing);
                 return;
             }
