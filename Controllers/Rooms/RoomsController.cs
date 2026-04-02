@@ -10,6 +10,9 @@ namespace Misfitz_Games.Controllers.Rooms;
 [ApiController]
 public class RoomsController(IRoomStateStore store, RoomBroadcastService broadcaster, AppDbContext db) : ControllerBase
 {
+
+    private readonly AppDbContext _db = db;
+
     private static string NormalizeCustomCode(string code)
         => (code ?? "").Trim().ToUpperInvariant();
 
