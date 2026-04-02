@@ -198,17 +198,22 @@ public static class Program
         });
 
         // ===================== Site roots =====================
-        var siteConfig = builder.Configuration.GetSection("Site");
         var isProduction = app.Environment.IsProduction();
 
-        var writableRoot =
-            builder.Configuration["DATA_ROOT"]
-            ?? siteConfig["WritableRoot"]
-            ?? (isProduction ? "/data" : Path.Combine(app.Environment.ContentRootPath, "Data"));
+        var writableRoot = isProduction
+            ? "/data"
+            : Path.Combine(app.Environment.ContentRootPath, "Data");
 
-        var dataRoot = Path.Combine(writableRoot, "Site");
-        var backupsRoot = Path.Combine(writableRoot, "Backups");
+        var dataRoot = Path.Combine(writableRoot, "site");
+        var backupsRoot = Path.Combine(writableRoot, "backups");
         var seedRoot = Path.Combine(app.Environment.ContentRootPath, "Data", "Site");
+
+        Console.WriteLine($"[SITE] Environment: {app.Environment.EnvironmentName}");
+        Console.WriteLine($"[SITE] isProduction: {isProduction}");
+        Console.WriteLine($"[SITE] writableRoot: {writableRoot}");
+        Console.WriteLine($"[SITE] dataRoot: {dataRoot}");
+        Console.WriteLine($"[SITE] backupsRoot: {backupsRoot}");
+        Console.WriteLine($"[SITE] seedRoot: {seedRoot}");
 
         Directory.CreateDirectory(writableRoot);
         Directory.CreateDirectory(dataRoot);
@@ -221,9 +226,6 @@ public static class Program
         var overwrite = pushAll is "on" or "true" or "1" or "yes";
         var doClean = clean is "on" or "true" or "1" or "yes";
 
-        Console.WriteLine($"[SITE] SeedRoot: {seedRoot}");
-        Console.WriteLine($"[SITE] DataRoot: {dataRoot}");
-        Console.WriteLine($"[SITE] Persistent: {isProduction}");
         Console.WriteLine($"[SITE] Overwrite: {overwrite}");
         Console.WriteLine($"[SITE] Clean: {doClean}");
 
