@@ -94,7 +94,7 @@
         const displayName = data.user?.displayName || data.user?.username || "User";
         const bio = data.user?.bio || "Owner of one persistent room with account-linked settings, stream profile, and gameplay preferences.";
         const email = data.user?.email || "-";
-        const roomPath = data.room?.portalPath || `/rooms/${data.room?.roomSlug || ""}`;
+        const roomPath = data.room?.portalPath || `/play.html?roomId=${data.room?.roomSlug || ""}`;
         const role = data.user?.role || "member";
         const initials = getInitials(displayName);
 
