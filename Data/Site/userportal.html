@@ -10,7 +10,7 @@
     <div class="shell">
         <aside class="sidebar">
             <div class="brand">
-                <div class="brand-badge">M</div>
+                <div class="brand-badge" id="heroInitials">MG</div>
                 <div>
                     <h1>Misfitz Portal</h1>
                     <p>Account hub & settings</p>
@@ -29,7 +29,7 @@
 
             <div class="sidebar-footer">
                 <div class="label">Current role</div>
-                <div class="value">Member / Host</div>
+                <div class="value" id="sidebarRole">Member / Host</div>
             </div>
         </aside>
 
@@ -40,30 +40,32 @@
                     <p>Manage your Misfitz Games profile, room, alerts, and account preferences in one place.</p>
                 </div>
                 <div class="top-actions">
-                    <button class="btn">Back to Lobby</button>
-                    <button class="btn primary">Save Changes</button>
+                    <button class="btn" id="btnBackToLobby" type="button">Back to Lobby</button>
+                    <button class="btn primary" id="btnOpenRoom" type="button">Open Room</button>
                 </div>
             </div>
+
+            <div id="portalStatus" class="pill good" style="margin-bottom:16px; display:inline-flex;">Loading portal...</div>
 
             <section class="tab-panel active" data-panel="overview">
                 <div class="hero">
                     <div class="card hero-card">
                         <div class="hero-grid">
-                            <div class="avatar">CB</div>
+                            <div class="avatar" id="heroAvatar">MG</div>
                             <div>
-                                <h3>Craig Booth</h3>
-                                <p class="sub">Owner of one persistent room with account-linked settings, stream profile, and gameplay preferences.</p>
+                                <h3 id="heroDisplayName">Loading...</h3>
+                                <p class="sub" id="heroBio">Owner of one persistent room with account-linked settings, stream profile, and gameplay preferences.</p>
                                 <div class="chips">
-                                    <div class="chip">Room owner</div>
-                                    <div class="chip">Member since 2026</div>
-                                    <div class="chip">Custom overlay enabled</div>
+                                    <div class="chip" id="heroRoleChip">Room owner</div>
+                                    <div class="chip">Persistent room</div>
+                                    <div class="chip" id="heroRoomPath">/rooms/...</div>
                                 </div>
                             </div>
                         </div>
                         <div class="stats">
-                            <div class="stat"><div class="k">Room status</div><div class="v">Live</div></div>
-                            <div class="stat"><div class="k">Games hosted</div><div class="v">128</div></div>
-                            <div class="stat"><div class="k">Portal completion</div><div class="v">82%</div></div>
+                            <div class="stat"><div class="k">Room status</div><div class="v" id="overviewRoomStatus">Ready</div></div>
+                            <div class="stat"><div class="k">Login email</div><div class="v" id="heroEmail" style="font-size:16px;word-break:break-word;">-</div></div>
+                            <div class="stat"><div class="k">Portal state</div><div class="v" id="overviewPortalState">Live</div></div>
                         </div>
                     </div>
 
@@ -75,10 +77,10 @@
                             </div>
                         </div>
                         <div class="stack">
-                            <button class="btn" data-jump="profile">Edit display profile</button>
-                            <button class="btn" data-jump="room">Manage room defaults</button>
-                            <button class="btn" data-jump="notifications">Tune alerts</button>
-                            <button class="btn" data-jump="privacy">Change password & security</button>
+                            <button class="btn" type="button" data-jump="profile">Edit display profile</button>
+                            <button class="btn" type="button" data-jump="room">Manage room defaults</button>
+                            <button class="btn" type="button" data-jump="notifications">Tune alerts</button>
+                            <button class="btn" type="button" data-jump="privacy">Change privacy & security</button>
                         </div>
                     </div>
                 </div>
@@ -96,23 +98,21 @@
                             <div class="list-row">
                                 <div class="list-copy">
                                     <strong>Login email</strong>
-                                    <span>craig@example.com</span>
+                                    <span id="overviewEmail">-</span>
                                 </div>
-                                <button class="btn">Change</button>
                             </div>
                             <div class="list-row">
                                 <div class="list-copy">
                                     <strong>Primary room</strong>
-                                    <span>/rooms/craig-booth</span>
+                                    <span id="overviewRoomPath">/rooms/...</span>
                                 </div>
-                                <button class="btn">Open room</button>
+                                <button class="btn" id="btnOpenRoomInline" type="button">Open room</button>
                             </div>
                             <div class="list-row">
                                 <div class="list-copy">
                                     <strong>Account type</strong>
-                                    <span>Member with room ownership enabled</span>
+                                    <span id="overviewAccountType">Member with room ownership enabled</span>
                                 </div>
-                                <button class="btn">Manage</button>
                             </div>
                         </div>
                     </div>
@@ -125,9 +125,9 @@
                             </div>
                         </div>
                         <div class="stack">
-                            <div class="list-row"><div class="list-copy"><strong>Portal API</strong><span>Ready for wiring</span></div><span class="pill good">On</span></div>
-                            <div class="list-row"><div class="list-copy"><strong>Room persistence</strong><span>DB-backed target</span></div><span class="pill warn">Planned</span></div>
-                            <div class="list-row"><div class="list-copy"><strong>Guest upgrade path</strong><span>Account merge flow</span></div><span class="pill warn">Later</span></div>
+                            <div class="list-row"><div class="list-copy"><strong>Portal API</strong><span>Connected to account endpoints</span></div><span class="pill good">On</span></div>
+                            <div class="list-row"><div class="list-copy"><strong>Room persistence</strong><span id="overviewDefaultGame">Default game: None</span></div><span class="pill good">Ready</span></div>
+                            <div class="list-row"><div class="list-copy"><strong>Profile visibility</strong><span id="overviewVisibility">Public profile</span></div><span class="pill warn">Live</span></div>
                         </div>
                     </div>
                 </div>
@@ -141,23 +141,24 @@
                                 <h4>Profile Details</h4>
                                 <p>Public-facing account and room owner identity.</p>
                             </div>
+                            <button class="btn primary" id="btnSaveProfile" type="button">Save Profile</button>
                         </div>
                         <div class="stack">
                             <div class="field">
-                                <label>Display name</label>
-                                <input value="Craig Booth" />
+                                <label for="profileDisplayName">Display name</label>
+                                <input id="profileDisplayName" />
                             </div>
                             <div class="field">
-                                <label>Username / slug</label>
-                                <input value="craig-booth" />
+                                <label for="profileUsername">Username / slug</label>
+                                <input id="profileUsername" />
                             </div>
                             <div class="field">
-                                <label>Bio</label>
-                                <textarea>Streamer, host, and owner of a persistent Misfitz room.</textarea>
+                                <label for="profileBio">Bio</label>
+                                <textarea id="profileBio"></textarea>
                             </div>
                             <div class="field">
-                                <label>Avatar URL</label>
-                                <input placeholder="https://..." />
+                                <label for="profileAvatarUrl">Avatar URL</label>
+                                <input id="profileAvatarUrl" placeholder="https://..." />
                             </div>
                         </div>
                     </div>
@@ -171,15 +172,15 @@
                         </div>
                         <div class="toggle-row">
                             <div class="toggle-copy"><strong>Show profile publicly</strong><span>Allow users to view your portal-facing profile.</span></div>
-                            <label class="switch"><input type="checkbox" checked /><span class="slider"></span></label>
+                            <label class="switch"><input id="profileIsPublic" type="checkbox" /><span class="slider"></span></label>
                         </div>
                         <div class="toggle-row">
                             <div class="toggle-copy"><strong>Show avatar in room</strong><span>Display your avatar beside host controls.</span></div>
-                            <label class="switch"><input type="checkbox" checked /><span class="slider"></span></label>
+                            <label class="switch"><input id="profileShowAvatar" type="checkbox" /><span class="slider"></span></label>
                         </div>
                         <div class="toggle-row">
                             <div class="toggle-copy"><strong>Show online status</strong><span>Let friends know when you are hosting.</span></div>
-                            <label class="switch"><input type="checkbox" /><span class="slider"></span></label>
+                            <label class="switch"><input id="profileShowOnline" type="checkbox" /><span class="slider"></span></label>
                         </div>
                     </div>
                 </div>
@@ -193,21 +194,22 @@
                                 <h4>Room Defaults</h4>
                                 <p>Persistent room settings linked to this account.</p>
                             </div>
+                            <button class="btn primary" id="btnSaveRoom" type="button">Save Room</button>
                         </div>
                         <div class="stack">
                             <div class="field">
-                                <label>Room name</label>
-                                <input value="Craig's Room" />
+                                <label for="roomName">Room name</label>
+                                <input id="roomName" />
                             </div>
                             <div class="field">
-                                <label>Room slug</label>
-                                <input value="craig-booth" />
+                                <label for="roomSlug">Room slug</label>
+                                <input id="roomSlug" />
                             </div>
                             <div class="field">
-                                <label>Default game</label>
-                                <select>
+                                <label for="roomDefaultGame">Default game</label>
+                                <select id="roomDefaultGame">
                                     <option>None</option>
-                                    <option selected>Trivia</option>
+                                    <option>Trivia</option>
                                     <option>Contexto</option>
                                     <option>Hangman</option>
                                     <option>HigherLower</option>
@@ -215,8 +217,8 @@
                                 </select>
                             </div>
                             <div class="field">
-                                <label>Room description</label>
-                                <textarea>Persistent room for hosting games, streams, and community sessions.</textarea>
+                                <label for="roomDescription">Room description</label>
+                                <textarea id="roomDescription"></textarea>
                             </div>
                         </div>
                     </div>
@@ -230,19 +232,19 @@
                         </div>
                         <div class="toggle-row">
                             <div class="toggle-copy"><strong>Auto-restore room</strong><span>Rehydrate room defaults on startup.</span></div>
-                            <label class="switch"><input type="checkbox" checked /><span class="slider"></span></label>
+                            <label class="switch"><input id="roomAutoRestore" type="checkbox" /><span class="slider"></span></label>
                         </div>
                         <div class="toggle-row">
                             <div class="toggle-copy"><strong>Allow guests to join</strong><span>Guests can enter without a full account.</span></div>
-                            <label class="switch"><input type="checkbox" checked /><span class="slider"></span></label>
+                            <label class="switch"><input id="roomAllowGuests" type="checkbox" /><span class="slider"></span></label>
                         </div>
                         <div class="toggle-row">
                             <div class="toggle-copy"><strong>Enable overlays</strong><span>Show stream overlays and room widgets.</span></div>
-                            <label class="switch"><input type="checkbox" checked /><span class="slider"></span></label>
+                            <label class="switch"><input id="roomOverlaysEnabled" type="checkbox" /><span class="slider"></span></label>
                         </div>
                         <div class="toggle-row">
                             <div class="toggle-copy"><strong>Private room mode</strong><span>Hide room from public listing until enabled.</span></div>
-                            <label class="switch"><input type="checkbox" /><span class="slider"></span></label>
+                            <label class="switch"><input id="roomIsPrivate" type="checkbox" /><span class="slider"></span></label>
                         </div>
                     </div>
                 </div>
@@ -256,18 +258,19 @@
                                 <h4>Notification Preferences</h4>
                                 <p>Control emails, alerts, and game reminders.</p>
                             </div>
+                            <button class="btn primary" id="btnSavePreferencesTop" type="button">Save Preferences</button>
                         </div>
                         <div class="toggle-row">
                             <div class="toggle-copy"><strong>Email alerts</strong><span>Important room and account updates.</span></div>
-                            <label class="switch"><input type="checkbox" checked /><span class="slider"></span></label>
+                            <label class="switch"><input id="prefEmailAlerts" type="checkbox" /><span class="slider"></span></label>
                         </div>
                         <div class="toggle-row">
                             <div class="toggle-copy"><strong>Security alerts</strong><span>Login changes, password resets, suspicious access.</span></div>
-                            <label class="switch"><input type="checkbox" checked /><span class="slider"></span></label>
+                            <label class="switch"><input id="prefSecurityAlerts" type="checkbox" /><span class="slider"></span></label>
                         </div>
                         <div class="toggle-row">
                             <div class="toggle-copy"><strong>Game reminders</strong><span>Prompt before scheduled sessions or special events.</span></div>
-                            <label class="switch"><input type="checkbox" /><span class="slider"></span></label>
+                            <label class="switch"><input id="prefGameReminders" type="checkbox" /><span class="slider"></span></label>
                         </div>
                     </div>
 
@@ -279,21 +282,16 @@
                             </div>
                         </div>
                         <div class="field">
-                            <label>Digest frequency</label>
-                            <select>
-                                <option>Off</option>
+                            <label for="prefDigestFrequency">Digest frequency</label>
+                            <select id="prefDigestFrequency">
                                 <option>Daily</option>
-                                <option selected>Weekly</option>
+                                <option>Weekly</option>
                                 <option>Monthly</option>
                             </select>
                         </div>
                         <div class="field">
-                            <label>Timezone</label>
-                            <select>
-                                <option selected>Europe/London</option>
-                                <option>UTC</option>
-                                <option>America/New_York</option>
-                            </select>
+                            <label for="prefTimezone">Timezone</label>
+                            <input id="prefTimezone" />
                         </div>
                     </div>
                 </div>
@@ -309,9 +307,9 @@
                             </div>
                         </div>
                         <div class="stack">
-                            <button class="btn">Change password</button>
-                            <button class="btn">Review active sessions</button>
-                            <button class="btn">Enable two-step verification</button>
+                            <button class="btn" type="button">Change password</button>
+                            <button class="btn" type="button">Review active sessions</button>
+                            <button class="btn" type="button">Enable two-step verification</button>
                         </div>
                     </div>
 
@@ -324,11 +322,11 @@
                         </div>
                         <div class="toggle-row">
                             <div class="toggle-copy"><strong>Public room listing</strong><span>Allow your room to appear on the main room list.</span></div>
-                            <label class="switch"><input type="checkbox" checked /><span class="slider"></span></label>
+                            <label class="switch"><input id="prefPublicRoomListing" type="checkbox" /><span class="slider"></span></label>
                         </div>
                         <div class="toggle-row">
                             <div class="toggle-copy"><strong>Show gameplay stats</strong><span>Display summary stats on your portal overview.</span></div>
-                            <label class="switch"><input type="checkbox" checked /><span class="slider"></span></label>
+                            <label class="switch"><input id="prefShowGameplayStats" type="checkbox" /><span class="slider"></span></label>
                         </div>
                     </div>
                 </div>
@@ -344,17 +342,17 @@
                             </div>
                         </div>
                         <div class="field">
-                            <label>Theme mode</label>
-                            <select>
-                                <option selected>Dark</option>
+                            <label for="prefTheme">Theme mode</label>
+                            <select id="prefTheme">
+                                <option>Dark</option>
                                 <option>Light</option>
                                 <option>System</option>
                             </select>
                         </div>
                         <div class="field">
-                            <label>Accent colour</label>
-                            <select>
-                                <option selected>Misfitz Blue/Purple</option>
+                            <label for="prefAccent">Accent colour</label>
+                            <select id="prefAccent">
+                                <option>Misfitz Blue/Purple</option>
                                 <option>Green</option>
                                 <option>Orange</option>
                                 <option>Pink</option>
@@ -368,14 +366,15 @@
                                 <h4>Interface Preferences</h4>
                                 <p>Default portal behaviour and display.</p>
                             </div>
+                            <button class="btn primary" id="btnSavePreferences" type="button">Save Preferences</button>
                         </div>
                         <div class="toggle-row">
                             <div class="toggle-copy"><strong>Compact layout</strong><span>Reduce padding and card density.</span></div>
-                            <label class="switch"><input type="checkbox" /><span class="slider"></span></label>
+                            <label class="switch"><input id="prefCompactLayout" type="checkbox" /><span class="slider"></span></label>
                         </div>
                         <div class="toggle-row">
                             <div class="toggle-copy"><strong>Show tips</strong><span>Helpful hints while the new portal settles in.</span></div>
-                            <label class="switch"><input type="checkbox" checked /><span class="slider"></span></label>
+                            <label class="switch"><input id="prefShowTips" type="checkbox" /><span class="slider"></span></label>
                         </div>
                     </div>
                 </div>
@@ -391,8 +390,8 @@
                             </div>
                         </div>
                         <div class="stack">
-                            <button class="btn">Export profile data</button>
-                            <button class="btn">Export room settings</button>
+                            <button class="btn" type="button">Export profile data</button>
+                            <button class="btn" type="button">Export room settings</button>
                         </div>
                     </div>
 
@@ -404,9 +403,9 @@
                             </div>
                         </div>
                         <div class="stack">
-                            <button class="btn">Transfer room ownership</button>
-                            <button class="btn">Disable account</button>
-                            <button class="btn">Delete account</button>
+                            <button class="btn" type="button">Transfer room ownership</button>
+                            <button class="btn" type="button">Disable account</button>
+                            <button class="btn" type="button">Delete account</button>
                         </div>
                     </div>
                 </div>
