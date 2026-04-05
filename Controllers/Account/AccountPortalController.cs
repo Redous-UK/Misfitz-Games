@@ -120,6 +120,7 @@ public class AccountPortalController(AppDbContext db) : ControllerBase
             return NotFound(new { error = "User not found." });
 
         user.DisplayName = req.DisplayName?.Trim() ?? "";
+        user.Email = req.Email.Trim();
         user.Username = req.Username?.Trim() ?? "";
         user.Bio = req.Bio?.Trim();
         user.AvatarUrl = req.AvatarUrl?.Trim();

@@ -51,6 +51,7 @@
     function readProfileForm() {
         return {
             displayName: M.el("profileDisplayName")?.value?.trim() ?? "",
+            email: M.el("profileEmail")?.value?.trim() ?? "",
             username: M.el("profileUsername")?.value?.trim() ?? "",
             bio: M.el("profileBio")?.value?.trim() ?? "",
             avatarUrl: M.el("profileAvatarUrl")?.value?.trim() ?? "",
@@ -116,6 +117,7 @@
 
     function renderProfile(data) {
         setValue("profileDisplayName", data.user?.displayName);
+        setValue("profileEmail", data.user?.email);
         setValue("profileUsername", data.user?.username);
         setValue("profileBio", data.user?.bio);
         setValue("profileAvatarUrl", data.user?.avatarUrl);

@@ -51,6 +51,7 @@
 
         public sealed record SavePortalProfileRequest(
             string DisplayName,
+            string Email,
             string Username,
             string? Bio,
             string? AvatarUrl,
