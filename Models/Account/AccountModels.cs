@@ -62,7 +62,7 @@
 
         public sealed record SavePortalRoomRequest(
             string RoomName,
-            string RoomSlug,
+            string RoomCode,
             string? Description,
             string DefaultGame,
             bool AutoRestore,
