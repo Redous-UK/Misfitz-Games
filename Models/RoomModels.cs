@@ -49,22 +49,31 @@ public sealed record IdleRoomCandidate(
     string Reason
 );
 
-public sealed record Room(
-     Guid Id,
-     string Code,
-     long OwnerUserId,
-     string Name,
-     DateTime CreatedUtc,
-     DateTime LastActiveUtc
-)
+public sealed class Room
 {
-    public AppUser Owner { get; init; } = null!;
-};
+    public Guid Id { get; set; }
+    public Guid OwnerUserId { get; set; }
 
-public sealed record AppUser(
-    long Id,
-    string Username
-);
+    public string Name { get; set; } = "";
+    public string Slug { get; set; } = "";
+    public string Code { get; set; } = "";
+    public string? Description { get; set; }
+
+    public DateTime CreatedUtc { get; set; }
+    public DateTime LastActiveUtc { get; set; }
+
+    public string DefaultGame { get; set; } = "None";
+    public bool AutoRestore { get; set; } = true;
+    public bool AllowGuests { get; set; } = true;
+    public bool OverlaysEnabled { get; set; } = true;
+    public bool IsPrivate { get; set; } = false;
+}
+
+public sealed class AppUser
+{
+    public long Id { get; set; }
+    public string Username { get; set; } = "";
+}
 
 public sealed record LeaderboardEntryDto(
     string UserId,

@@ -20,23 +20,23 @@ public sealed class RoomIdentityController(AppDbContext db) : ControllerBase
 
         static string? GetUserIdClaim(ClaimsPrincipal user) =>
             user.FindFirstValue(ClaimTypes.NameIdentifier)
-         ?? user.FindFirstValue("userId")
-         ?? user.FindFirstValue("sub");
+            ?? user.FindFirstValue("userId")
+            ?? user.FindFirstValue("sub");
 
-        var userGuid = GetUserIdClaim(User);
-        if (string.IsNullOrWhiteSpace(userGuid))
+        var userGuidValue = GetUserIdClaim(User);
+        if (string.IsNullOrWhiteSpace(userGuidValue))
             return Unauthorized(new { ok = false, error = "Missing user id claim." });
 
-        // Lookup or create numeric owner id
-        var map = await db.UserIdMaps.SingleOrDefaultAsync(x => x.UserGuid == userGuid);
+        var map = await db.UserIdMaps.SingleOrDefaultAsync(x => x.UserGuid == userGuidValue);
         if (map is null)
         {
-            map = new UserIdMap { UserGuid = userGuid };
+            map = new UserIdMap { UserGuid = userGuidValue };
             db.UserIdMaps.Add(map);
-            await db.SaveChangesAsync(); // assigns map.Id
+            await db.SaveChangesAsync();
         }
 
-        var ownerUserId = map.Id; // this is a long
+        if (!Guid.TryParse(map.UserGuid, out var ownerUserId))
+            return BadRequest(new { ok = false, error = "Invalid user guid in mapping." });
 
         var room = await db.Rooms.SingleOrDefaultAsync(r => r.OwnerUserId == ownerUserId);
         if (room is not null)
@@ -44,14 +44,22 @@ public sealed class RoomIdentityController(AppDbContext db) : ControllerBase
 
         var code = await GenerateUniqueCode(db);
 
-        room = new Room(
-            Guid.NewGuid(),
-            code,
-            ownerUserId,
-            "My Room",
-            DateTime.UtcNow,
-            DateTime.UtcNow
-        );
+        room = new Room
+        {
+            Id = Guid.NewGuid(),
+            OwnerUserId = ownerUserId,
+            Name = "My Room",
+            Slug = "my-room",
+            Code = code,
+            Description = null,
+            CreatedUtc = DateTime.UtcNow,
+            LastActiveUtc = DateTime.UtcNow,
+            DefaultGame = "None",
+            AutoRestore = true,
+            AllowGuests = true,
+            OverlaysEnabled = true,
+            IsPrivate = false
+        };
 
         db.Rooms.Add(room);
         await db.SaveChangesAsync();
@@ -90,10 +98,17 @@ CREATE TABLE IF NOT EXISTS AppUser (
 CREATE TABLE IF NOT EXISTS Rooms (
   Id TEXT NOT NULL PRIMARY KEY,
   Code TEXT NOT NULL,
-  OwnerUserId INTEGER NOT NULL,
+  OwnerUserId TEXT NOT NULL,
   Name TEXT NOT NULL,
+  Slug TEXT NOT NULL DEFAULT '',
+  Description TEXT NULL,
   CreatedUtc TEXT NOT NULL,
-  LastActiveUtc TEXT NOT NULL
+  LastActiveUtc TEXT NOT NULL,
+  DefaultGame TEXT NOT NULL DEFAULT 'None',
+  AutoRestore INTEGER NOT NULL DEFAULT 1,
+  AllowGuests INTEGER NOT NULL DEFAULT 1,
+  OverlaysEnabled INTEGER NOT NULL DEFAULT 1,
+  IsPrivate INTEGER NOT NULL DEFAULT 0
 );
 CREATE UNIQUE INDEX IF NOT EXISTS IX_Rooms_OwnerUserId_Code
   ON Rooms(OwnerUserId, Code);

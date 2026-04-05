@@ -70,10 +70,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasIndex(x => new { x.OwnerUserId, x.Code }).IsUnique();
             e.Property(x => x.Code).HasMaxLength(16);
             e.Property(x => x.Name).HasMaxLength(64);
-            e.HasOne(x => x.Owner)
-                .WithMany()
-                .HasForeignKey(x => x.OwnerUserId)
-                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<UserIdMap>()
