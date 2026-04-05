@@ -22,10 +22,6 @@ namespace Misfitz_Games.Migrations
             migrationBuilder.DropTable(
                 name: "AppUser");
 
-            migrationBuilder.DropPrimaryKey(
-                name: "PK_RiddleCatalog",
-                table: "RiddleCatalog");
-
             migrationBuilder.AddColumn<string>(
                 name: "Accent",
                 table: "Users",
