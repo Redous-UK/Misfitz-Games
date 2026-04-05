@@ -90,6 +90,13 @@
         };
     }
 
+    let portalPath = "";
+
+    function renderOverview(data) {
+        portalPath = data.room?.portalPath || "";
+        setText("heroRoomPath", portalPath);
+    }
+
     function renderOverview(data) {
         const displayName = data.user?.displayName || data.user?.username || "User";
         const bio = data.user?.bio || "Owner of one persistent room with account-linked settings, stream profile, and gameplay preferences.";
@@ -168,9 +175,8 @@
         });
 
         const openRoom = () => {
-            const path = M.el("heroRoomPath")?.textContent?.trim();
-            if (path) {
-                window.location.href = path;
+            if (portalPath) {
+                window.location.href = portalPath;
             }
         };
 
@@ -195,7 +201,7 @@
                 await M.savePortalRoom(readRoomForm());
                 M.setStatus("Room settings saved.", "good");
             } catch (err) {
-                if (!M.requireAuthRedirect(err)) {
+                if (!M.requireAuthRedirect(err)) { 
                     M.setStatus(err.message || "Failed to save room settings.", "bad");
                 }
             }
