@@ -26,10 +26,6 @@ namespace Misfitz_Games.Migrations
                 name: "PK_RiddleCatalog",
                 table: "RiddleCatalog");
 
-            migrationBuilder.RenameTable(
-                name: "RiddleCatalog",
-                newName: "RiddleCatalogs");
-
             migrationBuilder.AddColumn<string>(
                 name: "Accent",
                 table: "Users",
