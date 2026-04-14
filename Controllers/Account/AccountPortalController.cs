@@ -85,7 +85,7 @@ public class AccountPortalController(AppDbContext db) : ControllerBase
                 AllowGuests: room.AllowGuests,
                 OverlaysEnabled: room.OverlaysEnabled,
                 IsPrivate: room.IsPrivate,
-                PortalPath: $"/plays.html?roomId={room.Code}"
+                PortalPath: $"/play.html?roomId={room.Code}"
             ),
             Preferences: new PortalPreferencesDto(
                 EmailAlerts: user.EmailAlerts,
