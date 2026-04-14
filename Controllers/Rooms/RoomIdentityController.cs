@@ -49,7 +49,6 @@ public sealed class RoomIdentityController(AppDbContext db) : ControllerBase
             Id = Guid.NewGuid(),
             OwnerUserId = ownerUserId,
             Name = "My Room",
-            Slug = "my-room",
             Code = code,
             Description = null,
             CreatedUtc = DateTime.UtcNow,
