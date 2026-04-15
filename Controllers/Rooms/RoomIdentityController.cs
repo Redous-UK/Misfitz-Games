@@ -28,6 +28,10 @@ public sealed class RoomIdentityController(AppDbContext db, IRoomStateStore stor
         if (string.IsNullOrWhiteSpace(userGuidValue))
             return Unauthorized(new { ok = false, error = "Missing user id claim." });
 
+        if (!Guid.TryParse(userGuidValue, out var userGuid))
+            return BadRequest(new { ok = false, error = "Invalid user id claim." });
+
+        // Keep the mapping row if you still want it for external identity tracking
         var map = await db.UserIdMaps.SingleOrDefaultAsync(x => x.UserGuid == userGuidValue);
         if (map is null)
         {
@@ -36,20 +40,41 @@ public sealed class RoomIdentityController(AppDbContext db, IRoomStateStore stor
             await db.SaveChangesAsync();
         }
 
-        if (!Guid.TryParse(map.UserGuid, out var ownerUserId))
-            return BadRequest(new { ok = false, error = "Invalid user guid in mapping." });
+        // THIS is now the stable owner identity
+        var user = await db.Users.SingleOrDefaultAsync(x => x.Id == userGuid);
+        if (user is null)
+            return NotFound(new { ok = false, error = "User not found." });
 
-        var room = await db.Rooms.SingleOrDefaultAsync(r => r.OwnerUserId == ownerUserId);
+        // First try existing room by owner
+        var room = await db.Rooms.SingleOrDefaultAsync(r => r.OwnerUserId == user.Id);
+
+        // Optional fallback: if you want HomeRoomCode to be the canonical remembered room
+        if (room is null && !string.IsNullOrWhiteSpace(user.HomeRoomCode))
+        {
+            room = await db.Rooms.SingleOrDefaultAsync(r => r.Code == user.HomeRoomCode);
+        }
+
         if (room is not null)
+        {
+            await store.SaveRoomAsync(
+                new RoomDto(
+                    RoomId: room.Id,
+                    Name: room.Name,
+                    CreatedAtUtc: new DateTimeOffset(room.CreatedUtc),
+                    RoomCode: room.Code
+                )
+            );
+
             return Ok(new { ok = true, roomId = room.Id, roomCode = room.Code, name = room.Name });
+        }
 
         var code = await GenerateUniqueCode(db);
 
         room = new Room
         {
             Id = Guid.NewGuid(),
-            OwnerUserId = ownerUserId,
-            Name = "My Room",
+            OwnerUserId = user.Id,
+            Name = string.IsNullOrWhiteSpace(user.DisplayName) ? "My Room" : $"{user.DisplayName}'s Room",
             Code = code,
             Description = null,
             CreatedUtc = DateTime.UtcNow,
@@ -62,6 +87,10 @@ public sealed class RoomIdentityController(AppDbContext db, IRoomStateStore stor
         };
 
         db.Rooms.Add(room);
+
+        // Remember this user's persistent room
+        user.HomeRoomCode = room.Code;
+
         await db.SaveChangesAsync();
 
         await store.SaveRoomAsync(
