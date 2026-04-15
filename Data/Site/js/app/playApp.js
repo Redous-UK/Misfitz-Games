@@ -304,16 +304,23 @@ async function startPresence() {
 }
 
 async function join() {
-    const ref = normalizeRef(el("roomRef")?.value);
-    if (!isRoomRef(ref)) return alert("Enter a valid room code (8 digits) or custom code (4-12 A-Z0-9).");
+    const ref = (el("roomRef")?.value || "").trim();
+    if (!ref) {
+        return alert("Enter a valid room reference.");
+    }
 
-    state.joinedRef = (/^\d{8}$/.test(ref) || ref.includes("-")) ? ref : ref.toUpperCase();
+    state.joinedRef = ref;
 
-    el("btnJoin") && (el("btnJoin").disabled = true);
-    el("btnLeave") && (el("btnLeave").disabled = false);
+    const btnJoin = el("btnJoin");
+    if (btnJoin) btnJoin.disabled = true;
+
+    const btnLeave = el("btnLeave");
+    if (btnLeave) btnLeave.disabled = false;
 
     const overlayLink = el("overlayLink");
-    if (overlayLink) overlayLink.href = `/overlay.html?roomId=${encodeURIComponent(state.joinedRef)}&game=${encodeURIComponent(state.selectedGame)}`;
+    if (overlayLink) {
+        overlayLink.href = `/overlay.html?roomRef=${encodeURIComponent(state.joinedRef)}&game=${encodeURIComponent(state.selectedGame)}`;
+    }
 
     await startPresence();
     await refreshAll();
@@ -365,7 +372,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         bindAllGames();
 
         const qs = new URLSearchParams(location.search);
-        const qRoom = qs.get("roomId");
+        const qRoom = qs.get("roomRef") || qs.get("roomId") || "";
         const qGame = (qs.get("game") || "contexto").toLowerCase();
 
         state.selectedGame = qGame;
