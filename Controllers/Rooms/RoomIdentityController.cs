@@ -4,13 +4,14 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Misfitz_Games.Data;
 using Misfitz_Games.Models;
+using Misfitz_Games.Services.Room;
 using System.Security.Claims;
 using System.Security.Cryptography;
 
 namespace Misfitz_Games.Controllers.Rooms;
 
 [ApiController]
-public sealed class RoomIdentityController(AppDbContext db) : ControllerBase
+public sealed class RoomIdentityController(AppDbContext db, IRoomStateStore store) : ControllerBase
 {
     [HttpGet("/member/room")]
     [Authorize(Policy = "MemberOrAdmin")]
@@ -63,6 +64,15 @@ public sealed class RoomIdentityController(AppDbContext db) : ControllerBase
         db.Rooms.Add(room);
         await db.SaveChangesAsync();
 
+        await store.SaveRoomAsync(
+            new RoomDto(
+                RoomId: room.Id,
+                Name: room.Name,
+                CreatedAtUtc: new DateTimeOffset(room.CreatedUtc),
+                RoomCode: room.Code
+            )
+        );
+
         return Ok(new { ok = true, roomId = room.Id, roomCode = room.Code, name = room.Name });
     }
 
@@ -99,7 +109,6 @@ CREATE TABLE IF NOT EXISTS Rooms (
   Code TEXT NOT NULL,
   OwnerUserId TEXT NOT NULL,
   Name TEXT NOT NULL,
-  Slug TEXT NOT NULL DEFAULT '',
   Description TEXT NULL,
   CreatedUtc TEXT NOT NULL,
   LastActiveUtc TEXT NOT NULL,

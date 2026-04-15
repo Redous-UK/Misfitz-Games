@@ -194,13 +194,6 @@ namespace Misfitz_Games.Migrations
                 nullable: false,
                 defaultValue: false);
 
-            migrationBuilder.AddColumn<string>(
-                name: "Slug",
-                table: "Rooms",
-                type: "TEXT",
-                nullable: false,
-                defaultValue: "");
-
             migrationBuilder.AddPrimaryKey(
                 name: "PK_RiddleCatalogs",
                 table: "RiddleCatalogs",
@@ -331,14 +324,6 @@ namespace Misfitz_Games.Migrations
             migrationBuilder.DropColumn(
                 name: "OverlaysEnabled",
                 table: "Rooms");
-
-            migrationBuilder.DropColumn(
-                name: "Slug",
-                table: "Rooms");
-
-            migrationBuilder.RenameTable(
-                name: "RiddleCatalogs",
-                newName: "RiddleCatalog");
 
             migrationBuilder.AlterColumn<long>(
                 name: "OwnerUserId",

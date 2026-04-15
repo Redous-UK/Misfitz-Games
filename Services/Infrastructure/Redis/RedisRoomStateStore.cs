@@ -1,4 +1,6 @@
-﻿using Misfitz_Games.Models;
+﻿using Misfitz_Games.Data;
+using Microsoft.EntityFrameworkCore;
+using Misfitz_Games.Models;
 using Misfitz_Games.Models.Games;
 using Misfitz_Games.Services.Room;
 using StackExchange.Redis;
@@ -6,7 +8,7 @@ using System.Text.Json;
 
 namespace Misfitz_Games.Services.Infrastructure.Redis;
 
-public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomStateStore
+public sealed class RedisRoomStateStore(AppDbContext db, RedisMuxFactory muxFactory) : IRoomStateStore
 {
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -38,21 +40,25 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
     // ----------------------------
     public async Task SaveRoomAsync(RoomDto room, CancellationToken ct = default)
     {
-        var db = await DbAsync().ConfigureAwait(false);
+        var redis = await DbAsync().ConfigureAwait(false);
 
         var json = JsonSerializer.Serialize(room, JsonOpts);
 
-        await db.StringSetAsync(RoomKey(room.RoomId), json).ConfigureAwait(false);
+        await redis.StringSetAsync(RoomKey(room.RoomId), json).ConfigureAwait(false);
 
-        // Index by created time (score)
-        await db.SortedSetAddAsync(
+        await redis.SortedSetAddAsync(
             RoomsIndexKey,
             room.RoomId.ToString("D"),
             room.CreatedAtUtc.ToUnixTimeSeconds()
         ).ConfigureAwait(false);
 
-        // NOTE: we do NOT write roomcode mapping here because codes are reserved atomically
-        // via TryReserveRoomCodeAsync(...) during room creation.
+        if (!string.IsNullOrWhiteSpace(room.RoomCode))
+        {
+            await redis.StringSetAsync(
+                RoomCodeKey(room.RoomCode),
+                room.RoomId.ToString("D")
+            ).ConfigureAwait(false);
+        }
     }
 
     public async Task<IReadOnlyList<RoomDto>> ListRoomsAsync(CancellationToken ct = default)
@@ -129,22 +135,29 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
     // ----------------------------
     public async Task<Guid?> ResolveRoomIdAsync(string roomRef, CancellationToken ct = default)
     {
-        roomRef = (roomRef ?? "").Trim();
-
-        // GUID path
-        if (Guid.TryParse(roomRef, out var guid))
-            return guid;
-
-        // Code path (numeric 8-digit or custom)
-        var code = NormalizeCode(roomRef);
-        if (string.IsNullOrWhiteSpace(code))
+        if (string.IsNullOrWhiteSpace(roomRef))
             return null;
 
-        var db = await DbAsync().ConfigureAwait(false);
-        var val = await db.StringGetAsync(RoomCodeKey(code)).ConfigureAwait(false);
+        roomRef = roomRef.Trim();
 
-        if (!val.IsNullOrEmpty && Guid.TryParse(val.ToString(), out var resolved))
-            return resolved;
+        // 1. Try GUID
+        if (Guid.TryParse(roomRef, out var guid))
+        {
+            var exists = await db.Rooms
+                .AnyAsync(r => r.Id == guid, ct);
+
+            if (exists)
+                return guid;
+        }
+
+        // 2. Try Code (THIS IS THE MISSING PIECE)
+        var room = await db.Rooms
+            .Where(r => r.Code == roomRef)
+            .Select(r => r.Id)
+            .FirstOrDefaultAsync(ct);
+
+        if (room != Guid.Empty)
+            return room;
 
         return null;
     }

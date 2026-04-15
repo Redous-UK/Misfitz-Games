@@ -462,10 +462,6 @@ namespace Misfitz_Games.Migrations
                     b.Property<Guid>("OwnerUserId")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Slug")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
                     b.HasKey("Id");
 
                     b.HasIndex("OwnerUserId", "Code")

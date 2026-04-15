@@ -64,7 +64,6 @@
     function readRoomForm() {
         return {
             roomName: M.el("roomName")?.value?.trim() ?? "",
-            roomSlug: M.el("roomSlug")?.value?.trim() ?? "",
             description: M.el("roomDescription")?.value?.trim() ?? "",
             defaultGame: M.el("roomDefaultGame")?.value?.trim() ?? "None",
             autoRestore: !!M.el("roomAutoRestore")?.checked,
@@ -101,7 +100,7 @@
         const displayName = data.user?.displayName || data.user?.username || "User";
         const bio = data.user?.bio || "Owner of one persistent room with account-linked settings, stream profile, and gameplay preferences.";
         const email = data.user?.email || "-";
-        const roomPath = data.room?.portalPath || `/play.html?roomId=${data.room?.roomSlug || ""}`;
+        const roomPath = data.room?.portalPath || `/play.html?roomId=${data.room?.roomRef || ""}`;
         const role = data.user?.role || "member";
         const initials = getInitials(displayName);
 
@@ -136,7 +135,6 @@
 
     function renderRoom(data) {
         setValue("roomName", data.room?.roomName);
-        setValue("roomSlug", data.room?.roomSlug);
         setValue("roomDescription", data.room?.description);
         setValue("roomDefaultGame", data.room?.defaultGame);
 

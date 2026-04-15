@@ -78,7 +78,6 @@ public class AccountPortalController(AppDbContext db) : ControllerBase
             Room: new PortalRoomDto(
                 RoomId: room.Id.ToString(),
                 RoomName: room.Name,
-                RoomSlug: room.Code,
                 Description: room.Description,
                 DefaultGame: room.DefaultGame,
                 AutoRestore: room.AutoRestore,
