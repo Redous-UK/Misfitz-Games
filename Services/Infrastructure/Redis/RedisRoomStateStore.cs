@@ -140,24 +140,40 @@ public sealed class RedisRoomStateStore(AppDbContext db, RedisMuxFactory muxFact
 
         roomRef = roomRef.Trim();
 
-        // 1. Try GUID
+        var redis = await DbAsync().ConfigureAwait(false);
+
+        // 1. Try Redis room-code mapping first
+        var mapped = await redis.StringGetAsync(RoomCodeKey(roomRef)).ConfigureAwait(false);
+        if (!mapped.IsNullOrEmpty && Guid.TryParse(mapped.ToString(), out var mappedRoomId))
+            return mappedRoomId;
+
+        // 2. Try direct room Guid
         if (Guid.TryParse(roomRef, out var guid))
         {
             var exists = await db.Rooms
-                .AnyAsync(r => r.Id == guid, ct);
+                .AnyAsync(r => r.Id == guid, ct)
+                .ConfigureAwait(false);
 
             if (exists)
                 return guid;
         }
 
-        // 2. Try Code (THIS IS THE MISSING PIECE)
-        var room = await db.Rooms
+        // 3. Try SQL by code, then rehydrate Redis mapping
+        var roomId = await db.Rooms
             .Where(r => r.Code == roomRef)
-            .Select(r => r.Id)
-            .FirstOrDefaultAsync(ct);
+            .Select(r => (Guid?)r.Id)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
 
-        if (room != Guid.Empty)
-            return room;
+        if (roomId is not null)
+        {
+            await redis.StringSetAsync(
+                RoomCodeKey(roomRef),
+                roomId.Value.ToString("D")
+            ).ConfigureAwait(false);
+
+            return roomId.Value;
+        }
 
         return null;
     }
