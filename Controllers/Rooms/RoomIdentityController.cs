@@ -51,11 +51,16 @@ public sealed class RoomIdentityController(AppDbContext db, IRoomStateStore stor
         // Optional fallback: if you want HomeRoomCode to be the canonical remembered room
         if (room is null && !string.IsNullOrWhiteSpace(user.HomeRoomCode))
         {
-            room = await db.Rooms.SingleOrDefaultAsync(r => r.Code == user.HomeRoomCode);
+            room = await db.Rooms.SingleOrDefaultAsync(r =>
+                r.OwnerUserId == user.Id &&
+                r.Code == user.HomeRoomCode);
         }
 
         if (room is not null)
         {
+            room.LastActiveUtc = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+
             await store.SaveRoomAsync(
                 new RoomDto(
                     RoomId: room.Id,

@@ -78,6 +78,7 @@ public class AccountPortalController(AppDbContext db) : ControllerBase
             Room: new PortalRoomDto(
                 RoomId: room.Id.ToString(),
                 RoomName: room.Name,
+                RoomCode: room.Code,
                 Description: room.Description,
                 DefaultGame: room.DefaultGame,
                 AutoRestore: room.AutoRestore,
@@ -146,7 +147,6 @@ public class AccountPortalController(AppDbContext db) : ControllerBase
             return NotFound(new { error = "Room not found." });
 
         room.Name = req.RoomName?.Trim() ?? "";
-        room.Code = req.RoomCode?.Trim().ToLowerInvariant() ?? "";
         room.Description = req.Description?.Trim();
         room.DefaultGame = req.DefaultGame?.Trim() ?? "None";
         room.AutoRestore = req.AutoRestore;

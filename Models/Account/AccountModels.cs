@@ -25,6 +25,7 @@
         public sealed record PortalRoomDto(
             string RoomId,
             string RoomName,
+            string RoomCode,
             string? Description,
             string DefaultGame,
             bool AutoRestore,
