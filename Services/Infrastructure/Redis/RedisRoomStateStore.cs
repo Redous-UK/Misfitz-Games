@@ -1,5 +1,5 @@
-﻿using Misfitz_Games.Data;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
+using Misfitz_Games.Data;
 using Misfitz_Games.Models;
 using Misfitz_Games.Models.Games;
 using Misfitz_Games.Services.Room;
@@ -285,11 +285,10 @@ public sealed class RedisRoomStateStore(IServiceScopeFactory scopeFactory, Redis
 
             await db.HashSetAsync(
                 LeaderboardUserKey(update.RoomId, userId),
-                new[]
-                {
+                [
                     new HashEntry("username", username),
                     new HashEntry("updatedAtUtc", DateTimeOffset.UtcNow.ToString("O"))
-                }
+                ]
             ).ConfigureAwait(false);
         }
 
