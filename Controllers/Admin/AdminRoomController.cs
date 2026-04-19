@@ -17,15 +17,21 @@ public class AdminRoomsController(IRoomStateStore store, RoomBroadcastService br
             return NotFound(new { ok = false, error = "Room not found." });
         }
 
+        var closed = await store.MarkRoomInactiveAsync(roomId.Value, ct);
+
+        if (!closed)
+        {
+            return NotFound(new { ok = false, error = "Room not found." });
+        }
+
         await broadcaster.BroadcastRoomClosedAsync(roomId.Value, ct);
-        var removed = await store.DeleteRoomAsync(roomId.Value, ct);
 
         return Ok(new
         {
             ok = true,
             roomRef = roomRef.Trim().ToUpperInvariant(),
             roomId = roomId.Value,
-            removed
+            status = "inactive"
         });
     }
 }

@@ -13,6 +13,7 @@ public interface IRoomStateStore
 
     Task<Guid?> ResolveRoomIdAsync(string roomRef, CancellationToken ct = default);
     Task<bool> TryReserveRoomCodeAsync(string roomCode, Guid roomId, CancellationToken ct = default);
+    Task<bool> MarkRoomInactiveAsync(Guid roomId, CancellationToken ct = default);
     Task ReleaseRoomCodeAsync(string roomCode, CancellationToken ct = default);
 
     Task AddToLeaderboardAsync(LeaderboardUpdate update, CancellationToken ct = default);

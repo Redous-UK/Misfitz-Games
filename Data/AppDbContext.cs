@@ -83,7 +83,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasIndex(x => new { x.RoomId, x.Status });
 
         modelBuilder.Entity<RiddleCatalog>()
-            .ToTable("RiddleCatalogs")
+            .ToTable("RiddleCatalog")
             .HasIndex(x => new { x.Id })
             .IsUnique();
 

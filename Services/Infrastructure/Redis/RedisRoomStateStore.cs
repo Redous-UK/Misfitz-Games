@@ -156,9 +156,24 @@ public sealed class RedisRoomStateStore(IServiceScopeFactory scopeFactory, Redis
         // 1. Try Redis room-code mapping first
         var mapped = await redis.StringGetAsync(RoomCodeKey(roomRef)).ConfigureAwait(false);
         if (!mapped.IsNullOrEmpty && Guid.TryParse(mapped.ToString(), out var mappedRoomId))
-            return mappedRoomId;
+        {
+            using var scope = scopeFactory.CreateScope();
+            var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        // 2. Try direct room Guid against SQL, then rehydrate Redis
+            var isActive = await appDb.Rooms
+                .AsNoTracking()
+                .AnyAsync(r => r.Id == mappedRoomId && r.IsActive, ct)
+                .ConfigureAwait(false);
+
+            if (isActive)
+                return mappedRoomId;
+
+            // stale redis mapping for inactive room
+            await redis.KeyDeleteAsync(RoomCodeKey(roomRef)).ConfigureAwait(false);
+            return null;
+        }
+
+        // 2. Try direct room Guid
         if (Guid.TryParse(roomRef, out var guid))
         {
             using var scope = scopeFactory.CreateScope();
@@ -166,20 +181,21 @@ public sealed class RedisRoomStateStore(IServiceScopeFactory scopeFactory, Redis
 
             var exists = await appDb.Rooms
                 .AsNoTracking()
-                .AnyAsync(r => r.Id == guid, ct)
+                .AnyAsync(r => r.Id == guid && r.IsActive, ct)
                 .ConfigureAwait(false);
 
             if (exists)
                 return guid;
         }
 
-        // 3. Try SQL by code, then rehydrate Redis mapping
+        // 3. Try SQL by code, active only, then rehydrate Redis mapping
         using (var scope = scopeFactory.CreateScope())
         {
             var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
             var roomId = await appDb.Rooms
-                .Where(r => r.Code == roomRef)
+                .AsNoTracking()
+                .Where(r => r.Code == roomRef && r.IsActive)
                 .Select(r => (Guid?)r.Id)
                 .FirstOrDefaultAsync(ct)
                 .ConfigureAwait(false);
@@ -545,5 +561,41 @@ public sealed class RedisRoomStateStore(IServiceScopeFactory scopeFactory, Redis
         }
 
         return deleted;
+    }
+
+    public async Task<bool> MarkRoomInactiveAsync(Guid roomId, CancellationToken ct = default)
+    {
+        using (var scope = scopeFactory.CreateScope())
+        {
+            var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var roomEntity = await appDb.Rooms
+                .FirstOrDefaultAsync(r => r.Id == roomId, ct)
+                .ConfigureAwait(false);
+
+            if (roomEntity is null)
+                return false;
+
+            roomEntity.IsActive = false;
+            await appDb.SaveChangesAsync(ct).ConfigureAwait(false);
+        }
+
+        var redis = await DbAsync().ConfigureAwait(false);
+
+        var room = await GetRoomAsync(roomId, ct).ConfigureAwait(false);
+
+        await redis.SortedSetRemoveAsync(RoomsIndexKey, roomId.ToString("D")).ConfigureAwait(false);
+
+        await redis.KeyDeleteAsync(
+        [
+        RoomKey(roomId),
+        StateKey(roomId),
+        RoomStatsKey(roomId)
+        ]).ConfigureAwait(false);
+
+        if (room is not null && !string.IsNullOrWhiteSpace(room.RoomCode))
+            await redis.KeyDeleteAsync(RoomCodeKey(room.RoomCode)).ConfigureAwait(false);
+
+        return true;
     }
 }
