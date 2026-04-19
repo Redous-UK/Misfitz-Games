@@ -5,6 +5,7 @@ using Misfitz_Games.Models.Games;
 using Misfitz_Games.Services.Room;
 using StackExchange.Redis;
 using System.Text.Json;
+using System.Xml;
 
 namespace Misfitz_Games.Services.Infrastructure.Redis;
 
@@ -117,11 +118,21 @@ public sealed class RedisRoomStateStore(IServiceScopeFactory scopeFactory, Redis
         var state = JsonSerializer.Deserialize<RoomState>(json!, JsonOpts);
         if (state is null) return null;
 
-        if (state.ActiveGame == GameType.Contexto && state.GameState is JsonElement je)
+        if (state.GameState is JsonElement je)
         {
-            var cs = je.Deserialize<ContextoState>(JsonOpts);
-            if (cs is not null)
-                state = state with { GameState = cs };
+            object? typedState = state.ActiveGame switch
+            {
+                GameType.Contexto => je.Deserialize<ContextoState>(JsonOpts),
+                GameType.Hangman => je.Deserialize<HangmanState>(JsonOpts),
+                //GameType.Trivia => je.Deserialize<TriviaState>(JsonOpts),
+                GameType.HigherLower => je.Deserialize<HigherLowerState>(JsonOpts),
+                GameType.RiddleMeThis => je.Deserialize<RiddleMeThisState>(JsonOpts),
+                //GameType.Deal => je.Deserialize<DealState>(JsonOpts),
+                _ => null
+            };
+
+            if (typedState is not null)
+                state = state with { GameState = typedState };
         }
 
         return state;
