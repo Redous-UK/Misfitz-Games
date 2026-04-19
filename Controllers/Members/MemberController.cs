@@ -17,7 +17,7 @@ public class MemberController(AppDbContext db, IRoomStateStore store) : Controll
     private readonly IRoomStateStore _store = store;
 
     public record RegisterReq(string Name, string Password);
-    public record LoginReq(string Name, string Password, bool RememberMe);
+    public record LoginReq(string Name, string Password, bool RememberMe = true);
 
     // -------- Room helpers --------
     private static string NewNumericCode()
