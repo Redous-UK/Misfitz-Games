@@ -246,7 +246,77 @@ public static class Program
             Console.WriteLine("[SITE] Sync skipped (non-persistent environment).");
         }
 
-        // NOTE: Removed BootstrapSite() here to avoid conflicting with the sync logic.
+        // ===================== Bootstrap =====================
+
+        // ===================== Bootstrap admin endpoints =====================
+        var enableBootstrapAdmin =
+            app.Environment.IsDevelopment() ||
+            string.Equals(builder.Configuration["ENABLE_BOOTSTRAP_ADMIN"], "true", StringComparison.OrdinalIgnoreCase);
+
+        var bootstrapKey = builder.Configuration["ADMIN_BOOTSTRAP_KEY"] ?? "";
+
+        var bootstrap = app.MapGroup("/bootstrap");
+
+        bootstrap.MapGet("/users", async (string key, AppDbContext db) =>
+        {
+            if (!enableBootstrapAdmin)
+                return Results.NotFound(new { ok = false, error = "Bootstrap endpoint disabled." });
+
+            if (string.IsNullOrWhiteSpace(bootstrapKey) || key != bootstrapKey)
+                return Results.Unauthorized();
+
+            var users = await db.Users
+                .AsNoTracking()
+                .OrderBy(x => x.Username)
+                .Select(x => new
+                {
+                    id = x.Id,
+                    username = x.Username,
+                    role = x.Role,
+                    createdUtc = x.CreatedUtc,
+                    lastLoginUtc = x.LastLoginUtc
+                })
+                .ToListAsync();
+
+            return Results.Json(new { ok = true, users });
+        });
+
+        bootstrap.MapPost("/users/{id:guid}/role", async (Guid id, string key, HttpContext ctx, AppDbContext db) =>
+        {
+            if (!enableBootstrapAdmin)
+                return Results.NotFound(new { ok = false, error = "Bootstrap endpoint disabled." });
+
+            if (string.IsNullOrWhiteSpace(bootstrapKey) || key != bootstrapKey)
+                return Results.Unauthorized();
+
+            using var doc = await JsonDocument.ParseAsync(ctx.Request.Body);
+
+            if (!doc.RootElement.TryGetProperty("role", out var roleProp))
+                return Results.BadRequest(new { ok = false, error = "Missing role." });
+
+            var role = (roleProp.GetString() ?? "").Trim().ToLowerInvariant();
+
+            if (role is not ("guest" or "member" or "admin"))
+                return Results.BadRequest(new { ok = false, error = "Invalid role." });
+
+            var user = await db.Users.FirstOrDefaultAsync(x => x.Id == id);
+            if (user is null)
+                return Results.NotFound(new { ok = false, error = "User not found." });
+
+            user.Role = role;
+            await db.SaveChangesAsync();
+
+            return Results.Json(new
+            {
+                ok = true,
+                user = new
+                {
+                    id = user.Id,
+                    username = user.Username,
+                    role = user.Role
+                }
+            });
+        });
 
         // ===================== Pipeline =====================
         app.UseForwardedHeaders(new ForwardedHeadersOptions
