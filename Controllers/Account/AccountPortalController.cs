@@ -85,6 +85,7 @@ public class AccountPortalController(AppDbContext db) : ControllerBase
                 AllowGuests: room.AllowGuests,
                 OverlaysEnabled: room.OverlaysEnabled,
                 IsPrivate: room.IsPrivate,
+                IsActive : room.IsActive,
                 PortalPath: $"/play.html?roomRef={room.Code}"
             ),
             Preferences: new PortalPreferencesDto(
@@ -153,6 +154,7 @@ public class AccountPortalController(AppDbContext db) : ControllerBase
         room.AllowGuests = req.AllowGuests;
         room.OverlaysEnabled = req.OverlaysEnabled;
         room.IsPrivate = req.IsPrivate;
+        room.IsActive = req.IsActive;
         room.LastActiveUtc = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(ct);

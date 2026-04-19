@@ -32,6 +32,7 @@
             bool AllowGuests,
             bool OverlaysEnabled,
             bool IsPrivate,
+            bool IsActive,
             string PortalPath
         );
 
@@ -68,7 +69,8 @@
             bool AutoRestore,
             bool AllowGuests,
             bool OverlaysEnabled,
-            bool IsPrivate
+            bool IsPrivate,
+            bool IsActive
         );
 
         public sealed record SavePortalPreferencesRequest(
