@@ -5,7 +5,7 @@
 
         public sealed record PortalStateDto(
     PortalUserDto User,
-    PortalRoomDto Room,
+    PortalRoomDto? Room,
     PortalPreferencesDto Preferences
 );
 

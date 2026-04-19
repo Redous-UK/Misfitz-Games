@@ -92,11 +92,6 @@
     let portalPath = "";
 
     function renderOverview(data) {
-        portalPath = data.room?.portalPath || "";
-        setText("heroRoomPath", portalPath);
-    }
-
-    function renderOverview(data) {
         const displayName = data.user?.displayName || data.user?.username || "User";
         const bio = data.user?.bio || "Owner of one persistent room with account-linked settings, stream profile, and gameplay preferences.";
         const email = data.user?.email || "-";

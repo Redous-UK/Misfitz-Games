@@ -55,12 +55,48 @@ public class AccountPortalController(AppDbContext db) : ControllerBase
         if (user is null)
             return NotFound(new { error = "No user is found." });
 
+        // Guests can access the portal, but they should never auto-own or auto-load a room.
+        if (string.Equals(user.Role, "guest", StringComparison.OrdinalIgnoreCase))
+        {
+            var guestDto = new PortalStateDto(
+                User: new PortalUserDto(
+                    UserId: user.Id.ToString(),
+                    Email: user.Email,
+                    DisplayName: user.DisplayName ?? user.Username,
+                    Username: user.Username,
+                    Bio: user.Bio,
+                    AvatarUrl: user.AvatarUrl,
+                    IsProfilePublic: user.IsProfilePublic,
+                    ShowAvatarInRoom: user.ShowAvatarInRoom,
+                    ShowOnlineStatus: user.ShowOnlineStatus,
+                    Role: user.Role
+                ),
+                Room: null,
+                Preferences: new PortalPreferencesDto(
+                    EmailAlerts: user.EmailAlerts,
+                    SecurityAlerts: user.SecurityAlerts,
+                    GameReminders: user.GameReminders,
+                    DigestFrequency: user.DigestFrequency,
+                    Timezone: user.Timezone,
+                    Theme: user.Theme,
+                    Accent: user.Accent,
+                    CompactLayout: user.CompactLayout,
+                    ShowTips: user.ShowTips,
+                    PublicRoomListing: user.PublicRoomListing,
+                    ShowGameplayStats: user.ShowGameplayStats
+                )
+            );
+
+            return Ok(guestDto);
+        }
+
+        // Only use the current active room. If historical duplicates exist, prefer the most recent active one.
         var room = await _db.Rooms
             .AsNoTracking()
-            .SingleOrDefaultAsync(x => x.OwnerUserId == userGuid, ct);
-
-        if (room is null)
-            return NotFound(new { error = "No room linked to this account." });
+            .Where(x => x.OwnerUserId == userGuid && x.IsActive)
+            .OrderByDescending(x => x.LastActiveUtc)
+            .ThenByDescending(x => x.CreatedUtc)
+            .FirstOrDefaultAsync(ct);
 
         var dto = new PortalStateDto(
             User: new PortalUserDto(
@@ -75,19 +111,21 @@ public class AccountPortalController(AppDbContext db) : ControllerBase
                 ShowOnlineStatus: user.ShowOnlineStatus,
                 Role: user.Role
             ),
-            Room: new PortalRoomDto(
-                RoomId: room.Id.ToString(),
-                RoomName: room.Name,
-                RoomCode: room.Code,
-                Description: room.Description,
-                DefaultGame: room.DefaultGame,
-                AutoRestore: room.AutoRestore,
-                AllowGuests: room.AllowGuests,
-                OverlaysEnabled: room.OverlaysEnabled,
-                IsPrivate: room.IsPrivate,
-                IsActive : room.IsActive,
-                PortalPath: $"/play.html?roomRef={room.Code}"
-            ),
+            Room: room is null
+                ? null
+                : new PortalRoomDto(
+                    RoomId: room.Id.ToString(),
+                    RoomName: room.Name,
+                    RoomCode: room.Code,
+                    Description: room.Description,
+                    DefaultGame: room.DefaultGame,
+                    AutoRestore: room.AutoRestore,
+                    AllowGuests: room.AllowGuests,
+                    OverlaysEnabled: room.OverlaysEnabled,
+                    IsPrivate: room.IsPrivate,
+                    IsActive: room.IsActive,
+                    PortalPath: $"/play.html?roomRef={room.Code}"
+                ),
             Preferences: new PortalPreferencesDto(
                 EmailAlerts: user.EmailAlerts,
                 SecurityAlerts: user.SecurityAlerts,
@@ -143,9 +181,21 @@ public class AccountPortalController(AppDbContext db) : ControllerBase
         if (!Guid.TryParse(userGuidValue, out var userGuid))
             return Unauthorized(new { error = "Invalid user id." });
 
-        var room = await _db.Rooms.FirstOrDefaultAsync(x => x.OwnerUserId == userGuid, ct);
+        var user = await _db.Users.FirstOrDefaultAsync(x => x.Id == userGuid, ct);
+        if (user is null)
+            return NotFound(new { error = "User not found." });
+
+        if (string.Equals(user.Role, "guest", StringComparison.OrdinalIgnoreCase))
+            return Forbid();
+
+        var room = await _db.Rooms
+            .Where(x => x.OwnerUserId == userGuid && x.IsActive)
+            .OrderByDescending(x => x.LastActiveUtc)
+            .ThenByDescending(x => x.CreatedUtc)
+            .FirstOrDefaultAsync(ct);
+
         if (room is null)
-            return NotFound(new { error = "Room not found." });
+            return NotFound(new { error = "Active room not found." });
 
         room.Name = req.RoomName?.Trim() ?? "";
         room.Description = req.Description?.Trim();
