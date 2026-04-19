@@ -17,7 +17,7 @@ public class MemberController(AppDbContext db, IRoomStateStore store) : Controll
     private readonly IRoomStateStore _store = store;
 
     public record RegisterReq(string Name, string Password);
-    public record LoginReq(string Name, string Password);
+    public record LoginReq(string Name, string Password, bool RememberMe);
 
     // -------- Room helpers --------
     private static string NewNumericCode()
@@ -110,47 +110,60 @@ public class MemberController(AppDbContext db, IRoomStateStore store) : Controll
         var nameUpper = name.ToUpperInvariant();
 
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Username.ToUpper() == nameUpper, ct);
-        if (user == null) return Unauthorized(new { ok = false, error = "Invalid credentials." });
+        if (user == null)
+            return Unauthorized(new { ok = false, error = "Invalid credentials." });
 
         if (!PasswordHasher.Verify(req.Password ?? "", user.PasswordHash, user.PasswordSalt))
             return Unauthorized(new { ok = false, error = "Invalid credentials." });
 
         user.LastLoginUtc = DateTimeOffset.UtcNow;
 
-        // ✅ Reuse existing room if we have one AND it still exists
         Guid? roomId = null;
         string? roomCode = null;
 
-        if (!string.IsNullOrWhiteSpace(user.HomeRoomCode))
+        var role = (user.Role ?? "guest").Trim().ToLowerInvariant();
+        var canOwnRoom = role is "member" or "admin";
+
+        if (canOwnRoom)
         {
-            roomCode = user.HomeRoomCode;
-            roomId = await _store.ResolveRoomIdAsync(roomCode, ct); // your store already supports this
-            if (roomId == null)
+            // Reuse existing room if we have one AND it still exists
+            if (!string.IsNullOrWhiteSpace(user.HomeRoomCode))
             {
-                // room vanished / cleared -> recreate
-                roomCode = null;
+                roomCode = user.HomeRoomCode;
+                roomId = await _store.ResolveRoomIdAsync(roomCode, ct);
+
+                if (roomId == null)
+                {
+                    // room vanished / cleared -> recreate
+                    roomCode = null;
+                }
+            }
+
+            // Create only for member/admin, never for guests
+            if (roomCode == null)
+            {
+                var created = await CreateRoomForUserAsync(user.Username, ct);
+                roomId = created.roomId;
+                roomCode = created.roomCode;
+
+                user.HomeRoomCode = roomCode;
             }
         }
-
-        if (roomCode == null)
+        else
         {
-            var created = await CreateRoomForUserAsync(user.Username, ct);
-            roomId = created.roomId;
-            roomCode = created.roomCode;
-
-            user.HomeRoomCode = roomCode;
+            // Guests must never carry or create a home room
+            user.HomeRoomCode = null;
         }
 
         await _db.SaveChangesAsync(ct);
 
         var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new(ClaimTypes.Name, user.Username ?? user.Name ?? ""),
-            new(ClaimTypes.Role, user.Role ?? "member"),
-
-            new("userId", user.Id.ToString())
-        };
+    {
+        new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+        new(ClaimTypes.Name, user.Username ?? user.Name ?? ""),
+        new(ClaimTypes.Role, user.Role ?? "guest"),
+        new("userId", user.Id.ToString())
+    };
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);
@@ -158,7 +171,7 @@ public class MemberController(AppDbContext db, IRoomStateStore store) : Controll
         await HttpContext.SignInAsync(
             CookieAuthenticationDefaults.AuthenticationScheme,
             principal,
-            new AuthenticationProperties { IsPersistent = true }
+            new AuthenticationProperties { IsPersistent = req.RememberMe }
         );
 
         return Ok(new
