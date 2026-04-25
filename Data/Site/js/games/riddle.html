@@ -1,10 +1,25 @@
-﻿<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8" />
-    <title></title>
-</head>
-<body>
-    This is riddle me this!
-</body>
-</html>
+﻿<div class="card">
+    <h2>Riddle Me This</h2>
+
+    <div class="row">
+        <select id="rmtCategory">
+            <option value="">Any Category</option>
+        </select>
+        <button id="btnRmtStart" type="button">Start</button>
+    </div>
+
+    <div id="rmtQuestion">No riddle loaded</div>
+
+    <div class="row">
+        <button id="btnRmtNext" type="button">Next</button>
+        <button id="btnRmtReveal" type="button">Reveal</button>
+        <button id="btnRmtRefresh" type="button">Refresh</button>
+    </div>
+
+    <pre id="rmtOut">Waiting for riddle...</pre>
+</div>
+
+<div class="card">
+    <h2>Riddle State</h2>
+    <pre id="stateOutRiddle">Waiting for state...</pre>
+</div>

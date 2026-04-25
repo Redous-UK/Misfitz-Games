@@ -1,10 +1,17 @@
-﻿<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8" />
-    <title></title>
-</head>
-<body>
-    This is hangman!
-</body>
-</html>
+﻿<div class="card">
+    <h2>Hangman</h2>
+
+    <div id="hangmanBoard">
+        <p>Game not started</p>
+    </div>
+
+    <div class="row">
+        <input id="hangmanGuessInput" maxlength="1" placeholder="Enter letter" />
+        <button id="hangmanGuessBtn" type="button">Guess</button>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Hangman State</h2>
+    <pre id="stateOutHangman">Waiting for state...</pre>
+</div>
