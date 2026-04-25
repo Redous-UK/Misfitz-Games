@@ -21,24 +21,12 @@ export async function loadGamePanels(containerId = "gamePanels") {
             continue;
         }
 
-        const html = await res.text();
-
         const wrapper = document.createElement("section");
-        wrapper.className = "game-panel";
-        wrapper.dataset.panel = gameId;
         wrapper.id = `panel-${gameId}`;
-        wrapper.innerHTML = html;
+        wrapper.className = "game-panel";
+        wrapper.hidden = true;
+        wrapper.innerHTML = await res.text();
 
         container.appendChild(wrapper);
     }
-}
-
-export function showOnlyPanel(gameId) {
-    document.querySelectorAll(".game-panel").forEach(panel => {
-        panel.classList.toggle("active", panel.dataset.panel === gameId);
-    });
-}
-
-export function panelExists(gameId) {
-    return !!document.querySelector(`.game-panel[data-panel="${gameId}"]`);
 }

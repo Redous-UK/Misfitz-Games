@@ -3,7 +3,7 @@ import { api } from "../core/api.js";
 import { setStatus, setGameBadge } from "../core/badges.js";
 import { showOnlyPanel, panelExists, normalizeGameId } from "../core/router.js";
 import { fetchRoomState, fetchStats, fetchLeaderboard, postPresence } from "../core/roomClient.js";
-import { loadGamePanels, showOnlyPanel, panelExists } from "../core/panelLoader.js";
+import { loadGamePanels } from "../core/panelLoader.js";
 
 import { bindContexto, renderContexto } from "../games/contexto.js";
 import { bindHangman, renderHangman } from "../games/hangman.js";
