@@ -3,6 +3,7 @@ import { api } from "../core/api.js";
 import { setStatus, setGameBadge } from "../core/badges.js";
 import { showOnlyPanel, panelExists, normalizeGameId } from "../core/router.js";
 import { fetchRoomState, fetchStats, fetchLeaderboard, postPresence } from "../core/roomClient.js";
+import { loadGamePanels, showOnlyPanel, panelExists } from "./core/panelLoader.js";
 
 import { bindContexto, renderContexto } from "../games/contexto.js";
 import { bindHangman, renderHangman } from "../games/hangman.js";
@@ -369,11 +370,14 @@ window.addEventListener("DOMContentLoaded", async () => {
         if (!me) return;
 
         wireTopLevel();
+
+        await loadGamePanels();
+
         bindAllGames();
 
         const qs = new URLSearchParams(location.search);
         const qRoom = qs.get("roomRef") || qs.get("roomId") || "";
-        const qGame = (qs.get("game") || "contexto").toLowerCase();
+        const qGame = normalizeGameId(qs.get("game") || "contexto");
 
         state.selectedGame = qGame;
         showOnlyPanel(state.selectedGame);
@@ -383,7 +387,8 @@ window.addEventListener("DOMContentLoaded", async () => {
             if (roomRef) roomRef.value = qRoom;
             await join();
         }
-    } catch {
+    } catch (err) {
+        console.error("play boot failed", err);
         location.href = "/login.html";
     }
 });
