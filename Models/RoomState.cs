@@ -14,8 +14,10 @@ public enum GameType
 public sealed record RoomState(
     Guid RoomId,
     string RoomName,
+    string RoomCode,
     GameType ActiveGame,
     object? GameState,
+    DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc,
     List<PlayerPresence>? Players = null,
     string? HostUserId = null

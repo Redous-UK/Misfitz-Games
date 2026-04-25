@@ -86,12 +86,33 @@ public class RoomsController(IRoomStateStore store, RoomBroadcastService broadca
     public async Task<IActionResult> State(string roomRef, CancellationToken ct)
     {
         var roomId = await store.ResolveRoomIdAsync(roomRef, ct);
-        if (roomId is null) return NotFound(new { error = "Room not found." });
+        if (roomId is null)
+            return NotFound(new { error = "Room not found." });
 
-        var room = await store.GetStateAsync(roomId.Value, ct);
-        if (room is null) return NotFound(new { error = "Room state not found." });
+        var state = await store.GetStateAsync(roomId.Value, ct);
 
-        var pub = RoomStateProjector.ToPublic(room);
+        if (state is null)
+        {
+            var room = await store.GetRoomAsync(roomId.Value, ct);
+
+            if (room is null)
+                return NotFound(new { error = "Room meta not found." });
+
+            state = new RoomState(
+                RoomId: room.RoomId,
+                RoomCode: room.RoomCode,
+                RoomName: room.Name,
+                Players: [],
+                ActiveGame: GameType.None,
+                GameState: null,
+                CreatedAtUtc: room.CreatedAtUtc,
+                UpdatedAtUtc: DateTimeOffset.UtcNow
+            );
+
+            await store.SaveStateAsync(state, ct);
+        }
+
+        var pub = RoomStateProjector.ToPublic(state);
         return Ok(new { state = pub });
     }
 
