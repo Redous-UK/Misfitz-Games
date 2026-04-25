@@ -3,8 +3,7 @@
     trivia: "/js/games/trivia.html",
     hangman: "/js/games/hangman.html",
     higher_lower: "/js/games/higherlower.html",
-    riddle_me_this: "/js/games/riddle.html",
-    deal: "/js/games/deal.html"
+    riddle_me_this: "/js/games/riddle.html"
 };
 
 export async function loadGamePanels(containerId = "gamePanels") {
