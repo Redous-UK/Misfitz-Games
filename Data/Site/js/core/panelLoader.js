@@ -1,10 +1,10 @@
 ﻿const panelFiles = {
-    contexto: "./js/games/contexto.html",
-    trivia: "./js/games/trivia.html",
-    hangman: "./js/games/hangman.html",
-    higherlower: "./js/games/higherlower.html",
-    riddle_me_this: "./js/games/riddle.html",
-    deal: "./js/games/deal.html"
+    contexto: "/js/games/contexto.html",
+    trivia: "/js/games/trivia.html",
+    hangman: "/js/games/hangman.html",
+    higher_lower: "/js/games/higherlower.html",
+    riddle_me_this: "/js/games/riddle.html",
+    deal: "/js/games/deal.html"
 };
 
 export async function loadGamePanels(containerId = "gamePanels") {
@@ -17,7 +17,7 @@ export async function loadGamePanels(containerId = "gamePanels") {
         const res = await fetch(url, { credentials: "include" });
 
         if (!res.ok) {
-            console.warn(`Failed to load panel ${gameId}: ${res.status}`);
+            console.warn(`Failed to load panel ${gameId}: ${res.status} ${url}`);
             continue;
         }
 
