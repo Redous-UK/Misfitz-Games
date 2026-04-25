@@ -1,10 +1,10 @@
 ﻿const panelFiles = {
-    contexto: "/partials/games/contexto.html",
-    trivia: "/partials/games/trivia.html",
-    hangman: "/partials/games/hangman.html",
-    higherlower: "/partials/games/higherlower.html",
-    riddle_me_this: "/partials/games/riddle-me-this.html",
-    deal: "/partials/games/deal.html"
+    contexto: "../games/contexto.html",
+    trivia: "../games/trivia.html",
+    hangman: "../games/hangman.html",
+    higherlower: "../games/higherlower.html",
+    riddle_me_this: "../games/riddle-me-this.html",
+    deal: "../games/deal.html"
 };
 
 export async function loadGamePanels(containerId = "gamePanels") {
