@@ -55,9 +55,11 @@ public class MemberController(AppDbContext db, IRoomStateStore store) : Controll
             var state = new RoomState(
                 RoomId: room.RoomId,
                 RoomName: room.Name,
+                RoomCode: room.RoomCode,
                 ActiveGame: GameType.None,
                 GameState: null,
-                UpdatedAtUtc: DateTimeOffset.UtcNow
+                UpdatedAtUtc: DateTimeOffset.UtcNow,
+                CreatedAtUtc: DateTimeOffset.UtcNow
             );
 
             await _store.SaveStateAsync(state, ct);
