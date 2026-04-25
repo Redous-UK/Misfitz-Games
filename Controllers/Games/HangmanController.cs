@@ -33,9 +33,11 @@ public sealed class HangmanController(
             room = new RoomState(
                 RoomId: meta.RoomId,
                 RoomName: meta.Name,
+                RoomCode: meta.RoomCode,
                 ActiveGame: GameType.None,
                 GameState: null,
                 UpdatedAtUtc: DateTimeOffset.UtcNow,
+                CreatedAtUtc: DateTimeOffset.UtcNow,
                 Players: [],
                 HostUserId: null
             );
@@ -54,7 +56,8 @@ public sealed class HangmanController(
         {
             ActiveGame = GameType.Hangman,
             GameState = hangman,
-            UpdatedAtUtc = DateTimeOffset.UtcNow
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            CreatedAtUtc = DateTimeOffset.UtcNow
         };
 
         await SaveRoomStateAsync(roomId.Value, updated, ct);

@@ -35,7 +35,8 @@ public sealed class HigherLowerController(
         {
             ActiveGame = GameType.HigherLower,
             GameState = round,
-            UpdatedAtUtc = DateTimeOffset.UtcNow
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            CreatedAtUtc = DateTimeOffset.UtcNow
         };
 
         await SaveRoomStateAsync(roomId, updated, ct);
@@ -84,7 +85,8 @@ public sealed class HigherLowerController(
         var updated = room with
         {
             GameState = round,
-            UpdatedAtUtc = DateTimeOffset.UtcNow
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            CreatedAtUtc = DateTimeOffset.UtcNow
         };
 
         await SaveRoomStateAsync(roomId, updated, ct);
@@ -132,7 +134,8 @@ public sealed class HigherLowerController(
         var updated = room with
         {
             GameState = round,
-            UpdatedAtUtc = DateTimeOffset.UtcNow
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            CreatedAtUtc = DateTimeOffset.UtcNow
         };
 
         await SaveRoomStateAsync(roomId, updated, ct);
@@ -158,7 +161,8 @@ public sealed class HigherLowerController(
         {
             ActiveGame = GameType.None,
             GameState = null,
-            UpdatedAtUtc = DateTimeOffset.UtcNow
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            CreatedAtUtc = DateTimeOffset.UtcNow
         };
 
         await SaveRoomStateAsync(roomId, updated, ct);

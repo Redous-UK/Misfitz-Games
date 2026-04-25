@@ -128,9 +128,11 @@ public sealed class ContextoController(
             room = new RoomState(
                 RoomId: meta.RoomId,
                 RoomName: meta.Name,
+                RoomCode: meta.RoomCode,
                 ActiveGame: GameType.None,
                 GameState: null,
                 UpdatedAtUtc: DateTimeOffset.UtcNow,
+                CreatedAtUtc: DateTimeOffset.UtcNow,
                 Players: [],
                 HostUserId: null
             );
@@ -141,7 +143,8 @@ public sealed class ContextoController(
         {
             ActiveGame = GameType.Contexto,
             GameState = cs,
-            UpdatedAtUtc = DateTimeOffset.UtcNow
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            CreatedAtUtc = room.CreatedAtUtc
         };
 
         await SaveRoomStateAsync(roomId.Value, next, ct);
@@ -177,9 +180,11 @@ public sealed class ContextoController(
             room = new RoomState(
                 RoomId: meta.RoomId,
                 RoomName: meta.Name,
+                RoomCode: meta.RoomCode,
                 ActiveGame: GameType.None,
                 GameState: null,
                 UpdatedAtUtc: DateTimeOffset.UtcNow,
+                CreatedAtUtc: DateTimeOffset.UtcNow,
                 Players: [],
                 HostUserId: null
             );
@@ -191,7 +196,8 @@ public sealed class ContextoController(
         {
             ActiveGame = GameType.Contexto,
             GameState = cs,
-            UpdatedAtUtc = DateTimeOffset.UtcNow
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            CreatedAtUtc = room.CreatedAtUtc
         };
 
         await SaveRoomStateAsync(roomId.Value, next, ct);
