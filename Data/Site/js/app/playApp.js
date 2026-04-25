@@ -12,8 +12,8 @@ import { bindHigherLower, renderHigherLower } from "../games/higherlower.js";
 import { bindRiddleMeThis, renderRiddleMeThis } from "../games/riddle.js";
 
 
-const POLL_MS = 1200;
-const PRESENCE_MS = 5000;
+const POLL_MS = 10000;
+const PRESENCE_MS = 10000;
 
 const state = {
     myUserId: null,
