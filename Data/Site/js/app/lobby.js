@@ -272,15 +272,15 @@ async function loadRooms() {
             const gl = gameLabel(r);
 
             return `
-                                                                                <div class="room-tile" data-code="${esc(code)}">
-                                                                                  <div class="room-title">${esc(name)}</div>
-                                                                                  <div class="room-sub">Code: <b>${esc(code)}</b>${created ? ` • Created: ${esc(created)}` : ""}${pText}</div>
-                                                                                  <div class="room-meta">
-                                                                                    <span class="room-chip ${isActive ? "active" : ""}">${isActive ? "ACTIVE" : "JOIN"}</span>
-                                                                                    <span class="${gl.cls}">${esc(gl.text)}</span>
-                                                                                  </div>
-                                                                                </div>
-                                                                              `;
+                <div class="room-tile" data-code="${esc(code)}">
+                    <div class="room-title">${esc(name)}</div>
+                    <div class="room-sub">Code: <b>${esc(code)}</b>${created ? ` • Created: ${esc(created)}` : ""}${pText}</div>
+                    <div class="room-meta">
+                    <span class="room-chip ${isActive ? "active" : ""}">${isActive ? "ACTIVE" : "JOIN"}</span>
+                    <span class="${gl.cls}">${esc(gl.text)}</span>
+                    </div>
+                </div>
+                `;
         }).join("");
 
         grid.querySelectorAll(".room-tile[data-code]").forEach(tile => {
@@ -357,20 +357,20 @@ function renderPlayers(roomState, currentUserId) {
             : `<span>${esc(initials(name))}</span>`;
 
         return `
-                                                                              <div class="${cardClasses}">
-                                                                                <div class="avatar">${avatar}</div>
-                                                                                <div class="meta">
-                                                                                  <div class="top">
-                                                                                    <div class="name">${esc(name)}</div>
-                                                                                    <div class="badges">${badges}</div>
-                                                                                  </div>
-                                                                                  <div class="bottom">
-                                                                                    <span class="${pillClass}">${esc(pillText)}</span>
-                                                                                    <span class="sub">${esc(p.userId || "")}</span>
-                                                                                  </div>
-                                                                                </div>
-                                                                              </div>
-                                                                            `;
+            <div class="${cardClasses}">
+            <div class="avatar">${avatar}</div>
+            <div class="meta">
+                <div class="top">
+                <div class="name">${esc(name)}</div>
+                <div class="badges">${badges}</div>
+                </div>
+                <div class="bottom">
+                <span class="${pillClass}">${esc(pillText)}</span>
+                <span class="sub">${esc(p.userId || "")}</span>
+                </div>
+            </div>
+            </div>
+        `;
     }).join("");
 }
 
@@ -539,21 +539,21 @@ const GAME_CONTROL_SCHEMAS = {
             { key: "autoNextDelaySeconds", label: "Auto-next delay (s)", type: "number", default: 7, min: 0, max: 30 }
         ]
     },
-    higherlower: {
+    higher_lower: {
         title: "Higher or Lower",
         controls: [
             { key: "difficulty", label: "Difficulty", type: "select", default: "easy", options: ["easy", "medium", "hard"] },
             { key: "numCards", label: "Number of cards", type: "number", default: 5, min: 3, max: 10 }
         ]
     },
-    twentyone: {
+    twenty_one: {
         title: "Twenty One",
         controls: [
             { key: "difficulty", label: "Difficulty", type: "select", default: "easy", options: ["easy", "medium", "hard"] },
             { key: "numCards", label: "Number of cards", type: "number", default: 5, min: 3, max: 10 }
         ]
     },
-    riddlemethis: {
+    riddle_me_this: {
         title: "Riddle Me This",
         controls: [
             { key: "category", label: "Category", type: "select", default: "general", options: ["general", "science", "hard"] },
