@@ -36,7 +36,7 @@ public sealed class RedisRoomStateStore(IServiceScopeFactory scopeFactory, Redis
         return mux.GetDatabase();
     }
 
-    private async Task<AppDbContext> CreateAppDbContextAsync()
+    /*private async Task<AppDbContext> CreateAppDbContextAsync()
     {
         var scope = scopeFactory.CreateScope();
         try
@@ -48,7 +48,7 @@ public sealed class RedisRoomStateStore(IServiceScopeFactory scopeFactory, Redis
             scope.Dispose();
             throw;
         }
-    }
+    }*/
 
     // ----------------------------
     // Room meta
