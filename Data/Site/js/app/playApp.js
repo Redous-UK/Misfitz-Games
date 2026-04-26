@@ -245,6 +245,15 @@ async function refreshAll() {
         renderLeaderboard(lb);
 
         setStatus("Connected", "ok");
+
+        console.log("[RENDER]", {
+            gameIdToRender,
+            key,
+            panelExists: panelExists(key),
+            renderer: !!games[key]?.render,
+            gs
+        });
+
     } catch (e) {
         console.error("refreshAll failed", e);
         setStatus("Offline / Room not found", "bad");
