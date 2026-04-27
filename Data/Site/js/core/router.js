@@ -1,8 +1,10 @@
 ﻿export function normalizeGameId(id) {
     id = String(id ?? "none").trim().toLowerCase();
+
     if (id === "dailytrivia" || id === "daily_trivia") return "trivia";
-    if (id === "higherlower") return "higher_lower";
-    if (id === "riddle" || "riddlemethis" || "riddles") return "riddle_me_this";
+    if (id === "higherlower" || id === "higher-lower") return "higher_lower";
+    if (id === "riddle" || id === "riddlemethis" || id === "riddles") return "riddle_me_this";
+
     return id;
 }
 

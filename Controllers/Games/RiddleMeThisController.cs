@@ -52,7 +52,8 @@ public sealed class RiddleMeThisController(
         {
             ActiveGame = GameType.RiddleMeThis,
             GameState = st,
-            UpdatedAtUtc = DateTimeOffset.UtcNow
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            CreatedAtUtc = DateTimeOffset.UtcNow
         };
 
         await SaveRoomStateAsync(roomId, next, ct);
@@ -109,7 +110,8 @@ public sealed class RiddleMeThisController(
         var nextRoom = room with
         {
             GameState = nextSt,
-            UpdatedAtUtc = DateTimeOffset.UtcNow
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            CreatedAtUtc = DateTimeOffset.UtcNow
         };
 
         await SaveRoomStateAsync(roomId, nextRoom, ct);
@@ -198,7 +200,8 @@ public sealed class RiddleMeThisController(
         var nextRoom = room with
         {
             GameState = nextSt,
-            UpdatedAtUtc = DateTimeOffset.UtcNow
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            CreatedAtUtc = DateTimeOffset.UtcNow
         };
 
         await SaveRoomStateAsync(roomId, nextRoom, ct);

@@ -70,6 +70,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasIndex(x => new { x.OwnerUserId, x.Code }).IsUnique();
             e.Property(x => x.Code).HasMaxLength(16);
             e.Property(x => x.Name).HasMaxLength(64);
+            e.Property(x => x.IsActive)
+                .HasDefaultValue(true);
+
         });
 
         modelBuilder.Entity<UserIdMap>()
@@ -80,7 +83,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasIndex(x => new { x.RoomId, x.Status });
 
         modelBuilder.Entity<RiddleCatalog>()
-            .ToTable("RiddleCatalogs")
+            .ToTable("RiddleCatalog")
             .HasIndex(x => new { x.Id })
             .IsUnique();
 

@@ -256,7 +256,7 @@ namespace Misfitz_Games.Migrations
                     b.HasIndex("Id")
                         .IsUnique();
 
-                    b.ToTable("RiddleCatalogs");
+                    b.ToTable("RiddleCatalog", (string)null);
                 });
 
             modelBuilder.Entity("Misfitz_Games.Models.Games.RiddlePlayerStats", b =>
@@ -427,6 +427,9 @@ namespace Misfitz_Games.Migrations
                     b.Property<bool>("AutoRestore")
                         .HasColumnType("INTEGER");
 
+                    b.Property<DateTimeOffset?>("ClosedAtUtc")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -441,6 +444,11 @@ namespace Misfitz_Games.Migrations
 
                     b.Property<string>("Description")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
 
                     b.Property<bool>("IsPrivate")
                         .HasColumnType("INTEGER");
@@ -457,10 +465,6 @@ namespace Misfitz_Games.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<Guid>("OwnerUserId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Slug")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");

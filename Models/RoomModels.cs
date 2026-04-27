@@ -53,19 +53,18 @@ public sealed class Room
 {
     public Guid Id { get; set; }
     public Guid OwnerUserId { get; set; }
-
     public string Name { get; set; } = "";
     public string Code { get; set; } = "";
     public string? Description { get; set; }
-
     public DateTime CreatedUtc { get; set; }
     public DateTime LastActiveUtc { get; set; }
-
     public string DefaultGame { get; set; } = "None";
     public bool AutoRestore { get; set; } = true;
     public bool AllowGuests { get; set; } = true;
     public bool OverlaysEnabled { get; set; } = true;
     public bool IsPrivate { get; set; } = false;
+    public bool IsActive { get; set; } = true;
+    public DateTimeOffset? ClosedAtUtc { get; set; }
 }
 
 public sealed class AppUser

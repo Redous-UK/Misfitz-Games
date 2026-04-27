@@ -246,7 +246,9 @@ public static class Program
             Console.WriteLine("[SITE] Sync skipped (non-persistent environment).");
         }
 
-        // NOTE: Removed BootstrapSite() here to avoid conflicting with the sync logic.
+        // ===================== Bootstrap =====================
+
+        // moved to own controller. See Controllers/Admin/BootstrapAdminController.cs
 
         // ===================== Pipeline =====================
         app.UseForwardedHeaders(new ForwardedHeadersOptions

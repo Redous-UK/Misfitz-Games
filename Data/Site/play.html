@@ -1,351 +1,69 @@
 ﻿<!doctype html>
-        <html>
-        <head>
-            <meta charset="utf-8" />
-            <meta name="viewport" content="width=device-width,initial-scale=1" />
-            <title>Misfitz Games</title>
-            <link rel="stylesheet" href="/site.css" />
-        </head>
-        <body>
-            <div class="wrap">
-                <div class="titleRow">
-                    <h1>Misfitz Games</h1>
-                    <span id="meLabel">Checking login…</span>
-                    <span id="statusBadge" class="badge warn">Not connected</span>
-                </div>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Misfitz Games — Play</title>
 
-                <div class="card" style="margin-top:12px;">
-                    <div class="row">
-                        <input id="roomRef" class="grow" placeholder="Room code (e.g. 48392017 or MISFITZ1)" />
-                        <input id="username" placeholder="Your name" autocomplete="off" />
-                        <button id="btnJoin" hidden>Join</button>
-                        <button id="btnLeave" disabled>Leave</button>
-                    </div>
-                    <div class="muted" style="margin-top:8px;">
-                        Room: <span id="roomLine">—</span>
-                    </div>
-                </div>
-
-                <div class="grid" style="margin-top:12px;">
-                    <!-- Contexto panel -->
-                    <section id="panel-contexto" class="card" hidden>
-                        <div class="card">
-                            <div class="mg-header">
-                                <div class="mg-header-left">
-                                    <div class="mg-title">Contexto</div>
-                                    <div class="mg-sub">Send guesses below. They’ll appear in recent guesses.</div>
-                                </div>
-                                <div class="mg-header-right">
-                                    <span id="gameBadgeContexto" class="badge warn">No game</span>
-                                </div>
-                            </div>
-
-                            <div class="row" style="margin-top:12px;">
-                                <input id="guess" class="grow" placeholder="Type a guess (e.g. apple)" />
-                                <button id="btnGuess" disabled>Send guess</button>
-                            </div>
-                            <div class="muted" style="margin-top:6px;">Tip: you can type plain words (no command needed).</div>
-
-                            <div class="sectionTitle">RECENT GUESSES</div>
-                            <ul id="recentGuesses"></ul>
-
-                            <div id="debugBlockContexto" class="debug-out">
-                                <div class="sectionTitle">DEBUG STATE</div>
-                                <pre id="stateOutContexto" class="debug-out">{}</pre>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Hangman panel -->
-                    <section id="panel-hangman" class="card" hidden>
-                        <div class="card">
-
-                            <div class="mg-header">
-                                <div class="mg-header-left">
-                                    <div class="mg-title">Hangman</div>
-                                    <div class="mg-sub">Guess letters or the full word.</div>
-                                </div>
-                                <div class="mg-header-right">
-                                    <span id="gameBadgeHangman" class="badge warn">No game</span>
-                                </div>
-                            </div>
-
-
-                            <div class="titleRow">
-                                <div>
-                                    <span id="gameBadgeHangman" class="badge warn">No game</span>
-                                    <div style="font-size:32px; letter-spacing:6px;" id="hangmanMasked">_ _ _ _</div>
-                                </div>
-                                <!--<div class="muted" style="margin-top:8px;">
-                    Wrong: <span id="hangmanWrong">0/6</span>
-                </div>-->
-                                <div class="muted" style="margin-top:8px;">
-                                    Guessed: <span id="hangmanGuessed"></span>
-                                </div>
-
-                                <div class="hangman">
-                                    <div class="hangman-left">
-                                        <div id="hangmanSprite" class="hangman-sprite" aria-label="Hangman stage"></div>
-                                    </div>
-
-                                    <div class="hangman-right">
-                                        <div class="row" style="justify-content:space-between; align-items:center;">
-                                            <div id="livesBadge" class="badge">Wrong: <span id="hangmanWrong">0/6</span></div>
-                                            <div id="statusText" class="muted"></div>
-                                        </div>
-
-                                        <div id="wordDisplay" class="word-display"></div>
-                                        <div id="wrongLetters" class="wrong-letters"></div>
-
-                                        <div class="keyboard" id="keyboard"></div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div style="margin-top:12px; display:flex; gap:8px;">
-                                <input id="hangmanGuessInput" maxlength="32" placeholder="Type a letter or word…" />
-                                <button id="hangmanGuessBtn">Guess</button>
-                            </div>
-                            <div class="muted" style="margin-top:10px;" id="hangmanStatus"></div>
-                            <div class="muted" style="margin-top:6px;"></div>
-
-                            <div id="debugBlockHangman" class="debug-out">
-                                <div class="sectionTitle">DEBUG STATE</div>
-                                <pre id="stateOutHangman" class="debug-out">{}</pre>
-                            </div>
-
-
-                        </div>
-                    </section>
-
-                    <!-- Deal panel -->
-                    <section id="panel-deal" class="card" hidden>
-                        <div class="card">
-                            <div id="debugBlockDeala" class="debug-out">
-                                <div class="sectionTitle">DEBUG STATE</div>
-                                <pre id="stateOutDeal" class="debug-out">{}</pre>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Trivia panel -->
-                    <section id="panel-trivia" class="card" hidden>
-                        <div class="card">
-
-                            <div class="mg-header">
-                                <div class="mg-header-left">
-                                    <div class="mg-title">Trivia</div>
-                                    <div class="mg-sub">Pick A/B/C/D. Scores update live.</div>
-                                </div>
-
-                                <div class="mg-header-right">
-                                    <span id="gameBadgeTrivia" class="badge warn">No game</span>
-                                </div>
-                            </div>
-
-
-
-                            <div class="titleRow">
-                                <div id="triviaMeta" class="muted" style="margin-bottom:6px;"></div>
-
-                                <div class="trivia">
-                                    <div class="trivia-left">
-                                        <div id="triviaQuestion" style="font-weight:700; font-size:18px; line-height:1.2;"></div>
-
-
-                                        <div id="triviaReveal" class="muted hidden" style="margin-top:8px;"></div>
-                                    </div>
-
-                                    <div class="trivia-right">
-                                        <div id="triviaTimerRow" class="row" style="align-items:center; gap:10px; margin-top:8px;">
-                                            <div id="triviaSeconds" class="badge"></div>
-                                            <div class="timerBar"><div id="triviaTimerFill" class="timerFill"></div></div>
-                                        </div>
-
-                                    </div>
-                                </div>
-
-
-
-                                <div style="margin-top:12px; display:flex; gap:8px;">
-                                    <ul id="triviaAnswers" class="answersList"></ul>
-                                </div>
-
-                                <div id="debugBlockTrivia" class="debug-out">
-                                    <div class="sectionTitle">DEBUG STATE</div>
-                                    <pre id="stateOutTrivia" class="debug-out">{}</pre>
-                                </div>
-                            </div>
-
-                            <div class="card">
-                                <div class="sectionTitle" style="margin-top:10px;">LEADERBOARD</div>
-                                <ul id="triviaScores" class="scoresList"></ul>
-                            </div>
-                        </div>
-
-                    </section>
-
-                    <!-- Higher/Lower panel -->
-                    <section id="panel-higher_lower" class="card" hidden>
-                        <div class="card">
-                            <div class="mg-header">
-                                <div class="mg-header-left">
-                                    <div class="mg-title">Higher or Lower</div>
-                                    <div class="mg-sub">Guess if the next card is higher or lower. Tie currently counts as a loss.</div>
-                                </div>
-                                <div class="mg-header-right">
-                                    <span id="gameBadgeHL" class="badge warn">No game</span>
-                                </div>
-                            </div>
-
-                            <div class="titleRow" style="margin-top:10px;">
-                                <div>
-                                    <div class="muted">CURRENT</div>
-                                    <div id="hlCurrent" style="font-size:44px; font-weight:900; letter-spacing:2px;">—</div>
-                                </div>
-
-                                <div style="text-align:right;">
-                                    <div class="muted">STREAK</div>
-                                    <div style="font-size:18px; font-weight:800;">
-                                        <span id="hlStreak">0</span>
-                                        <span class="muted"> / best </span>
-                                        <span id="hlBest">0</span>
-                                    </div>
-                                    <div id="hlStatus" class="muted" style="margin-top:6px;">—</div>
-                                </div>
-                            </div>
-
-                            <div id="hlRevealRow" class="card hidden" style="margin-top:12px;">
-                                <div class="row" style="justify-content:space-between; align-items:center;">
-                                    <div>
-                                        <div class="muted">REVEALED</div>
-                                        <div id="hlRevealed" style="font-size:34px; font-weight:900;">—</div>
-                                    </div>
-                                    <div id="hlResultBadge" class="badge bad">Wrong</div>
-                                </div>
-                            </div>
-
-                            <div class="row" style="margin-top:12px;">
-                                <button id="hlStartBtn">Start</button>
-                                <button id="hlHigherBtn" disabled>Higher</button>
-                                <button id="hlLowerBtn" disabled>Lower</button>
-                                <button id="hlContinueBtn" class="mini" disabled>Continue</button>
-                                <button id="hlStopBtn" class="mini" disabled>Stop</button>
-                            </div>
-
-                            <div id="debugBlockHL" class="debug-out">
-                                <div class="sectionTitle">DEBUG STATE</div>
-                                <pre id="stateOutHL" class="debug-out">{}</pre>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Riddle Me This panel -->
-                    <section id="panel-riddle_me_this" class="card" hidden>
-                        <div class="card">
-                            <div class="mg-header">
-                                <div class="mg-header-left">
-                                    <div class="mg-title">Riddle Me This</div>
-                                    <div class="mg-sub">Host controls for starting rounds, changing category, revealing answers, and moving to the next riddle.</div>
-                                </div>
-                                <div class="mg-header-right">
-                                    <span id="gameBadgeRiddleMeThis" class="badge warn">No game</span>
-                                </div>
-                            </div>
-
-                            <div class="row" style="margin-top:12px;">
-                                <select id="rmtCategory" class="grow">
-                                    <option value="">Any Category</option>
-                                </select>
-                                <button id="btnRmtStart">Start</button>
-                                <button id="btnRmtNext">Next</button>
-                                <button id="btnRmtReveal">Reveal</button>
-                                <button id="btnRmtRefresh">Refresh</button>
-                            </div>
-
-                            <div class="muted" style="margin-top:6px;">
-                                Pick a category, start a round, then reveal or move to the next riddle.
-                            </div>
-
-                            <div class="sectionTitle">CURRENT ROUND</div>
-                            <ul>
-                                <li class="item">
-                                    <div>
-                                        <div class="who">Round</div>
-                                        <div class="small">Current round number</div>
-                                    </div>
-                                    <div class="right"><div class="who" id="rmtRound">-</div></div>
-                                </li>
-                                <li class="item">
-                                    <div>
-                                        <div class="who">Category</div>
-                                        <div class="small">Selected / active category</div>
-                                    </div>
-                                    <div class="right"><div class="who" id="rmtCategoryText">-</div></div>
-                                </li>
-                                <li class="item">
-                                    <div>
-                                        <div class="who">Solved</div>
-                                        <div class="small">Whether this riddle has been solved</div>
-                                    </div>
-                                    <div class="right"><div class="who" id="rmtSolved">-</div></div>
-                                </li>
-                                <li class="item">
-                                    <div>
-                                        <div class="who">Solved By</div>
-                                        <div class="small">Winning player</div>
-                                    </div>
-                                    <div class="right"><div class="who" id="rmtSolvedBy">-</div></div>
-                                </li>
-                                <li class="item">
-                                    <div>
-                                        <div class="who">Started</div>
-                                        <div class="small">Round start time</div>
-                                    </div>
-                                    <div class="right"><div class="who" id="rmtStartedAt">-</div></div>
-                                </li>
-                            </ul>
-
-                            <div class="sectionTitle">RIDDLE</div>
-                            <div class="debug-out">
-                                <pre id="rmtRiddle" class="debug-out">-</pre>
-                            </div>
-
-                            <div class="sectionTitle">RECENT GUESSES</div>
-                            <ul id="rmtRecentGuesses"></ul>
-
-                            <div id="debugBlockRiddleMeThis" class="debug-out">
-                                <div class="sectionTitle">DEBUG STATE</div>
-                                <pre id="stateOutRiddleMeThis" class="debug-out">{}</pre>
-                            </div>
-                        </div>
-                    </section>
-
-
-
-                    <!-- Room panel -->
-                    <div class="card">
-                        <div class="titleRow">
-                            <div style="font-weight:900;">Room</div>
-                            <button id="btnRefresh" class="mini">Refresh</button>
-                        </div>
-
-                        <div class="debug-out">
-                            <div class="sectionTitle">STATS</div>
-                            <pre id="statsOut">{}</pre>
-                        </div>
-                        <div class="sectionTitle">LEADERBOARD</div>
-                        <ul id="leaderboard"></ul>
-
-                        <div class="sectionTitle">ROOM LINKS</div>
-                        <div class="muted">
-                            Overlay: <a id="overlayLink" href="#" target="_blank" style="color:var(--fg);">open</a>
-                        </div>
-                    </div>
-                </div>
+    <link rel="stylesheet" href="/styles/play.css" />
+</head>
+<body>
+    <div class="play-shell">
+        <header class="play-topbar">
+            <div>
+                <h1>Misfitz Games</h1>
+                <p id="roomLine">Room not joined</p>
             </div>
 
-            <script type="module" src="/js/app/playApp.js"></script>
-        </body>
-    </html>
+            <div class="play-actions">
+                <input id="roomRef" placeholder="Room code" />
+                <button id="btnJoin" type="button">Join</button>
+                <button id="btnLeave" type="button" disabled>Leave</button>
+                <a id="overlayLink" href="#" target="_blank">Overlay</a>
+            </div>
+        </header>
 
+        <section class="status-row">
+            <span id="statusBadge">Loading...</span>
+            <span id="gameBadge">No game</span>
+        </section>
+
+        <main class="play-grid">
+            <aside class="game-menu">
+                <h2>Games</h2>
+
+                <button type="button" data-game="contexto">Contexto</button>
+                <button type="button" data-game="trivia">Trivia</button>
+                <button type="button" data-game="hangman">Hangman</button>
+                <button type="button" data-game="higherlower">Higher or Lower</button>
+                <button type="button" data-game="riddle_me_this">Riddle Me This</button>
+                <button type="button" data-game="deal">Deal or No Deal</button>
+            </aside>
+
+            <section class="game-stage">
+                <div id="gamePanels">
+                    <div id="panel-loading" class="game-panel" hidden>
+                        <h2>Loading game panels...</h2>
+                    </div>
+                </div>
+            </section>
+
+            <aside class="side-panel">
+                <section class="card">
+                    <h2>Stats</h2>
+                    <pre id="statsOut">No stats yet.</pre>
+                </section>
+
+                <section class="card">
+                    <h2>Leaderboard</h2>
+                    <ul id="leaderboard">
+                        <li class="small">No scores yet…</li>
+                    </ul>
+                </section>
+            </aside>
+        </main>
+    </div>
+
+    <script type="module" src="/js/app/playApp.js"></script>
+</body>
+</html>

@@ -1,0 +1,244 @@
+﻿/* =========================
+   Base / Reset
+========================= */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: #0f172a;
+    color: #e5e7eb;
+}
+
+/* =========================
+   Layout Shell
+========================= */
+.play-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+/* =========================
+   Top Bar
+========================= */
+.play-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    background: #020617;
+    border-bottom: 1px solid #1e293b;
+}
+
+    .play-topbar h1 {
+        font-size: 18px;
+    }
+
+#roomLine {
+    font-size: 13px;
+    color: #94a3b8;
+}
+
+/* Actions */
+.play-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+    .play-actions input {
+        padding: 6px 10px;
+        background: #020617;
+        border: 1px solid #334155;
+        color: white;
+        border-radius: 6px;
+        width: 140px;
+    }
+
+    .play-actions button,
+    .play-actions a {
+        padding: 6px 10px;
+        border: none;
+        background: #1d4ed8;
+        color: white;
+        border-radius: 6px;
+        cursor: pointer;
+        text-decoration: none;
+    }
+
+        .play-actions button:disabled {
+            background: #475569;
+            cursor: not-allowed;
+        }
+
+/* =========================
+   Status Row
+========================= */
+.status-row {
+    display: flex;
+    gap: 12px;
+    padding: 8px 20px;
+    background: #020617;
+    border-bottom: 1px solid #1e293b;
+}
+
+#statusBadge,
+#gameBadge {
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: #334155;
+}
+
+/* =========================
+   Main Grid
+========================= */
+.play-grid {
+    display: grid;
+    grid-template-columns: 200px 1fr 260px;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* =========================
+   Game Menu
+========================= */
+.game-menu {
+    background: #020617;
+    border-right: 1px solid #1e293b;
+    padding: 12px;
+}
+
+    .game-menu h2 {
+        margin-bottom: 10px;
+        font-size: 14px;
+        color: #94a3b8;
+    }
+
+    .game-menu button {
+        display: block;
+        width: 100%;
+        margin-bottom: 6px;
+        padding: 8px;
+        border: none;
+        background: #1e293b;
+        color: white;
+        border-radius: 6px;
+        cursor: pointer;
+        text-align: left;
+    }
+
+        .game-menu button:hover {
+            background: #334155;
+        }
+
+/* =========================
+   Game Stage
+========================= */
+.game-stage {
+    padding: 16px;
+    overflow-y: auto;
+}
+
+/* Panels */
+.game-panel {
+    display: none;
+}
+
+    .game-panel.active {
+        display: block;
+    }
+
+/* =========================
+   Side Panel
+========================= */
+.side-panel {
+    background: #020617;
+    border-left: 1px solid #1e293b;
+    padding: 12px;
+    overflow-y: auto;
+}
+
+/* =========================
+   Cards
+========================= */
+.card {
+    background: #020617;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+    .card h2 {
+        font-size: 14px;
+        margin-bottom: 8px;
+        color: #94a3b8;
+    }
+
+/* =========================
+   Inputs / Buttons
+========================= */
+input {
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid #334155;
+    background: #020617;
+    color: white;
+}
+
+button {
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: none;
+    background: #2563eb;
+    color: white;
+    cursor: pointer;
+}
+
+    button:hover {
+        background: #1d4ed8;
+    }
+
+/* =========================
+   Utility
+========================= */
+.row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+pre {
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* =========================
+   Responsive
+========================= */
+@media (max-width: 900px) {
+    .play-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .game-menu {
+        display: flex;
+        overflow-x: auto;
+        gap: 6px;
+    }
+
+        .game-menu button {
+            min-width: 120px;
+        }
+
+    .side-panel {
+        border-left: none;
+        border-top: 1px solid #1e293b;
+    }
+}

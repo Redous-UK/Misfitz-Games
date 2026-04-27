@@ -8,14 +8,30 @@ namespace Misfitz_Games.Controllers.Admin;
 public class AdminRoomsController(IRoomStateStore store, RoomBroadcastService broadcaster) : ControllerBase
 {
     [Authorize(Policy = "AdminOnly")]
-    [HttpPost("/rooms/{roomId:guid}/close")]
-    public async Task<IActionResult> Close(Guid roomId, CancellationToken ct)
+    [HttpPost("/admin/rooms/{roomRef}/close")]
+    public async Task<IActionResult> CloseByRef(string roomRef, CancellationToken ct)
     {
-        // Broadcast a last “closed” notification if you want
-        // (clients should treat this as “disconnect / go back to lobby”)
-        await broadcaster.BroadcastRoomClosedAsync(roomId, ct);
+        var roomId = await store.ResolveRoomIdAsync(roomRef, ct);
+        if (roomId is null)
+        {
+            return NotFound(new { ok = false, error = "Room not found." });
+        }
 
-        var removed = await store.DeleteRoomAsync(roomId, ct);
-        return Ok(new { ok = true, roomId, removed });
+        var closed = await store.MarkRoomInactiveAsync(roomId.Value, ct);
+
+        if (!closed)
+        {
+            return NotFound(new { ok = false, error = "Room not found." });
+        }
+
+        await broadcaster.BroadcastRoomClosedAsync(roomId.Value, ct);
+
+        return Ok(new
+        {
+            ok = true,
+            roomRef = roomRef.Trim().ToUpperInvariant(),
+            roomId = roomId.Value,
+            status = "inactive"
+        });
     }
 }

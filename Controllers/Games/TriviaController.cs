@@ -169,7 +169,8 @@ public sealed class TriviaController(
         var updated = room with
         {
             GameState = nextRound,
-            UpdatedAtUtc = DateTimeOffset.UtcNow
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            CreatedAtUtc = DateTimeOffset.UtcNow
         };
 
         await SaveRoomStateAsync(roomId, updated, ct);
@@ -209,7 +210,8 @@ public sealed class TriviaController(
         var updated = room with
         {
             GameState = nextRound,
-            UpdatedAtUtc = DateTimeOffset.UtcNow
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            CreatedAtUtc = DateTimeOffset.UtcNow
         };
 
         await SaveRoomStateAsync(roomId, updated, ct);
@@ -250,7 +252,8 @@ public sealed class TriviaController(
         {
             ActiveGame = GameType.None,
             GameState = null,
-            UpdatedAtUtc = DateTimeOffset.UtcNow
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            CreatedAtUtc = DateTimeOffset.UtcNow
         };
 
         await SaveRoomStateAsync(roomId, updated, ct);

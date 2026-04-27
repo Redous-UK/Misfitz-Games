@@ -5,7 +5,7 @@
 
         public sealed record PortalStateDto(
     PortalUserDto User,
-    PortalRoomDto Room,
+    PortalRoomDto? Room,
     PortalPreferencesDto Preferences
 );
 
@@ -25,13 +25,14 @@
         public sealed record PortalRoomDto(
             string RoomId,
             string RoomName,
-            string RoomSlug,
+            string RoomCode,
             string? Description,
             string DefaultGame,
             bool AutoRestore,
             bool AllowGuests,
             bool OverlaysEnabled,
             bool IsPrivate,
+            bool IsActive,
             string PortalPath
         );
 
@@ -68,7 +69,8 @@
             bool AutoRestore,
             bool AllowGuests,
             bool OverlaysEnabled,
-            bool IsPrivate
+            bool IsPrivate,
+            bool IsActive
         );
 
         public sealed record SavePortalPreferencesRequest(

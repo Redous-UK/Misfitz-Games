@@ -1,12 +1,15 @@
-﻿using Misfitz_Games.Models;
+﻿using Microsoft.EntityFrameworkCore;
+using Misfitz_Games.Data;
+using Misfitz_Games.Models;
 using Misfitz_Games.Models.Games;
 using Misfitz_Games.Services.Room;
 using StackExchange.Redis;
 using System.Text.Json;
+using System.Xml;
 
 namespace Misfitz_Games.Services.Infrastructure.Redis;
 
-public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomStateStore
+public sealed class RedisRoomStateStore(IServiceScopeFactory scopeFactory, RedisMuxFactory muxFactory) : IRoomStateStore
 {
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -33,26 +36,44 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
         return mux.GetDatabase();
     }
 
+    /*private async Task<AppDbContext> CreateAppDbContextAsync()
+    {
+        var scope = scopeFactory.CreateScope();
+        try
+        {
+            return scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        }
+        catch
+        {
+            scope.Dispose();
+            throw;
+        }
+    }*/
+
     // ----------------------------
     // Room meta
     // ----------------------------
     public async Task SaveRoomAsync(RoomDto room, CancellationToken ct = default)
     {
-        var db = await DbAsync().ConfigureAwait(false);
+        var redis = await DbAsync().ConfigureAwait(false);
 
         var json = JsonSerializer.Serialize(room, JsonOpts);
 
-        await db.StringSetAsync(RoomKey(room.RoomId), json).ConfigureAwait(false);
+        await redis.StringSetAsync(RoomKey(room.RoomId), json).ConfigureAwait(false);
 
-        // Index by created time (score)
-        await db.SortedSetAddAsync(
+        await redis.SortedSetAddAsync(
             RoomsIndexKey,
             room.RoomId.ToString("D"),
             room.CreatedAtUtc.ToUnixTimeSeconds()
         ).ConfigureAwait(false);
 
-        // NOTE: we do NOT write roomcode mapping here because codes are reserved atomically
-        // via TryReserveRoomCodeAsync(...) during room creation.
+        if (!string.IsNullOrWhiteSpace(room.RoomCode))
+        {
+            await redis.StringSetAsync(
+                RoomCodeKey(room.RoomCode),
+                room.RoomId.ToString("D")
+            ).ConfigureAwait(false);
+        }
     }
 
     public async Task<IReadOnlyList<RoomDto>> ListRoomsAsync(CancellationToken ct = default)
@@ -97,13 +118,21 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
         var state = JsonSerializer.Deserialize<RoomState>(json!, JsonOpts);
         if (state is null) return null;
 
-        // If RoomState.GameState is object?, System.Text.Json will often round-trip as JsonElement.
-        // Normalize Contexto state so the engine can operate on concrete ContextoState.
-        if (state.ActiveGame == GameType.Contexto && state.GameState is JsonElement je)
+        if (state.GameState is JsonElement je)
         {
-            var cs = je.Deserialize<ContextoState>(JsonOpts);
-            if (cs is not null)
-                state = state with { GameState = cs };
+            object? typedState = state.ActiveGame switch
+            {
+                GameType.Contexto => je.Deserialize<ContextoState>(JsonOpts),
+                GameType.Hangman => je.Deserialize<HangmanState>(JsonOpts),
+                //GameType.Trivia => je.Deserialize<TriviaState>(JsonOpts),
+                GameType.HigherLower => je.Deserialize<HigherLowerState>(JsonOpts),
+                GameType.RiddleMeThis => je.Deserialize<RiddleMeThisState>(JsonOpts),
+                //GameType.Deal => je.Deserialize<DealState>(JsonOpts),
+                _ => null
+            };
+
+            if (typedState is not null)
+                state = state with { GameState = typedState };
         }
 
         return state;
@@ -123,28 +152,75 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
         await db.StringSetAsync(StateKey(state.RoomId), json).ConfigureAwait(false);
     }
 
-
     // ----------------------------
     // Room code mapping / resolving
     // ----------------------------
     public async Task<Guid?> ResolveRoomIdAsync(string roomRef, CancellationToken ct = default)
     {
-        roomRef = (roomRef ?? "").Trim();
-
-        // GUID path
-        if (Guid.TryParse(roomRef, out var guid))
-            return guid;
-
-        // Code path (numeric 8-digit or custom)
-        var code = NormalizeCode(roomRef);
-        if (string.IsNullOrWhiteSpace(code))
+        if (string.IsNullOrWhiteSpace(roomRef))
             return null;
 
-        var db = await DbAsync().ConfigureAwait(false);
-        var val = await db.StringGetAsync(RoomCodeKey(code)).ConfigureAwait(false);
+        roomRef = roomRef.Trim();
 
-        if (!val.IsNullOrEmpty && Guid.TryParse(val.ToString(), out var resolved))
-            return resolved;
+        var redis = await DbAsync().ConfigureAwait(false);
+
+        // 1. Try Redis room-code mapping first
+        var mapped = await redis.StringGetAsync(RoomCodeKey(roomRef)).ConfigureAwait(false);
+        if (!mapped.IsNullOrEmpty && Guid.TryParse(mapped.ToString(), out var mappedRoomId))
+        {
+            using var scope = scopeFactory.CreateScope();
+            var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var isActive = await appDb.Rooms
+                .AsNoTracking()
+                .AnyAsync(r => r.Id == mappedRoomId && r.IsActive, ct)
+                .ConfigureAwait(false);
+
+            if (isActive)
+                return mappedRoomId;
+
+            // stale redis mapping for inactive room
+            await redis.KeyDeleteAsync(RoomCodeKey(roomRef)).ConfigureAwait(false);
+            return null;
+        }
+
+        // 2. Try direct room Guid
+        if (Guid.TryParse(roomRef, out var guid))
+        {
+            using var scope = scopeFactory.CreateScope();
+            var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var exists = await appDb.Rooms
+                .AsNoTracking()
+                .AnyAsync(r => r.Id == guid && r.IsActive, ct)
+                .ConfigureAwait(false);
+
+            if (exists)
+                return guid;
+        }
+
+        // 3. Try SQL by code, active only, then rehydrate Redis mapping
+        using (var scope = scopeFactory.CreateScope())
+        {
+            var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var roomId = await appDb.Rooms
+                .AsNoTracking()
+                .Where(r => r.Code == roomRef && r.IsActive)
+                .Select(r => (Guid?)r.Id)
+                .FirstOrDefaultAsync(ct)
+                .ConfigureAwait(false);
+
+            if (roomId is not null)
+            {
+                await redis.StringSetAsync(
+                    RoomCodeKey(roomRef),
+                    roomId.Value.ToString("D")
+                ).ConfigureAwait(false);
+
+                return roomId.Value;
+            }
+        }
 
         return null;
     }
@@ -157,7 +233,6 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
 
         var db = await DbAsync().ConfigureAwait(false);
 
-        // Atomic: only reserve if not exists => no collisions ever.
         return await db.StringSetAsync(
             RoomCodeKey(code),
             roomId.ToString("D"),
@@ -221,11 +296,10 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
 
             await db.HashSetAsync(
                 LeaderboardUserKey(update.RoomId, userId),
-                new[]
-                {
-                new HashEntry("username", username),
-                new HashEntry("updatedAtUtc", DateTimeOffset.UtcNow.ToString("O"))
-                }
+                [
+                    new HashEntry("username", username),
+                    new HashEntry("updatedAtUtc", DateTimeOffset.UtcNow.ToString("O"))
+                ]
             ).ConfigureAwait(false);
         }
 
@@ -402,22 +476,19 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
         await db.KeyDeleteAsync(RoomStatsKey(roomId)).ConfigureAwait(false);
     }
 
-// ----------------------------
-// Delete room
-// ----------------------------
+    // ----------------------------
+    // Delete room
+    // ----------------------------
     public async Task<bool> DeleteRoomAsync(Guid roomId, CancellationToken ct = default)
     {
         var db = await DbAsync().ConfigureAwait(false);
 
-        // Load room to get the code (so we can release mapping)
         var room = await GetRoomAsync(roomId, ct).ConfigureAwait(false);
 
-        // Remove from index
         var removedFromIndex = await db
             .SortedSetRemoveAsync(RoomsIndexKey, roomId.ToString("D"))
             .ConfigureAwait(false);
 
-        // Delete state + meta
         await db.KeyDeleteAsync(
         [
             RoomKey(roomId),
@@ -432,7 +503,6 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
             RoomStatsKey(roomId)
         ]).ConfigureAwait(false);
 
-        // Release code mapping
         if (room is not null && !string.IsNullOrWhiteSpace(room.RoomCode))
             await db.KeyDeleteAsync(RoomCodeKey(room.RoomCode)).ConfigureAwait(false);
         await db.KeyDeleteAsync(RoomStatsKey(roomId)).ConfigureAwait(false);
@@ -496,12 +566,46 @@ public sealed class RedisRoomStateStore(RedisMuxFactory muxFactory) : IRoomState
         foreach (var idVal in ids)
         {
             if (!Guid.TryParse(idVal.ToString(), out var id)) continue;
-
-            // Use the canonical delete so meta/state/index/code are all cleaned.
             await DeleteRoomAsync(id, ct).ConfigureAwait(false);
             deleted++;
         }
 
         return deleted;
+    }
+
+    public async Task<bool> MarkRoomInactiveAsync(Guid roomId, CancellationToken ct = default)
+    {
+        using (var scope = scopeFactory.CreateScope())
+        {
+            var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var roomEntity = await appDb.Rooms
+                .FirstOrDefaultAsync(r => r.Id == roomId, ct)
+                .ConfigureAwait(false);
+
+            if (roomEntity is null)
+                return false;
+
+            roomEntity.IsActive = false;
+            await appDb.SaveChangesAsync(ct).ConfigureAwait(false);
+        }
+
+        var redis = await DbAsync().ConfigureAwait(false);
+
+        var room = await GetRoomAsync(roomId, ct).ConfigureAwait(false);
+
+        await redis.SortedSetRemoveAsync(RoomsIndexKey, roomId.ToString("D")).ConfigureAwait(false);
+
+        await redis.KeyDeleteAsync(
+        [
+        RoomKey(roomId),
+        StateKey(roomId),
+        RoomStatsKey(roomId)
+        ]).ConfigureAwait(false);
+
+        if (room is not null && !string.IsNullOrWhiteSpace(room.RoomCode))
+            await redis.KeyDeleteAsync(RoomCodeKey(room.RoomCode)).ConfigureAwait(false);
+
+        return true;
     }
 }
