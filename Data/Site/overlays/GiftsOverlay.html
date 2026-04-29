@@ -1,0 +1,592 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TikTok Gift Banner Overlay</title>
+
+    <style>
+        :root {
+            --banner-width: 1560px;
+            --banner-height: 170px;
+            --bg: rgba(8, 10, 20, 0.76);
+            --panel: rgba(25, 18, 45, 0.9);
+            --card: rgba(255, 255, 255, 0.12);
+            --stroke: rgba(255, 255, 255, 0.18);
+            --text: #ffffff;
+            --muted: #d9d4ec;
+            --tiktok-cyan: #25f4ee;
+            --tiktok-pink: #fe2c55;
+            --gold: #ffd666;
+            --shadow: rgba(0, 0, 0, 0.48);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            background: transparent;
+            overflow: hidden;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding: 0 28px 34px;
+        }
+
+        .gift-banner {
+            width: min(var(--banner-width), calc(100vw - 40px));
+            min-height: var(--banner-height);
+            color: var(--text);
+            background: linear-gradient(135deg, var(--bg), var(--panel));
+            border: 2px solid var(--stroke);
+            border-radius: 28px;
+            box-shadow: 0 18px 70px var(--shadow);
+            backdrop-filter: blur(12px);
+            overflow: hidden;
+            position: relative;
+            transform: translateY(140%);
+            opacity: 0;
+            transition: transform 450ms ease, opacity 450ms ease;
+        }
+
+            .gift-banner.show {
+                transform: translateY(0);
+                opacity: 1;
+            }
+
+            .gift-banner::before {
+                content: "";
+                position: absolute;
+                inset: -80%;
+                background: radial-gradient(circle at 15% 20%, rgba(37, 244, 238, 0.34), transparent 30%), radial-gradient(circle at 85% 70%, rgba(254, 44, 85, 0.34), transparent 32%), radial-gradient(circle at 50% 0%, rgba(255, 214, 102, 0.18), transparent 28%);
+                pointer-events: none;
+                animation: glowShift 8s ease-in-out infinite alternate;
+            }
+
+        @keyframes glowShift {
+            from {
+                transform: translateX(-3%) rotate(0deg);
+            }
+
+            to {
+                transform: translateX(3%) rotate(5deg);
+            }
+        }
+
+        .banner-inner {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-columns: 265px 1fr 210px;
+            gap: 16px;
+            align-items: center;
+            min-height: var(--banner-height);
+            padding: 16px;
+        }
+
+        .brand-panel {
+            height: 100%;
+            min-height: 134px;
+            border-radius: 22px;
+            padding: 16px;
+            background: rgba(0, 0, 0, 0.22);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .eyebrow {
+            color: var(--tiktok-cyan);
+            font-size: 13px;
+            font-weight: 900;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+            text-shadow: 2px 2px 0 rgba(254, 44, 85, 0.55);
+        }
+
+        .brand-title {
+            margin: 0;
+            font-size: 32px;
+            line-height: 1;
+            font-weight: 950;
+            text-shadow: 0 5px 18px rgba(0, 0, 0, 0.45);
+        }
+
+        .brand-subtitle {
+            margin-top: 8px;
+            color: var(--muted);
+            font-size: 14px;
+            font-weight: 800;
+        }
+
+        .gift-track-wrap {
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .gift-track {
+            display: flex;
+            gap: 12px;
+            align-items: stretch;
+            min-height: 134px;
+            transition: transform 300ms ease;
+        }
+
+        .gift-card {
+            width: 230px;
+            flex: 0 0 230px;
+            display: grid;
+            grid-template-columns: 76px 1fr;
+            gap: 12px;
+            align-items: center;
+            padding: 12px;
+            border-radius: 22px;
+            background: var(--card);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            box-shadow: inset 0 0 24px rgba(255, 255, 255, 0.055);
+            position: relative;
+            overflow: hidden;
+        }
+
+            .gift-card.featured {
+                border-color: rgba(255, 214, 102, 0.7);
+                box-shadow: 0 0 28px rgba(255, 214, 102, 0.18), inset 0 0 24px rgba(255, 255, 255, 0.055);
+            }
+
+            .gift-card::after {
+                content: "";
+                position: absolute;
+                inset: 0;
+                border-radius: inherit;
+                background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+                transform: translateX(-120%);
+                animation: shimmer 4s ease-in-out infinite;
+                pointer-events: none;
+            }
+
+        @keyframes shimmer {
+            0%, 45% {
+                transform: translateX(-120%);
+            }
+
+            70%, 100% {
+                transform: translateX(120%);
+            }
+        }
+
+        .gift-icon-box {
+            width: 76px;
+            height: 76px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            display: grid;
+            place-items: center;
+        }
+
+        .gift-icon {
+            width: 58px;
+            height: 58px;
+            object-fit: contain;
+            filter: drop-shadow(0 8px 12px rgba(0,0,0,0.4));
+            animation: floatGift 2.4s ease-in-out infinite;
+        }
+
+        @keyframes floatGift {
+            0%, 100% {
+                transform: translateY(0) scale(1);
+            }
+
+            50% {
+                transform: translateY(-5px) scale(1.06);
+            }
+        }
+
+        .gift-info {
+            min-width: 0;
+        }
+
+        .gift-name {
+            margin: 0;
+            font-size: 19px;
+            line-height: 1.08;
+            font-weight: 950;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .gift-sender {
+            margin-top: 4px;
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 800;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+            .gift-sender strong {
+                color: var(--text);
+            }
+
+        .gift-meta {
+            margin-top: 8px;
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .pill {
+            padding: 4px 7px;
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .count-pill {
+            color: #fff;
+            background: linear-gradient(135deg, rgba(37,244,238,0.24), rgba(254,44,85,0.24));
+        }
+
+        .stats-panel {
+            height: 100%;
+            min-height: 134px;
+            border-radius: 22px;
+            padding: 14px;
+            background: rgba(0, 0, 0, 0.22);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            display: grid;
+            align-content: center;
+            gap: 8px;
+        }
+
+        .stat-label {
+            color: var(--muted);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            font-weight: 900;
+        }
+
+        .stat-value {
+            color: var(--gold);
+            font-size: 24px;
+            line-height: 1;
+            font-weight: 950;
+            text-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+        }
+
+        .empty-state {
+            width: 100%;
+            min-height: 134px;
+            border-radius: 22px;
+            border: 1px dashed rgba(255, 255, 255, 0.2);
+            display: grid;
+            place-items: center;
+            color: var(--muted);
+            font-weight: 900;
+            letter-spacing: 0.04em;
+        }
+
+        .demo-controls {
+            position: fixed;
+            top: 18px;
+            left: 18px;
+            z-index: 20;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+            .demo-controls button {
+                border: 0;
+                border-radius: 999px;
+                padding: 10px 14px;
+                color: #fff;
+                background: rgba(20, 20, 30, 0.84);
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                font-weight: 900;
+                cursor: pointer;
+            }
+
+                .demo-controls button:hover {
+                    background: rgba(45, 45, 62, 0.92);
+                }
+
+        body.obs-mode .demo-controls {
+            display: none;
+        }
+
+        @media (max-width: 1100px) {
+            .banner-inner {
+                grid-template-columns: 220px 1fr;
+            }
+
+            .stats-panel {
+                display: none;
+            }
+        }
+
+        @media (max-width: 760px) {
+            body {
+                padding: 16px;
+            }
+
+            .banner-inner {
+                grid-template-columns: 1fr;
+            }
+
+            .gift-banner {
+                --banner-height: auto;
+            }
+
+            .gift-track {
+                flex-wrap: wrap;
+            }
+
+            .gift-card {
+                width: 100%;
+                flex-basis: 100%;
+            }
+        }
+    </style>
+</head>
+<body class="obs-mode">
+    <div class="demo-controls">
+        <button onclick="demoSmallGift()">Small Gift</button>
+        <button onclick="demoGiftBurst()">Gift Burst</button>
+        <button onclick="demoBigGift()">Big Gift</button>
+        <button onclick="clearGifts()">Clear</button>
+    </div>
+
+    <main id="giftBanner" class="gift-banner show">
+        <div class="banner-inner">
+            <section class="brand-panel">
+                <div class="eyebrow">TikTok Gifts</div>
+                <h1 class="brand-title">Gift Banner</h1>
+                <div id="bannerSubtitle" class="brand-subtitle">Waiting for the next gift...</div>
+            </section>
+
+            <section class="gift-track-wrap">
+                <div id="giftTrack" class="gift-track"></div>
+            </section>
+
+            <aside class="stats-panel">
+                <div>
+                    <div class="stat-label">Total Gifts</div>
+                    <div id="totalGifts" class="stat-value">0</div>
+                </div>
+                <div>
+                    <div class="stat-label">Total Coins</div>
+                    <div id="totalCoins" class="stat-value">0</div>
+                </div>
+            </aside>
+        </div>
+    </main>
+
+    <script>
+    const giftBanner = document.getElementById("giftBanner");
+    const giftTrack = document.getElementById("giftTrack");
+    const bannerSubtitle = document.getElementById("bannerSubtitle");
+    const totalGiftsEl = document.getElementById("totalGifts");
+    const totalCoinsEl = document.getElementById("totalCoins");
+
+    const fallbackIcon = "https://cdn-icons-png.flaticon.com/512/4213/4213958.png";
+    const maxVisibleGifts = 5;
+
+    let gifts = [];
+
+    function normaliseTikTokGift(rawGift) {
+      return {
+        id: rawGift.id || crypto.randomUUID(),
+        name: rawGift.name || rawGift.giftName || "Unknown Gift",
+        sender: rawGift.sender || rawGift.username || rawGift.uniqueId || rawGift.nickname || "Viewer",
+        coins: Number(rawGift.coins || rawGift.diamondCount || rawGift.value || 0),
+        count: Number(rawGift.count || rawGift.repeatCount || 1),
+        iconUrl: rawGift.iconUrl || rawGift.imageUrl || rawGift.giftPictureUrl || fallbackIcon,
+        featured: Boolean(rawGift.featured || Number(rawGift.diamondCount || rawGift.coins || 0) >= 1000),
+        receivedAt: Date.now()
+      };
+    }
+
+    function addGift(rawGift) {
+      const gift = normaliseTikTokGift(rawGift);
+      gifts.unshift(gift);
+      gifts = gifts.slice(0, maxVisibleGifts);
+      renderGifts();
+      showBanner();
+      return gift;
+    }
+
+    function setGifts(rawGifts) {
+      gifts = Array.isArray(rawGifts)
+        ? rawGifts.map(normaliseTikTokGift).slice(0, maxVisibleGifts)
+        : [];
+      renderGifts();
+      showBanner();
+    }
+
+    function clearGifts() {
+      gifts = [];
+      renderGifts();
+    }
+
+    function renderGifts() {
+      giftTrack.innerHTML = "";
+
+      if (!gifts.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty-state";
+        empty.textContent = "No TikTok gifts selected yet";
+        giftTrack.appendChild(empty);
+        bannerSubtitle.textContent = "Waiting for the next gift...";
+        totalGiftsEl.textContent = "0";
+        totalCoinsEl.textContent = "0";
+        return;
+      }
+
+      gifts.forEach((gift, index) => {
+        const card = document.createElement("article");
+        card.className = `gift-card ${gift.featured || index === 0 ? "featured" : ""}`;
+
+        card.innerHTML = `
+          <div class="gift-icon-box">
+            <img class="gift-icon" src="${escapeAttr(gift.iconUrl)}" alt="${escapeAttr(gift.name)}" />
+          </div>
+          <div class="gift-info">
+            <h2 class="gift-name">${escapeHtml(gift.name)}</h2>
+            <div class="gift-sender">From <strong>${escapeHtml(gift.sender)}</strong></div>
+            <div class="gift-meta">
+              <span class="pill count-pill">x${gift.count}</span>
+              <span class="pill">${formatNumber(gift.coins)} coins</span>
+            </div>
+          </div>
+        `;
+
+        giftTrack.appendChild(card);
+      });
+
+      const totalGiftCount = gifts.reduce((sum, gift) => sum + gift.count, 0);
+      const totalCoins = gifts.reduce((sum, gift) => sum + (gift.coins * gift.count), 0);
+      const newest = gifts[0];
+
+      bannerSubtitle.textContent = `${newest.sender} sent ${newest.name} x${newest.count}`;
+      totalGiftsEl.textContent = formatNumber(totalGiftCount);
+      totalCoinsEl.textContent = formatNumber(totalCoins);
+    }
+
+    function showBanner() {
+      giftBanner.classList.add("show");
+    }
+
+    function hideBanner() {
+      giftBanner.classList.remove("show");
+    }
+
+    function formatNumber(value) {
+      return Number(value || 0).toLocaleString();
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value);
+    }
+
+    function demoSmallGift() {
+      addGift({
+        giftName: "Rose",
+        username: "ViewerOne",
+        diamondCount: 1,
+        repeatCount: 10,
+        imageUrl: "https://cdn-icons-png.flaticon.com/512/2583/2583344.png"
+      });
+    }
+
+    function demoBigGift() {
+      addGift({
+        giftName: "TikTok Universe",
+        username: "TopGifter",
+        diamondCount: 34999,
+        repeatCount: 1,
+        imageUrl: "https://cdn-icons-png.flaticon.com/512/4213/4213958.png",
+        featured: true
+      });
+    }
+
+    function demoGiftBurst() {
+      setGifts([
+        {
+          giftName: "Galaxy",
+          username: "Ruggy",
+          diamondCount: 1000,
+          repeatCount: 1,
+          imageUrl: "https://cdn-icons-png.flaticon.com/512/616/616490.png",
+          featured: true
+        },
+        {
+          giftName: "Heart Me",
+          username: "MoonlightFan",
+          diamondCount: 1,
+          repeatCount: 25,
+          imageUrl: "https://cdn-icons-png.flaticon.com/512/833/833472.png"
+        },
+        {
+          giftName: "Money Gun",
+          username: "BigSupporter",
+          diamondCount: 500,
+          repeatCount: 2,
+          imageUrl: "https://cdn-icons-png.flaticon.com/512/3135/3135706.png"
+        },
+        {
+          giftName: "Confetti",
+          username: "PartyViewer",
+          diamondCount: 100,
+          repeatCount: 3,
+          imageUrl: "https://cdn-icons-png.flaticon.com/512/3468/3468377.png"
+        }
+      ]);
+    }
+
+    // OBS tip:
+    // Remove "obs-mode" from <body> if you want the demo buttons visible.
+    // Keep it enabled for a clean transparent browser-source overlay.
+
+    // TikTok LIVE connector example:
+    // connection.on("gift", data => {
+    //   addGift({
+    //     giftName: data.giftName,
+    //     username: data.uniqueId,
+    //     diamondCount: data.diamondCount,
+    //     repeatCount: data.repeatCount,
+    //     imageUrl: data.giftPictureUrl
+    //   });
+    // });
+
+    renderGifts();
+    </script>
+</body>
+</html>

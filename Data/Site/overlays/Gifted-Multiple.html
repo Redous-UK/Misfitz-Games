@@ -1,0 +1,433 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Multi Gift Overlay</title>
+
+    <style>
+        :root {
+            --overlay-width: 780px;
+            --bg: rgba(12, 10, 18, 0.78);
+            --panel: rgba(30, 24, 45, 0.9);
+            --card: rgba(255, 255, 255, 0.12);
+            --accent: #ffcf4a;
+            --accent-2: #ff4fd8;
+            --text: #ffffff;
+            --muted: #d8d3e8;
+            --shadow: rgba(0, 0, 0, 0.45);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            background: transparent;
+            overflow: hidden;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .gift-overlay {
+            width: min(var(--overlay-width), calc(100vw - 32px));
+            background: linear-gradient(135deg, var(--bg), var(--panel));
+            border: 2px solid rgba(255, 255, 255, 0.18);
+            border-radius: 26px;
+            padding: 18px;
+            color: var(--text);
+            box-shadow: 0 18px 60px var(--shadow);
+            backdrop-filter: blur(10px);
+            transform: translateY(120%);
+            opacity: 0;
+            transition: transform 450ms ease, opacity 450ms ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+            .gift-overlay.show {
+                transform: translateY(0);
+                opacity: 1;
+            }
+
+            .gift-overlay::before {
+                content: "";
+                position: absolute;
+                inset: -40%;
+                background: radial-gradient(circle at top left, rgba(255, 207, 74, 0.32), transparent 35%), radial-gradient(circle at bottom right, rgba(255, 79, 216, 0.28), transparent 35%);
+                pointer-events: none;
+            }
+
+        .overlay-inner {
+            position: relative;
+            z-index: 1;
+        }
+
+        .overlay-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .title-block {
+            min-width: 0;
+        }
+
+        .eyebrow {
+            font-size: 13px;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--accent);
+            font-weight: 900;
+            margin-bottom: 4px;
+        }
+
+        .overlay-title {
+            margin: 0;
+            font-size: 30px;
+            line-height: 1;
+            font-weight: 950;
+            text-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+        }
+
+        .summary-pill {
+            flex: 0 0 auto;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.13);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            color: var(--muted);
+            font-size: 14px;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+        .gift-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .gift-card {
+            min-width: 0;
+            background: var(--card);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 20px;
+            padding: 12px;
+            display: grid;
+            grid-template-columns: 62px 1fr;
+            gap: 10px;
+            align-items: center;
+            box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.05);
+        }
+
+        .gift-icon-wrap {
+            width: 62px;
+            height: 62px;
+            border-radius: 16px;
+            display: grid;
+            place-items: center;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        .gift-icon {
+            width: 48px;
+            height: 48px;
+            object-fit: contain;
+            filter: drop-shadow(0 7px 10px rgba(0, 0, 0, 0.35));
+        }
+
+        .gift-details {
+            min-width: 0;
+        }
+
+        .gift-name {
+            margin: 0 0 4px;
+            font-size: 17px;
+            line-height: 1.1;
+            font-weight: 950;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .gift-meta {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .pill {
+            padding: 4px 7px;
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.22);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .sender {
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 800;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+            .sender strong {
+                color: var(--text);
+            }
+
+        .footer-row {
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.14);
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            color: var(--muted);
+            font-size: 15px;
+            font-weight: 800;
+        }
+
+        .highlight {
+            color: var(--accent);
+            font-weight: 950;
+        }
+
+        .pulse {
+            animation: pulse 1.4s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.08);
+            }
+        }
+
+        @media (max-width: 760px) {
+            .gift-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 520px) {
+            body {
+                padding: 14px;
+            }
+
+            .overlay-header,
+            .footer-row {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .gift-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .overlay-title {
+                font-size: 25px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <section id="giftOverlay" class="gift-overlay show">
+        <div class="overlay-inner">
+            <header class="overlay-header">
+                <div class="title-block">
+                    <div class="eyebrow">Selected Gifts</div>
+                    <h1 id="overlayTitle" class="overlay-title">Gift Trigger Board</h1>
+                </div>
+                <div id="giftSummary" class="summary-pill">0 gifts selected</div>
+            </header>
+
+            <div id="giftGrid" class="gift-grid"></div>
+
+            <div class="footer-row">
+                <span>Status: <span id="giftStatus" class="highlight">Ready</span></span>
+                <span>Total Value: <span id="totalValue" class="highlight">0 coins</span></span>
+            </div>
+        </div>
+    </section>
+
+    <script>
+    const overlay = document.getElementById("giftOverlay");
+    const giftGrid = document.getElementById("giftGrid");
+    const giftSummary = document.getElementById("giftSummary");
+    const giftStatus = document.getElementById("giftStatus");
+    const totalValue = document.getElementById("totalValue");
+
+    const fallbackIcon = "https://cdn-icons-png.flaticon.com/512/4213/4213958.png";
+
+    let selectedGifts = [];
+
+    function formatCoins(value) {
+      const number = Number(value || 0);
+      return `${number.toLocaleString()} coins`;
+    }
+
+    function renderGifts() {
+      giftGrid.innerHTML = "";
+
+      selectedGifts.forEach((gift) => {
+        const card = document.createElement("article");
+        card.className = "gift-card";
+
+        const iconWrap = document.createElement("div");
+        iconWrap.className = "gift-icon-wrap pulse";
+
+        const icon = document.createElement("img");
+        icon.className = "gift-icon";
+        icon.src = gift.iconUrl || fallbackIcon;
+        icon.alt = gift.name || "Gift";
+
+        iconWrap.appendChild(icon);
+
+        const details = document.createElement("div");
+        details.className = "gift-details";
+
+        const name = document.createElement("h2");
+        name.className = "gift-name";
+        name.textContent = gift.name || "Unknown Gift";
+
+        const meta = document.createElement("div");
+        meta.className = "gift-meta";
+
+        const value = document.createElement("span");
+        value.className = "pill";
+        value.textContent = formatCoins(gift.value);
+
+        const count = document.createElement("span");
+        count.className = "pill";
+        count.textContent = `x${gift.count || 1}`;
+
+        meta.append(value, count);
+
+        const sender = document.createElement("div");
+        sender.className = "sender";
+        sender.innerHTML = `From <strong>${escapeHtml(gift.sender || "Viewer")}</strong>`;
+
+        details.append(name, meta, sender);
+        card.append(iconWrap, details);
+        giftGrid.appendChild(card);
+      });
+
+      const giftCount = selectedGifts.length;
+      const total = selectedGifts.reduce((sum, gift) => {
+        return sum + (Number(gift.value || 0) * Number(gift.count || 1));
+      }, 0);
+
+      giftSummary.textContent = `${giftCount} gift${giftCount === 1 ? "" : "s"} selected`;
+      totalValue.textContent = formatCoins(total);
+    }
+
+    function setSelectedGifts(gifts, options = {}) {
+      selectedGifts = Array.isArray(gifts) ? gifts : [];
+      giftStatus.textContent = options.status || "Ready";
+      renderGifts();
+      showGiftOverlay();
+
+      if (options.hideAfterMs) {
+        clearTimeout(window.__giftOverlayTimer);
+        window.__giftOverlayTimer = setTimeout(hideGiftOverlay, options.hideAfterMs);
+      }
+    }
+
+    function addSelectedGift(gift) {
+      selectedGifts.push(gift);
+      renderGifts();
+      showGiftOverlay();
+    }
+
+    function clearSelectedGifts() {
+      selectedGifts = [];
+      renderGifts();
+    }
+
+    function showGiftOverlay() {
+      overlay.classList.add("show");
+    }
+
+    function hideGiftOverlay() {
+      overlay.classList.remove("show");
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    // Demo updater. Remove this block when wiring into your real gift system.
+    window.demoGifts = function () {
+      setSelectedGifts([
+        {
+          name: "Rose",
+          value: 1,
+          count: 10,
+          sender: "ViewerOne",
+          iconUrl: "https://cdn-icons-png.flaticon.com/512/2583/2583344.png"
+        },
+        {
+          name: "Galaxy",
+          value: 1000,
+          count: 1,
+          sender: "Ruggy",
+          iconUrl: "https://cdn-icons-png.flaticon.com/512/616/616490.png"
+        },
+        {
+          name: "TikTok Universe",
+          value: 34999,
+          count: 1,
+          sender: "TopGifter",
+          iconUrl: "https://cdn-icons-png.flaticon.com/512/4213/4213958.png"
+        }
+      ], {
+        status: "Effects Armed",
+        hideAfterMs: 12000
+      });
+    };
+
+    // Example real usage:
+    // setSelectedGifts([
+    //   {
+    //     name: gift.name,
+    //     value: gift.diamondCount,
+    //     count: gift.repeatCount,
+    //     sender: gift.username,
+    //     iconUrl: gift.imageUrl
+    //   }
+    // ], {
+    //   status: "Effect Triggered",
+    //   hideAfterMs: 10000
+    // });
+
+    renderGifts();
+    </script>
+</body>
+</html>

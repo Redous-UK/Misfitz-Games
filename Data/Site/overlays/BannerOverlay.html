@@ -1,0 +1,548 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Selected TikTok Gifts Banner Overlay</title>
+
+    <style>
+        :root {
+            --banner-width: 1500px;
+            --banner-height: 150px;
+            --bg: rgba(8, 10, 20, 0.72);
+            --panel: rgba(25, 18, 45, 0.88);
+            --card: rgba(255, 255, 255, 0.12);
+            --stroke: rgba(255, 255, 255, 0.18);
+            --text: #ffffff;
+            --muted: #d9d4ec;
+            --tiktok-cyan: #25f4ee;
+            --tiktok-pink: #fe2c55;
+            --gold: #ffd666;
+            --shadow: rgba(0, 0, 0, 0.48);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            background: transparent;
+            overflow: hidden;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding: 0 28px 34px;
+        }
+
+        .gift-banner {
+            width: min(var(--banner-width), calc(100vw - 40px));
+            min-height: var(--banner-height);
+            color: var(--text);
+            background: linear-gradient(135deg, var(--bg), var(--panel));
+            border: 2px solid var(--stroke);
+            border-radius: 28px;
+            box-shadow: 0 18px 70px var(--shadow);
+            backdrop-filter: blur(12px);
+            overflow: hidden;
+            position: relative;
+        }
+
+            .gift-banner::before {
+                content: "";
+                position: absolute;
+                inset: -80%;
+                background: radial-gradient(circle at 15% 20%, rgba(37, 244, 238, 0.28), transparent 30%), radial-gradient(circle at 85% 70%, rgba(254, 44, 85, 0.28), transparent 32%), radial-gradient(circle at 50% 0%, rgba(255, 214, 102, 0.15), transparent 28%);
+                pointer-events: none;
+                animation: glowShift 8s ease-in-out infinite alternate;
+            }
+
+        @keyframes glowShift {
+            from {
+                transform: translateX(-3%) rotate(0deg);
+            }
+
+            to {
+                transform: translateX(3%) rotate(5deg);
+            }
+        }
+
+        .banner-inner {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            gap: 14px;
+            align-items: center;
+            min-height: var(--banner-height);
+            padding: 14px;
+        }
+
+        .title-panel {
+            height: 100%;
+            min-height: 122px;
+            border-radius: 22px;
+            padding: 14px;
+            background: rgba(0, 0, 0, 0.22);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .eyebrow {
+            color: var(--tiktok-cyan);
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+            text-shadow: 2px 2px 0 rgba(254, 44, 85, 0.55);
+        }
+
+        .title-panel h1 {
+            margin: 0;
+            font-size: 28px;
+            line-height: 1;
+            font-weight: 950;
+            text-shadow: 0 5px 18px rgba(0, 0, 0, 0.45);
+        }
+
+        .subtitle {
+            margin-top: 8px;
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        .selected-gifts {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            gap: 10px;
+            align-items: stretch;
+        }
+
+        .gift-card {
+            min-width: 0;
+            min-height: 122px;
+            padding: 10px;
+            border-radius: 20px;
+            background: var(--card);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            box-shadow: inset 0 0 24px rgba(255, 255, 255, 0.055);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+            .gift-card.featured {
+                border-color: rgba(255, 214, 102, 0.72);
+                box-shadow: 0 0 28px rgba(255, 214, 102, 0.18), inset 0 0 24px rgba(255, 255, 255, 0.055);
+            }
+
+            .gift-card::after {
+                content: "";
+                position: absolute;
+                inset: 0;
+                border-radius: inherit;
+                background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+                transform: translateX(-120%);
+                animation: shimmer 4s ease-in-out infinite;
+                pointer-events: none;
+            }
+
+        @keyframes shimmer {
+            0%, 45% {
+                transform: translateX(-120%);
+            }
+
+            70%, 100% {
+                transform: translateX(120%);
+            }
+        }
+
+        .gift-icon-box {
+            width: 64px;
+            height: 64px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            display: grid;
+            place-items: center;
+            margin-bottom: 7px;
+        }
+
+        .gift-icon {
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+            filter: drop-shadow(0 8px 12px rgba(0,0,0,0.4));
+            animation: floatGift 2.4s ease-in-out infinite;
+        }
+
+        @keyframes floatGift {
+            0%, 100% {
+                transform: translateY(0) scale(1);
+            }
+
+            50% {
+                transform: translateY(-4px) scale(1.06);
+            }
+        }
+
+        .gift-name {
+            width: 100%;
+            margin: 0;
+            font-size: 15px;
+            line-height: 1.1;
+            font-weight: 950;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .gift-price {
+            margin-top: 5px;
+            padding: 4px 7px;
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            color: var(--gold);
+            font-size: 12px;
+            font-weight: 950;
+        }
+
+        .empty-slot {
+            opacity: 0.42;
+            border-style: dashed;
+        }
+
+            .empty-slot .gift-icon-box {
+                font-size: 28px;
+                color: var(--muted);
+                font-weight: 950;
+            }
+
+        .setup-panel {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            z-index: 20;
+            width: 360px;
+            max-height: calc(100vh - 32px);
+            overflow: auto;
+            padding: 14px;
+            border-radius: 18px;
+            background: rgba(15, 15, 24, 0.92);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            color: #fff;
+            box-shadow: 0 14px 40px rgba(0,0,0,0.38);
+        }
+
+            .setup-panel h2 {
+                margin: 0 0 10px;
+                font-size: 18px;
+            }
+
+        .setup-row {
+            display: grid;
+            grid-template-columns: 26px 1fr 80px;
+            gap: 6px;
+            align-items: center;
+            margin-bottom: 7px;
+        }
+
+            .setup-row input {
+                min-width: 0;
+                border: 0;
+                border-radius: 9px;
+                padding: 8px;
+                font-weight: 700;
+            }
+
+        .setup-panel button {
+            border: 0;
+            border-radius: 999px;
+            padding: 9px 12px;
+            color: #fff;
+            background: linear-gradient(135deg, rgba(37,244,238,0.34), rgba(254,44,85,0.34));
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            font-weight: 950;
+            cursor: pointer;
+            margin-top: 6px;
+        }
+
+        .setup-note {
+            margin-top: 8px;
+            color: #d9d4ec;
+            font-size: 12px;
+            line-height: 1.35;
+        }
+
+        body.obs-mode .setup-panel {
+            display: none;
+        }
+
+        @media (max-width: 1200px) {
+            .selected-gifts {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
+            .gift-banner {
+                --banner-height: auto;
+            }
+        }
+
+        @media (max-width: 760px) {
+            body {
+                padding: 16px;
+            }
+
+            .banner-inner {
+                grid-template-columns: 1fr;
+            }
+
+            .selected-gifts {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+    </style>
+</head>
+<body class="obs-mode">
+    <aside class="setup-panel">
+        <h2>Select up to 6 gifts</h2>
+        <div id="setupRows"></div>
+        <button onclick="applySetupGifts()">Update Banner</button>
+        <button onclick="loadDemoGifts()">Load Demo Gifts</button>
+        <div class="setup-note">
+            Remove <strong>obs-mode</strong> from the body tag to show this setup panel. Keep <strong>obs-mode</strong> enabled when using this as an OBS/browser overlay.
+        </div>
+    </aside>
+
+    <main class="gift-banner">
+        <div class="banner-inner">
+            <section class="title-panel">
+                <div class="eyebrow">Gaming Arena</div>
+                <h1>Campaign Gifts</h1>
+                <div class="subtitle">Triple Points x3</div>
+            </section>
+
+            <section id="selectedGifts" class="selected-gifts"></section>
+        </div>
+    </main>
+
+    <script>
+        const selectedGiftsEl = document.getElementById("selectedGifts");
+        const setupRowsEl = document.getElementById("setupRows");
+
+        const fallbackIcon = "https://cdn-icons-png.flaticon.com/512/4213/4213958.png";
+        const maxGiftSlots = 6;
+
+        let selectedGifts = [
+            {
+                name: "Spring",
+                coins: 1,
+                points: 3,
+                iconUrl: "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/b81807a156aad66d757bacffebae830f.png~tplv-obj.webp"
+            },
+            {
+                name: "Daffodils",
+                coins: 99,
+                points: 297,
+                iconUrl: "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/9678be6f068b8d629823cd72b9de94a4.png~tplv-obj.webp"
+            },
+            {
+                name: "Flower Flight",
+                coins: 399,
+                points: 1197,
+                iconUrl: "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/187313a9e7ec80008ff932b9cb4ff8db~tplv-obj.webp"
+            },
+            {
+                name: "Cat with Kite",
+                coins: 799,
+                points: 2397,
+                iconUrl: "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/ed64975b4e809224ec3dffc616840205.png~tplv-obj.webp"
+            },
+            {
+                name: "Spring Bonsai",
+                coins: 2999,
+                points: 8997,
+                iconUrl: "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/ea885e4c3519854a00e106975d59a51b.png~tplv-obj.webp",
+                featured: true
+            },
+            {
+                name: "Deer",
+                coins: 6999,
+                points: 20997,
+                iconUrl: "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/42389c7cc9c13c5997c27aaaa99557e7.png~tplv-obj.webp",
+                featured: true
+            }
+        ];
+
+        function renderSelectedGifts() {
+            selectedGiftsEl.innerHTML = "";
+
+            for (let i = 0; i < maxGiftSlots; i++) {
+                const gift = selectedGifts[i];
+
+                if (!gift || !gift.name) {
+                    selectedGiftsEl.appendChild(createEmptySlot(i));
+                    continue;
+                }
+
+                const card = document.createElement("article");
+                card.className = `gift-card ${gift.featured ? "featured" : ""}`;
+                card.innerHTML = `
+                                  <div class="gift-icon-box">
+                                    <img class="gift-icon" src="${escapeAttr(gift.iconUrl || fallbackIcon)}" alt="${escapeAttr(gift.name)}" />
+                                  </div>
+                                  <h2 class="gift-name">${escapeHtml(gift.name)}</h2>
+                                  <div class="gift-price">${formatNumber(gift.coins)} coins</div>
+                                `;
+
+                selectedGiftsEl.appendChild(card);
+            }
+        }
+
+        function createEmptySlot(index) {
+            const slot = document.createElement("article");
+            slot.className = "gift-card empty-slot";
+            slot.innerHTML = `
+                                <div class="gift-icon-box">+</div>
+                                <h2 class="gift-name">Gift ${index + 1}</h2>
+                                <div class="gift-price">Empty</div>
+                                <div class="gift-points">Empty</div>
+                              `;
+            return slot;
+        }
+
+        function renderSetupPanel() {
+            setupRowsEl.innerHTML = "";
+
+            for (let i = 0; i < maxGiftSlots; i++) {
+                const gift = selectedGifts[i] || {};
+                const row = document.createElement("div");
+                row.className = "setup-row";
+                row.innerHTML = `
+                                  <strong>${i + 1}</strong>
+                                  <input id="giftName${i}" value="${escapeAttr(gift.name || "")}" placeholder="Gift name" />
+                                  <input id="giftCoins${i}" value="${escapeAttr(gift.coins || "")}" placeholder="Coins" />
+                                  <input id="giftPoints${i}" value="${escapeAttr(gift.points || "")}" placeholder="Points" />
+                                `;
+                setupRowsEl.appendChild(row);
+            }
+        }
+
+        function applySetupGifts() {
+            const next = [];
+
+            for (let i = 0; i < maxGiftSlots; i++) {
+                const name = document.getElementById(`giftName${i}`).value.trim();
+                const coins = document.getElementById(`giftCoins${i}`).value.trim();
+                const points = document.getElementById(`giftPoints${i}`).value.trim();
+
+                if (!name) continue;
+
+                next.push({
+                    name,
+                    coins: Number(coins || 0),
+                    points: Number(points || 0),
+                    iconUrl: selectedGifts[i]?.iconUrl || fallbackIcon,
+                    featured: Number(coins || 0) >= 1000
+                });
+            }
+
+            selectedGifts = next.slice(0, maxGiftSlots);
+            renderSelectedGifts();
+            renderSetupPanel();
+        }
+
+        function setSelectedGifts(gifts) {
+            selectedGifts = Array.isArray(gifts) ? gifts.slice(0, maxGiftSlots) : [];
+            renderSelectedGifts();
+            renderSetupPanel();
+        }
+
+        function loadDemoGifts() {
+            setSelectedGifts([
+                {
+                    name: "Spring",
+                    coins: 1,
+                    points: 3,
+                    iconUrl: "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/89ada30bca30c6f1d684654ba70a5284.png~tplv-obj.webp"
+                },
+                {
+                    name: "Daffodils",
+                    coins: 99,
+                    points: 297,
+                    iconUrl: "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/9678be6f068b8d629823cd72b9de94a4.png~tplv-obj.webp"
+                },
+                {
+                    name: "Flower Flight",
+                    coins: 399,
+                    points: 1197,
+                    iconUrl: "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/187313a9e7ec80008ff932b9cb4ff8db~tplv-obj.webp"
+                },
+                {
+                    name: "Cat with Kite",
+                    coins: 799,
+                    points: 2397,
+                    iconUrl: "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/ed64975b4e809224ec3dffc616840205.png~tplv-obj.webp"
+                },
+                {
+                    name: "Spring Bonsai",
+                    coins: 2999,
+                    points: 8997,
+                    iconUrl: "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/ea885e4c3519854a00e106975d59a51b.png~tplv-obj.webp",
+                    featured: true
+                },
+                {
+                    name: "Deer",
+                    coins: 6999,
+                    points: 20997,
+                    iconUrl: "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/42389c7cc9c13c5997c27aaaa99557e7.png~tplv-obj.webp",
+                    featured: true
+                }
+            ]);
+        }
+
+        function formatNumber(value) {
+            return Number(value || 0).toLocaleString();
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        function escapeAttr(value) {
+            return escapeHtml(value);
+        }
+
+        // Example custom setup:
+        // setSelectedGifts([
+        //   { name: "Rose", coins: 1, iconUrl: "rose.png" },
+        //   { name: "Galaxy", coins: 1000, iconUrl: "galaxy.png", featured: true },
+        //   { name: "Universe", coins: 34999, iconUrl: "universe.png", featured: true }
+        // ]);
+
+        renderSelectedGifts();
+        renderSetupPanel();
+    </script>
+</body>
+</html>
