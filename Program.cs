@@ -558,8 +558,11 @@ public static class Program
         {
             var battles = await db.BattleEvents
                 .AsNoTracking()
-                .OrderBy(x => x.StartsAtUtc)
                 .ToListAsync();
+
+            battles = battles
+                .OrderBy(x => x.StartsAtUtc)
+                .ToList();
 
             return Results.Ok(new { battles });
         })
@@ -577,8 +580,11 @@ public static class Program
             var battles = await db.BattleEvents
                 .AsNoTracking()
                 .Where(x => x.RequestedByUserId == userId)
-                .OrderBy(x => x.StartsAtUtc)
                 .ToListAsync();
+
+            battles = battles
+                .OrderBy(x => x.StartsAtUtc)
+                .ToList();
 
             return Results.Ok(new { battles });
         })
