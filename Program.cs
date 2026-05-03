@@ -413,6 +413,32 @@ public static class Program
             return Results.Json(new { ok = true });
         });
 
+        app.MapGet("/admin/sql", async context =>
+        {
+            context.Response.Redirect("/admin/admin-dashboard.html");
+        })
+.RequireAuthorization("AdminOnly");
+
+        app.MapGet("/admin/users", async (AppDbContext db) =>
+        {
+            var users = await db.Users
+                .AsNoTracking()
+                .OrderBy(u => u.Username)
+                .Select(u => new
+                {
+                    u.Id,
+                    u.Username,
+                    u.Email,
+                    u.DisplayName,
+                    u.Role,
+                    u.CreatedUtc
+                })
+                .ToListAsync();
+
+            return Results.Ok(new { users });
+        })
+.RequireAuthorization("AdminOnly");
+
         // ===================== NEW: /admin/site endpoints (used by your new folder-only explorer) =====================
         // Your admin HTML is calling:
         //   GET /admin/site/list?path=

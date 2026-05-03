@@ -425,54 +425,15 @@
                         </div>
 
                         <div class="admin-grid">
-                            <button class="btn primary" id="btnAdminOpenEditor" type="button">Open Site Editor</button>
-                            <button class="btn" id="btnAdminListSiteFiles" type="button">List Site Files</button>
-                            <button class="btn" id="btnAdminDebugStatic" type="button">Debug Static</button>
-                            <button class="btn" id="btnAdminWhoami" type="button">Who Am I</button>
-                        </div>
-                    </div>
-
-                    <div class="card span-6">
-                        <div class="section-head">
-                            <div>
-                                <h4>Riddle Import</h4>
-                                <p>Import riddles into the Riddle Me This game database.</p>
-                            </div>
+                            <button class="btn primary" id="btnAdminSiteEditor" type="button">Site Editor</button>
+                            <button class="btn" data-admin-section="room" type="button">Room</button>
+                            <button class="btn" data-admin-section="debug" type="button">Debug</button>
+                            <button class="btn" data-admin-section="users" type="button">Users</button>
+                            <button class="btn" id="btnAdminSql" type="button">SQL</button>
                         </div>
 
-                        <div class="field">
-                            <label for="adminRiddleCategory">Category</label>
-                            <select id="adminRiddleCategory">
-                                <option value="science">Science</option>
-                                <option value="general">General</option>
-                                <option value="funny">Funny</option>
-                                <option value="math">Math</option>
-                                <option value="logic">Logic</option>
-                            </select>
-                        </div>
-
-                        <div class="stack">
-                            <button class="btn primary" id="btnAdminImportRiddleCategory" type="button">Import Selected Category</button>
-                            <button class="btn" id="btnAdminImportRiddlesAll" type="button">Import All Categories</button>
-                        </div>
-                    </div>
-
-                    <div class="card span-6">
-                        <div class="section-head">
-                            <div>
-                                <h4>Room Tools</h4>
-                                <p>Open or inspect a room by room reference/code.</p>
-                            </div>
-                        </div>
-
-                        <div class="field">
-                            <label for="adminRoomRef">Room Ref</label>
-                            <input id="adminRoomRef" placeholder="AVVVVSL7" />
-                        </div>
-
-                        <div class="stack">
-                            <button class="btn" id="btnAdminOpenRoomState" type="button">Open Room State</button>
-                            <button class="btn" id="btnAdminOpenOverlay" type="button">Open Overlay</button>
+                        <div id="adminSectionHost" class="admin-view-host">
+                            <div class="emptyState">Select an admin tool.</div>
                         </div>
                     </div>
 
