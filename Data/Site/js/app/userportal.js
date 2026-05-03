@@ -623,7 +623,7 @@
                     <button class="btn" id="btnDebugRoomState" type="button">Room State</button>
                 </div>
 
-                <pre id="adminDebugOut" class="admin-output" style="margin-top:16px;">Debug output will appear here...</pre>
+                <!--<pre id="adminDebugOut" class="admin-output" style="margin-top:16px;">Debug output will appear here...</pre> -->
             </div>
         `;
 
@@ -776,6 +776,237 @@
         });
     }
 
+    async function battleApi(path, options = {}) {
+        return await adminApi(path, options);
+    }
+
+    function formatBattleDate(value) {
+        if (!value) return "-";
+
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) return "-";
+
+        return d.toLocaleString([], {
+            dateStyle: "medium",
+            timeStyle: "short"
+        });
+    }
+
+    function renderBattleRows(battles, isAdminView) {
+        if (!Array.isArray(battles) || !battles.length) {
+            return `<div class="emptyState">No battles found.</div>`;
+        }
+
+        return battles.map(b => `
+        <div class="list-row">
+            <div class="list-copy">
+                <strong>${escAdmin(b.title || "Untitled Battle")}</strong>
+                <span>
+                    ${escAdmin(b.opponentName || "No opponent")} •
+                    ${formatBattleDate(b.startsAtUtc)} •
+                    ${escAdmin(b.status || "pending")}
+                </span>
+                ${b.description ? `<span>${escAdmin(b.description)}</span>` : ""}
+            </div>
+
+            <span class="pill ${b.status === "approved" ? "good" : b.status === "declined" ? "bad" : "warn"}">
+                ${escAdmin(b.status || "pending")}
+            </span>
+        </div>
+
+        ${isAdminView ? `
+            <div class="admin-grid" style="margin:-6px 0 14px 0;">
+                <button class="btn" data-battle-status="${escAdmin(b.id)}|approved" type="button">Approve</button>
+                <button class="btn" data-battle-status="${escAdmin(b.id)}|declined" type="button">Decline</button>
+                <button class="btn" data-battle-status="${escAdmin(b.id)}|completed" type="button">Complete</button>
+            </div>
+        ` : ""}
+    `).join("");
+    }
+
+    async function renderAllBattles() {
+        const host = M.el("battleViewHost");
+        if (!host) return;
+
+        host.innerHTML = `<div class="emptyState">Loading all battles...</div>`;
+
+        try {
+            const result = await battleApi("/api/battles");
+            const battles = result?.battles || [];
+
+            host.innerHTML = `
+            <div class="card span-12">
+                <h4>All Battles</h4>
+                <div class="stack">
+                    ${renderBattleRows(battles, true)}
+                </div>
+            </div>
+        `;
+
+            bindBattleStatusButtons();
+        } catch (err) {
+            host.innerHTML = `<div class="emptyState">Failed to load all battles.</div>`;
+            setAdminOutput(err.message || String(err));
+        }
+    }
+
+    async function renderMyBattles() {
+        const host = M.el("battleViewHost");
+        if (!host) return;
+
+        host.innerHTML = `<div class="emptyState">Loading your battles...</div>`;
+
+        try {
+            const result = await battleApi("/api/battles/me");
+            const battles = result?.battles || [];
+
+            host.innerHTML = `
+            <div class="card span-12">
+                <h4>My Battles</h4>
+                <div class="stack">
+                    ${renderBattleRows(battles, false)}
+                </div>
+            </div>
+        `;
+        } catch (err) {
+            host.innerHTML = `<div class="emptyState">Failed to load your battles.</div>`;
+            setAdminOutput(err.message || String(err));
+        }
+    }
+
+    function renderBattleRequestForm() {
+        const host = M.el("battleViewHost");
+        if (!host) return;
+
+        host.innerHTML = `
+        <div class="card span-12">
+            <div class="section-head">
+                <div>
+                    <h4>Request Battle</h4>
+                    <p>Submit a battle request for review.</p>
+                </div>
+            </div>
+
+            <div class="field">
+                <label for="battleTitle">Title</label>
+                <input id="battleTitle" placeholder="Friday Night Battle" />
+            </div>
+
+            <div class="field">
+                <label for="battleOpponent">Opponent</label>
+                <input id="battleOpponent" placeholder="Opponent username or team" />
+            </div>
+
+            <div class="field">
+                <label for="battleStartsAt">Date and time</label>
+                <input id="battleStartsAt" type="datetime-local" />
+            </div>
+
+            <div class="field">
+                <label for="battleDescription">Description</label>
+                <textarea id="battleDescription" placeholder="Battle notes, rules, game mode, etc."></textarea>
+            </div>
+
+            <button class="btn primary" id="btnSubmitBattleRequest" type="button">Submit Battle Request</button>
+        </div>
+    `;
+
+        M.el("btnSubmitBattleRequest")?.addEventListener("click", submitBattleRequest);
+    }
+
+    async function submitBattleRequest() {
+        const title = M.el("battleTitle")?.value?.trim() || "";
+        const opponentName = M.el("battleOpponent")?.value?.trim() || "";
+        const startsAtRaw = M.el("battleStartsAt")?.value || "";
+        const description = M.el("battleDescription")?.value?.trim() || "";
+
+        if (!title) {
+            M.setStatus("Battle title is required.", "bad");
+            return;
+        }
+
+        if (!startsAtRaw) {
+            M.setStatus("Battle date/time is required.", "bad");
+            return;
+        }
+
+        const startsAtUtc = new Date(startsAtRaw).toISOString();
+
+        try {
+            M.setStatus("Submitting battle request...");
+
+            const result = await battleApi("/api/battles/request", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    title,
+                    opponentName,
+                    description,
+                    startsAtUtc
+                })
+            });
+
+            setAdminOutput(result);
+            M.setStatus("Battle request submitted.", "good");
+            await renderMyBattles();
+        } catch (err) {
+            setAdminOutput(err.message || String(err));
+            M.setStatus("Failed to submit battle request.", "bad");
+        }
+    }
+
+    function bindBattleStatusButtons() {
+        M.qsa("[data-battle-status]").forEach(btn => {
+            btn.addEventListener("click", async () => {
+                if (!requireAdminAction()) return;
+
+                const [id, status] = String(btn.dataset.battleStatus || "").split("|");
+
+                if (!id || !status) {
+                    setAdminOutput("Missing battle id or status.");
+                    return;
+                }
+
+                try {
+                    M.setStatus(`Updating battle to ${status}...`);
+
+                    const result = await battleApi(`/api/battles/${encodeURIComponent(id)}/status`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ status })
+                    });
+
+                    setAdminOutput(result);
+                    M.setStatus("Battle updated.", "good");
+                    await renderAllBattles();
+                } catch (err) {
+                    setAdminOutput(err.message || String(err));
+                    M.setStatus("Failed to update battle.", "bad");
+                }
+            });
+        });
+    }
+
+    function bindBattleActions() {
+        M.qsa("[data-battle-view]").forEach(btn => {
+            btn.addEventListener("click", async () => {
+                const view = btn.dataset.battleView;
+
+                M.qsa("[data-battle-view]").forEach(x => {
+                    x.classList.toggle("primary", x === btn);
+                });
+
+                if (view === "all") await renderAllBattles();
+                if (view === "mine") await renderMyBattles();
+                if (view === "request") renderBattleRequestForm();
+            });
+        });
+
+        M.el("btnReloadBattles")?.addEventListener("click", async () => {
+            await renderMyBattles();
+        });
+    }
+
     function bindActions() {
         M.el("btnBackToLobby")?.addEventListener("click", () => {
             window.location.href = "/lobby.html";
@@ -829,12 +1060,14 @@
         M.el("btnSavePreferences")?.addEventListener("click", savePreferences);
         M.el("btnSavePreferencesTop")?.addEventListener("click", savePreferences);
 
-        bindAdminActions();
+
     }
 
     async function boot() {
         bindTabs();
         bindActions();
+        bindAdminActions();
+        bindBattleActions();
 
         try {
             M.setStatus("Loading portal...");

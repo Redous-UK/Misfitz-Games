@@ -21,6 +21,7 @@
                 <button class="active" data-tab="overview">Overview<span class="small">Snapshot & account summary</span></button>
                 <button data-tab="profile">Profile<span class="small">Identity, bio, display info</span></button>
                 <button data-tab="room">Room<span class="small">Room defaults & portal link</span></button>
+                <button data-tab="battles">Battle Calendar<span class="small">Battles, requests & schedule</span></button>
                 <button data-tab="notifications">Notifications<span class="small">Email, alerts, reminders</span></button>
                 <button data-tab="privacy">Privacy & Security<span class="small">Access, visibility, sessions</span></button>
                 <button data-tab="appearance">Appearance<span class="small">Theme and portal styling</span></button>
@@ -248,6 +249,28 @@
                             <div class="toggle-copy"><strong>Private room mode</strong><span>Hide room from public listing until enabled.</span></div>
                             <label class="switch"><input id="roomIsPrivate" type="checkbox" /><span class="slider"></span></label>
                         </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="tab-panel" data-panel="battles">
+                <div class="portal-grid">
+                    <div class="card span-12">
+                        <div class="section-head">
+                            <div>
+                                <h4>Battle Calendar</h4>
+                                <p>View battles, check your requests, or request a new battle.</p>
+                            </div>
+                            <button class="btn" id="btnReloadBattles" type="button">Reload</button>
+                        </div>
+
+                        <div class="admin-grid">
+                            <button class="btn primary" data-battle-view="all" type="button">All Battles</button>
+                            <button class="btn" data-battle-view="mine" type="button">My Battles</button>
+                            <button class="btn" data-battle-view="request" type="button">Request Battle</button>
+                        </div>
+
+                        <div id="battleViewHost" style="margin-top:16px;"></div>
                     </div>
                 </div>
             </section>

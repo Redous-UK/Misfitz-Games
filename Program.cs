@@ -7,6 +7,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Misfitz_Games.Data;
 using Misfitz_Games.Hubs;
+using Misfitz_Games.Models.Battles;
+using Misfitz_Games.Models.Battles.Requests;
 using Misfitz_Games.Services;
 using Misfitz_Games.Services.Games.Contexto;
 using Misfitz_Games.Services.Games.Hangman;
@@ -548,6 +550,98 @@ public static class Program
                 return Results.Problem("admin/site/read failed");
             }
         });
+
+
+        // ===================== Battle System =====================
+
+        app.MapGet("/api/battles", async (AppDbContext db) =>
+        {
+            var battles = await db.BattleEvents
+                .AsNoTracking()
+                .OrderBy(x => x.StartsAtUtc)
+                .ToListAsync();
+
+            return Results.Ok(new { battles });
+        })
+.RequireAuthorization("AdminOnly");
+
+        app.MapGet("/api/battles/me", async (
+    ClaimsPrincipal user,
+    AppDbContext db) =>
+        {
+            var rawUserId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!Guid.TryParse(rawUserId, out var userId))
+                return Results.Unauthorized();
+
+            var battles = await db.BattleEvents
+                .AsNoTracking()
+                .Where(x => x.RequestedByUserId == userId)
+                .OrderBy(x => x.StartsAtUtc)
+                .ToListAsync();
+
+            return Results.Ok(new { battles });
+        })
+.RequireAuthorization();
+
+        app.MapPost("/api/battles/request", async (
+    RequestBattleDto dto,
+    ClaimsPrincipal user,
+    AppDbContext db) =>
+        {
+            var rawUserId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!Guid.TryParse(rawUserId, out var userId))
+                return Results.Unauthorized();
+
+            if (string.IsNullOrWhiteSpace(dto.Title))
+                return Results.BadRequest(new { ok = false, error = "Title is required." });
+
+            if (dto.StartsAtUtc <= DateTimeOffset.UtcNow)
+                return Results.BadRequest(new { ok = false, error = "Battle date must be in the future." });
+
+            var battle = new BattleEvent
+            {
+                RequestedByUserId = userId,
+                Title = dto.Title.Trim(),
+                Description = dto.Description?.Trim() ?? "",
+                OpponentName = dto.OpponentName?.Trim() ?? "",
+                StartsAtUtc = dto.StartsAtUtc,
+                Status = "pending"
+            };
+
+            db.BattleEvents.Add(battle);
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new { ok = true, battle });
+        })
+.RequireAuthorization();
+
+        app.MapPost("/api/battles/{id:guid}/status", async (
+    Guid id,
+    UpdateBattleStatusDto dto,
+    AppDbContext db) =>
+        {
+            var allowed = new[] { "pending", "approved", "declined", "completed" };
+            var status = (dto.Status ?? "").Trim().ToLowerInvariant();
+
+            if (!allowed.Contains(status))
+                return Results.BadRequest(new { ok = false, error = "Invalid status." });
+
+            var battle = await db.BattleEvents.FirstOrDefaultAsync(x => x.Id == id);
+
+            if (battle is null)
+                return Results.NotFound(new { ok = false, error = "Battle not found." });
+
+            battle.Status = status;
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new { ok = true, battle });
+        })
+.RequireAuthorization("AdminOnly");
+
+
+
 
         // ===================== DB migrate =====================
         var skipMigrate = builder.Configuration["SKIP_MIGRATE"] == "1";
