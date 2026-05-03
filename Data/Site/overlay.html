@@ -1,0 +1,81 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Misfitz Gaming — Overlay</title>
+    <link rel="stylesheet" href="/styles/site2.css" />
+    <link rel="stylesheet" href="/styles/overlay.css" />
+</head>
+<body class="overlayBody">
+    <div class="overlayWrap">
+        <div id="headerCard" class="mgCard headerCard fadeIn">
+            <div class="glowBar"></div>
+
+            <div class="brandRow">
+                <div class="brandBlock">
+                    <div class="brandEyebrow">Live Room Overlay</div>
+                    <h1 class="brandTitle">Misfitz Gaming</h1>
+                    <div id="brandSub" class="brandSub">Waiting for room data…</div>
+                </div>
+
+                <div class="badgeRow">
+                    <div id="roomBadge" class="badge">Room: --</div>
+                    <div id="gameBadge" class="badge">Game: None</div>
+                    <div id="statusBadge" class="badge waiting"><span class="dot"></span><span>Waiting</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="overlayShell">
+            <div class="mgCard mainCard fadeIn">
+                <div class="glowBar"></div>
+
+                <div class="panelLabel">Current State</div>
+                <h2 id="mainStatus" class="mainStatus">Waiting</h2>
+                <p id="mainMessage" class="mainMessage">Room is idle. Start a game to go live.</p>
+                <div id="mainSub" class="mainSub">Connect a room using <strong>?room=YOURCODE</strong> in the overlay URL.</div>
+
+                <div id="metaGrid" class="metaGrid" style="display:none;"></div>
+            </div>
+
+            <div class="sideCol">
+                <div class="mgCard boardCard fadeIn">
+                    <div class="glowBar"></div>
+
+                    <div class="cardTitleRow">
+                        <h3 class="cardTitle">Leaderboard</h3>
+                        <div id="playerCountPill" class="tinyPill">0 Players</div>
+                    </div>
+
+                    <div id="boardList" class="boardList">
+                        <div class="emptyState">No players to display yet.</div>
+                    </div>
+                </div>
+
+                <div class="mgCard feedCard fadeIn">
+                    <div class="glowBar"></div>
+
+                    <div class="cardTitleRow">
+                        <h3 class="cardTitle">Room Feed</h3>
+                        <div id="refreshPill" class="tinyPill">Polling</div>
+                    </div>
+
+                    <div id="feedText" class="feedText">
+                        Waiting for first overlay response…
+                    </div>
+
+                    <div class="footerRow">
+                        <span id="lastUpdated">Last update: --</span>
+                        <span>Powered by Misfitz Gaming</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="obsNote">OBS Ready</div>
+
+    <script type="module" src="/js/app/overlayApp.js"></script>
+</body>
+</html>
