@@ -2,7 +2,7 @@
 const POLL_MS = 2500;
 
 const qs = new URLSearchParams(location.search);
-const roomRef = qs.get("room") || qs.get("roomRef") || "";
+const roomRef = qs.get("roomId") || qs.get("roomRef") || "";
 
 async function api(path) {
     const res = await fetch(path, {
@@ -21,7 +21,7 @@ async function api(path) {
 
 async function loadOverlay() {
     if (!roomRef) {
-        renderError("Missing room. Use ?room=YOUR_ROOM");
+        renderError("Missing room. Use ?roomRef=YOUR_ROOM");
         return;
     }
 
