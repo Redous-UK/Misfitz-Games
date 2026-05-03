@@ -646,8 +646,45 @@ public static class Program
         })
 .RequireAuthorization("AdminOnly");
 
+        // ===================== Tournaments =====================
 
+        app.MapPost("/api/tournaments", async (
+    ClaimsPrincipal user,
+    AppDbContext db,
+    Tournament dto) =>
+        {
+            var rawUserId = user.FindFirstValue(ClaimTypes.NameIdentifier);
 
+            if (!Guid.TryParse(rawUserId, out var userId))
+                return Results.Unauthorized();
+
+            if (string.IsNullOrWhiteSpace(dto.Name))
+                return Results.BadRequest(new { ok = false, error = "Name required." });
+
+            var t = new Tournament
+            {
+                Name = dto.Name.Trim(),
+                Game = dto.Game?.Trim() ?? "",
+                CreatedByUserId = userId
+            };
+
+            db.Tournaments.Add(t);
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new { ok = true, tournament = t });
+        })
+.RequireAuthorization();
+
+        app.MapGet("/api/tournaments", async (AppDbContext db) =>
+        {
+            var list = await db.Tournaments
+                .AsNoTracking()
+                .OrderByDescending(x => x.CreatedAtUtc)
+                .ToListAsync();
+
+            return Results.Ok(new { tournaments = list });
+        })
+.RequireAuthorization();
 
         // ===================== DB migrate =====================
         var skipMigrate = builder.Configuration["SKIP_MIGRATE"] == "1";

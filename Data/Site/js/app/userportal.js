@@ -776,6 +776,151 @@
         });
     }
 
+
+    // ========== Battle Management ==========
+
+    let battleCalendarDate = new Date();
+
+    function getBattleStart(b) {
+        return new Date(b.startsAtUtc || b.StartsAtUtc);
+    }
+
+    function getBattleEnd(b) {
+        const start = getBattleStart(b);
+        const rawEnd = b.endsAtUtc || b.EndsAtUtc;
+
+        if (rawEnd) return new Date(rawEnd);
+
+        // Default battle length if no end time exists
+        return new Date(start.getTime() + 60 * 60 * 1000);
+    }
+
+    function battlesOverlap(a, b) {
+        const aStart = getBattleStart(a);
+        const aEnd = getBattleEnd(a);
+        const bStart = getBattleStart(b);
+        const bEnd = getBattleEnd(b);
+
+        return aStart < bEnd && bStart < aEnd;
+    }
+
+    function findBattleConflicts(battles) {
+        const conflictIds = new Set();
+
+        for (let i = 0; i < battles.length; i++) {
+            for (let j = i + 1; j < battles.length; j++) {
+                if (battlesOverlap(battles[i], battles[j])) {
+                    conflictIds.add(battles[i].id);
+                    conflictIds.add(battles[j].id);
+                }
+            }
+        }
+
+        return conflictIds;
+    }
+
+    async function renderBattleCalendar() {
+        const host = M.el("battleViewHost");
+        if (!host) return;
+
+        host.innerHTML = `<div class="emptyState">Loading battle calendar...</div>`;
+
+        try {
+            const result = await battleApi("/api/battles");
+            const battles = result?.battles || [];
+
+            const conflictIds = findBattleConflicts(battles);
+
+            const year = battleCalendarDate.getFullYear();
+            const month = battleCalendarDate.getMonth();
+
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const startOffset = firstDay.getDay();
+            const daysInMonth = lastDay.getDate();
+
+            const monthLabel = battleCalendarDate.toLocaleString([], {
+                month: "long",
+                year: "numeric"
+            });
+
+            let cells = "";
+
+            for (let i = 0; i < startOffset; i++) {
+                cells += `<div class="battle-cal-cell empty"></div>`;
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateKey = new Date(year, month, day).toDateString();
+
+                const dayBattles = battles.filter(b =>
+                    getBattleStart(b).toDateString() === dateKey
+                );
+
+                cells += `
+                <div class="battle-cal-cell">
+                    <div class="battle-cal-day">${day}</div>
+
+                    ${dayBattles.map(b => {
+                    const hasConflict = conflictIds.has(b.id);
+
+                    return `
+                            <div class="battle-cal-event ${hasConflict ? "conflict" : ""}">
+                                <strong>${escAdmin(b.title || "Battle")}</strong>
+                                <span>${getBattleStart(b).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit"
+                    })}</span>
+                                ${hasConflict ? `<em>Conflict</em>` : ""}
+                            </div>
+                        `;
+                }).join("")}
+                </div>
+            `;
+            }
+
+            host.innerHTML = `
+            <div class="card span-12">
+                <div class="section-head">
+                    <div>
+                        <h4>${monthLabel}</h4>
+                        <p>Monthly battle schedule with conflict warnings.</p>
+                    </div>
+                    <div class="admin-grid">
+                        <button class="btn" id="btnBattlePrevMonth" type="button">Previous</button>
+                        <button class="btn" id="btnBattleNextMonth" type="button">Next</button>
+                    </div>
+                </div>
+
+                <div class="battle-calendar">
+                    <div class="battle-cal-head">Sun</div>
+                    <div class="battle-cal-head">Mon</div>
+                    <div class="battle-cal-head">Tue</div>
+                    <div class="battle-cal-head">Wed</div>
+                    <div class="battle-cal-head">Thu</div>
+                    <div class="battle-cal-head">Fri</div>
+                    <div class="battle-cal-head">Sat</div>
+                    ${cells}
+                </div>
+            </div>
+        `;
+
+            M.el("btnBattlePrevMonth")?.addEventListener("click", async () => {
+                battleCalendarDate = new Date(year, month - 1, 1);
+                await renderBattleCalendar();
+            });
+
+            M.el("btnBattleNextMonth")?.addEventListener("click", async () => {
+                battleCalendarDate = new Date(year, month + 1, 1);
+                await renderBattleCalendar();
+            });
+
+        } catch (err) {
+            host.innerHTML = `<div class="emptyState">Failed to load battle calendar.</div>`;
+            setAdminOutput(err.message || String(err));
+        }
+    }
+
     async function battleApi(path, options = {}) {
         return await adminApi(path, options);
     }
@@ -987,6 +1132,102 @@
         });
     }
 
+    async function loadTournaments() {
+        const listEl = M.el("tournamentList");
+        if (!listEl) return;
+
+        listEl.innerHTML = "Loading...";
+
+        try {
+            const result = await battleApi("/api/tournaments");
+            const list = result?.tournaments || [];
+
+            if (!list.length) {
+                listEl.innerHTML = `<div class="emptyState">No tournaments yet.</div>`;
+                return;
+            }
+
+            listEl.innerHTML = list.map(t => `
+            <div class="list-row">
+                <div class="list-copy">
+                    <strong>${escAdmin(t.name)}</strong>
+                    <span>${escAdmin(t.game)}</span>
+                </div>
+            </div>
+        `).join("");
+
+        } catch (err) {
+            listEl.innerHTML = `<div class="emptyState">Failed to load tournaments.</div>`;
+            setAdminOutput(err.message || String(err));
+        }
+    }
+
+    function renderTournamentSection() {
+        const host = M.el("battleViewHost");
+        if (!host) return;
+
+        host.innerHTML = `
+        <div class="card span-12">
+            <div class="section-head">
+                <div>
+                    <h4>Tournaments</h4>
+                    <p>Create and manage tournament brackets linked to battles.</p>
+                </div>
+                <button class="btn primary" id="btnCreateTournament" type="button">Create Tournament</button>
+            </div>
+
+            <div class="field">
+                <label for="tournamentName">Tournament name</label>
+                <input id="tournamentName" placeholder="Friday Night Showdown" />
+            </div>
+
+            <div class="field">
+                <label for="tournamentGame">Game</label>
+                <select id="tournamentGame">
+                    <option value="riddle_me_this">Riddle Me This</option>
+                    <option value="trivia">Daily Trivia</option>
+                    <option value="contexto">Contexto</option>
+                    <option value="hangman">Hangman</option>
+                    <option value="higher_lower">Higher or Lower</option>
+                </select>
+            </div>
+
+            <div id="tournamentList" class="stack" style="margin-top:16px;">
+                <div class="emptyState">Tournament storage not wired yet.</div>
+            </div>
+        </div>
+    `;
+
+        M.el("btnCreateTournament")?.addEventListener("click", async () => {
+            const name = M.el("tournamentName")?.value?.trim();
+            const game = M.el("tournamentGame")?.value;
+
+            if (!name) {
+                M.setStatus("Tournament name is required.", "bad");
+                return;
+            }
+
+            try {
+                M.setStatus("Creating tournament...");
+
+                const result = await battleApi("/api/tournaments", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name, game })
+                });
+
+                setAdminOutput(result);
+                M.setStatus("Tournament created.", "good");
+
+                await loadTournaments();
+
+            } catch (err) {
+                setAdminOutput(err.message || String(err));
+                M.setStatus("Failed to create tournament.", "bad");
+            }
+        });
+    }
+
     function bindBattleActions() {
         M.qsa("[data-battle-view]").forEach(btn => {
             btn.addEventListener("click", async () => {
@@ -999,6 +1240,8 @@
                 if (view === "all") await renderAllBattles();
                 if (view === "mine") await renderMyBattles();
                 if (view === "request") renderBattleRequestForm();
+                if (view === "calendar") await renderBattleCalendar();
+                if (view === "tournaments") renderTournamentSection();
             });
         });
 

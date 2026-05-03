@@ -22,6 +22,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<RiddleCatalog> RiddleCatalogs => Set<RiddleCatalog>();
     public DbSet<RoomPlayerScore> RoomPlayerScores => Set<RoomPlayerScore>();
     public DbSet<BattleEvent> BattleEvents => Set<BattleEvent>();
+    public DbSet<Tournament> Tournaments => Set<Tournament>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

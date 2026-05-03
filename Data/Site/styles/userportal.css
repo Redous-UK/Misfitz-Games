@@ -499,3 +499,69 @@ button, input, select, textarea {
         flex-direction: column
     }
 }
+
+.battle-calendar {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.battle-cal-head {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    padding: 8px;
+}
+
+.battle-cal-cell {
+    min-height: 130px;
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 14px;
+    padding: 8px;
+    background: rgba(255,255,255,.04);
+}
+
+    .battle-cal-cell.empty {
+        opacity: .35;
+    }
+
+.battle-cal-day {
+    font-weight: 900;
+    margin-bottom: 8px;
+}
+
+.battle-cal-event {
+    display: grid;
+    gap: 2px;
+    padding: 8px;
+    border-radius: 10px;
+    background: rgba(34,197,94,.14);
+    border: 1px solid rgba(34,197,94,.25);
+    margin-bottom: 6px;
+    font-size: 12px;
+}
+
+    .battle-cal-event strong {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .battle-cal-event span {
+        opacity: .8;
+    }
+
+    .battle-cal-event.conflict {
+        background: rgba(239,68,68,.16);
+        border-color: rgba(239,68,68,.32);
+    }
+
+    .battle-cal-event em {
+        font-style: normal;
+        color: #fecaca;
+        font-weight: 900;
+        text-transform: uppercase;
+        font-size: 10px;
+    }
