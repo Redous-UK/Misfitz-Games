@@ -660,22 +660,22 @@
         if (!host) return;
 
         host.innerHTML = `
-            <div class="card span-12">
-                <div class="section-head">
-                    <div>
-                        <h4>Admin Users</h4>
-                        <p>Manage registered users.</p>
-                    </div>
-                    <button class="btn" id="btnReloadAdminUsers" type="button">Reload Users</button>
+        <div class="card span-12">
+            <div class="section-head">
+                <div>
+                    <h4>Admin Users</h4>
+                    <p>Manage registered users.</p>
                 </div>
-                <div id="adminUsersList" class="stack">Loading users...</div>
+                <button class="btn" id="btnReloadAdminUsers" type="button">Reload Users</button>
             </div>
-        `;
+            <div id="adminUsersList" class="stack">Loading users...</div>
+        </div>
+    `;
 
         M.el("btnReloadAdminUsers")?.addEventListener("click", renderAdminUsers);
 
         try {
-            const users = await adminApi(`/bootstrap/users?key=${encodeURIComponent(key)}`);
+            const users = await adminApi("/admin/users");
             const list = Array.isArray(users) ? users : users?.users || users?.items || [];
             const target = M.el("adminUsersList");
 
@@ -685,17 +685,60 @@
                 return;
             }
 
-            target.innerHTML = list.map(u => `
+            target.innerHTML = list.map(u => {
+                const userId = u.id || u.userId || u.accountId || "";
+                const role = String(u.role || "member").toLowerCase();
+
+                return `
                 <div class="list-row">
                     <div class="list-copy">
                         <strong>${escAdmin(u.displayName || u.username || u.email || "Unknown user")}</strong>
-                        <span>${escAdmin(u.email || "-")} • ${escAdmin(u.role || "member")}</span>
+                        <span>${escAdmin(u.email || "-")} • ${escAdmin(role)}</span>
                     </div>
-                    <span class="pill ${String(u.role).toLowerCase() === "admin" ? "warn" : "good"}">
-                        ${escAdmin(u.role || "member")}
+                    <span class="pill ${role === "admin" ? "warn" : "good"}">
+                        ${escAdmin(role)}
                     </span>
                 </div>
-            `).join("");
+
+                <div class="admin-grid" style="margin: -6px 0 14px 0;">
+                    <button class="btn" data-user-role="${escAdmin(userId)}|admin" type="button">Make Admin</button>
+                    <button class="btn" data-user-role="${escAdmin(userId)}|member" type="button">Make Member</button>
+                    <button class="btn" data-user-role="${escAdmin(userId)}|guest" type="button">Make Guest</button>
+                </div>
+            `;
+            }).join("");
+
+            M.qsa("[data-user-role]").forEach(btn => {
+                btn.addEventListener("click", async () => {
+                    if (!requireAdminAction()) return;
+
+                    const [userId, role] = String(btn.dataset.userRole || "").split("|");
+
+                    if (!userId || !role) {
+                        setAdminOutput("Missing user id or role.");
+                        return;
+                    }
+
+                    if (!confirm(`Change this user to ${role}?`)) return;
+
+                    try {
+                        M.setStatus(`Updating user role to ${role}...`);
+
+                        const result = await adminApi(`/admin/users/${encodeURIComponent(userId)}/role`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ role })
+                        });
+
+                        setAdminOutput(result);
+                        M.setStatus("User role updated.", "good");
+                        await renderAdminUsers();
+                    } catch (err) {
+                        setAdminOutput(err.message || String(err));
+                        M.setStatus("Failed to update user role.", "bad");
+                    }
+                });
+            });
 
             setAdminOutput(users);
         } catch (err) {
@@ -703,6 +746,7 @@
             setAdminOutput(err.message || String(err));
         }
     }
+
 
     function bindAdminActions() {
         M.el("btnAdminSiteEditor")?.addEventListener("click", () => {

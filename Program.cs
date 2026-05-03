@@ -25,6 +25,10 @@ namespace Misfitz_Games;
 
 public static class Program
 {
+    private static readonly string[] handler = ["admin", "member", "guest"];
+
+    public sealed record UpdateUserRoleRequest(string Role);
+
     public static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
@@ -439,6 +443,35 @@ public static class Program
         })
 .RequireAuthorization("AdminOnly");
 
+
+        app.MapPost("/admin/users/{userId}/role", async (
+    Guid userId,
+    UpdateUserRoleRequest request,
+    AppDbContext db) =>
+        {
+            var allowed = handler;
+            var role = (request.Role ?? "").Trim().ToLowerInvariant();
+
+            if (!allowed.Contains(role))
+                return Results.BadRequest(new { ok = false, error = "Invalid role." });
+
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user is null)
+                return Results.NotFound(new { ok = false, error = "User not found." });
+
+            user.Role = role;
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new
+            {
+                ok = true,
+                userId = user.Id,
+                role = user.Role
+            });
+        })
+.RequireAuthorization("AdminOnly");
+
         // ===================== NEW: /admin/site endpoints (used by your new folder-only explorer) =====================
         // Your admin HTML is calling:
         //   GET /admin/site/list?path=
@@ -742,6 +775,7 @@ public static class Program
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(relPath));
         return Convert.ToHexString(hash);
     }
+
 
     private static string TryDecode(byte[] bytes)
     {
