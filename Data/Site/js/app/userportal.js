@@ -1,6 +1,10 @@
 ﻿(() => {
     const M = window.Misfitz;
 
+    function isAdmin(data) {
+        return String(data?.user?.role || "").toLowerCase() === "admin";
+    }
+
     function setValue(id, value) {
         const node = M.el(id);
         if (!node) return;
@@ -155,11 +159,22 @@
         setChecked("prefShowGameplayStats", data.preferences?.showGameplayStats);
     }
 
+    function renderAdmin(data) {
+        const admin = isAdmin(data);
+        document.body.classList.toggle("is-admin", admin);
+        M.qsa("[data-admin-only]").forEach(el => {
+            el.hidden = !admin;
+        });
+        if (!admin) return;
+        setText("adminStatus", "Admin tools enabled.");
+    }
+
     function renderPortal(data) {
         renderOverview(data);
         renderProfile(data);
         renderRoom(data);
         renderPreferences(data);
+        renderAdmin(data);
     }
 
     function bindActions() {

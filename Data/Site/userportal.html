@@ -25,6 +25,7 @@
                 <button data-tab="privacy">Privacy & Security<span class="small">Access, visibility, sessions</span></button>
                 <button data-tab="appearance">Appearance<span class="small">Theme and portal styling</span></button>
                 <button data-tab="danger">Danger Zone<span class="small">Delete, export, ownership</span></button>
+                <button data-tab="admin" data-admin-only hidden>Admin<span class="small">Admin tools & diagnostics</span></button>
             </nav>
 
             <div class="sidebar-footer">
@@ -81,6 +82,7 @@
                             <button class="btn" type="button" data-jump="room">Manage room defaults</button>
                             <button class="btn" type="button" data-jump="notifications">Tune alerts</button>
                             <button class="btn" type="button" data-jump="privacy">Change privacy & security</button>
+                            <button class="btn" type="button" data-jump="admin" data-admin-only hidden>Open admin tools</button>
                         </div>
                     </div>
                 </div>
@@ -407,6 +409,82 @@
                             <button class="btn" type="button">Disable account</button>
                             <button class="btn" type="button">Delete account</button>
                         </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="tab-panel" data-panel="admin" data-admin-only hidden>
+                <div class="portal-grid">
+                    <div class="card span-12">
+                        <div class="section-head">
+                            <div>
+                                <h4>Admin Control Centre</h4>
+                                <p>Internal tools for site management, game content, diagnostics, and room support.</p>
+                            </div>
+                            <span class="pill warn" id="adminStatus">Admin access</span>
+                        </div>
+
+                        <div class="admin-grid">
+                            <button class="btn primary" id="btnAdminOpenEditor" type="button">Open Site Editor</button>
+                            <button class="btn" id="btnAdminListSiteFiles" type="button">List Site Files</button>
+                            <button class="btn" id="btnAdminDebugStatic" type="button">Debug Static</button>
+                            <button class="btn" id="btnAdminWhoami" type="button">Who Am I</button>
+                        </div>
+                    </div>
+
+                    <div class="card span-6">
+                        <div class="section-head">
+                            <div>
+                                <h4>Riddle Import</h4>
+                                <p>Import riddles into the Riddle Me This game database.</p>
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label for="adminRiddleCategory">Category</label>
+                            <select id="adminRiddleCategory">
+                                <option value="science">Science</option>
+                                <option value="general">General</option>
+                                <option value="funny">Funny</option>
+                                <option value="math">Math</option>
+                                <option value="logic">Logic</option>
+                            </select>
+                        </div>
+
+                        <div class="stack">
+                            <button class="btn primary" id="btnAdminImportRiddleCategory" type="button">Import Selected Category</button>
+                            <button class="btn" id="btnAdminImportRiddlesAll" type="button">Import All Categories</button>
+                        </div>
+                    </div>
+
+                    <div class="card span-6">
+                        <div class="section-head">
+                            <div>
+                                <h4>Room Tools</h4>
+                                <p>Open or inspect a room by room reference/code.</p>
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label for="adminRoomRef">Room Ref</label>
+                            <input id="adminRoomRef" placeholder="AVVVVSL7" />
+                        </div>
+
+                        <div class="stack">
+                            <button class="btn" id="btnAdminOpenRoomState" type="button">Open Room State</button>
+                            <button class="btn" id="btnAdminOpenOverlay" type="button">Open Overlay</button>
+                        </div>
+                    </div>
+
+                    <div class="card span-12">
+                        <div class="section-head">
+                            <div>
+                                <h4>Admin Output</h4>
+                                <p>Results from admin tools will appear here.</p>
+                            </div>
+                            <button class="btn" id="btnAdminClearOutput" type="button">Clear</button>
+                        </div>
+                        <pre id="adminOutput" class="admin-output">Admin output will appear here...</pre>
                     </div>
                 </div>
             </section>
