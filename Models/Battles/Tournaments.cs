@@ -9,5 +9,8 @@ public class Tournament
 
     public Guid CreatedByUserId { get; set; }
 
+    public DateTimeOffset StartsAtUtc { get; set; }
+    public DateTimeOffset? EndsAtUtc { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
 }

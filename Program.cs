@@ -28,6 +28,7 @@ namespace Misfitz_Games;
 public static class Program
 {
     private static readonly string[] handler = ["admin", "member", "guest"];
+    private static readonly string[] handlerArray = ["pending", "approved", "declined", "completed"];
 
     public sealed record UpdateUserRoleRequest(string Role);
 
@@ -560,9 +561,7 @@ public static class Program
                 .AsNoTracking()
                 .ToListAsync();
 
-            battles = battles
-                .OrderBy(x => x.StartsAtUtc)
-                .ToList();
+            battles = [.. battles.OrderBy(x => x.StartsAtUtc)];
 
             return Results.Ok(new { battles });
         })
@@ -582,9 +581,7 @@ public static class Program
                 .Where(x => x.RequestedByUserId == userId)
                 .ToListAsync();
 
-            battles = battles
-                .OrderBy(x => x.StartsAtUtc)
-                .ToList();
+            battles = [.. battles.OrderBy(x => x.StartsAtUtc)];
 
             return Results.Ok(new { battles });
         })
@@ -628,7 +625,7 @@ public static class Program
     UpdateBattleStatusDto dto,
     AppDbContext db) =>
         {
-            var allowed = new[] { "pending", "approved", "declined", "completed" };
+            var allowed = handlerArray;
             var status = (dto.Status ?? "").Trim().ToLowerInvariant();
 
             if (!allowed.Contains(status))
@@ -679,8 +676,9 @@ public static class Program
         {
             var list = await db.Tournaments
                 .AsNoTracking()
-                .OrderByDescending(x => x.CreatedAtUtc)
                 .ToListAsync();
+
+            list = [.. list.OrderBy(x => x.StartsAtUtc)];
 
             return Results.Ok(new { tournaments = list });
         })

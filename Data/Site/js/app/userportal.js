@@ -865,14 +865,22 @@
                     const hasConflict = conflictIds.has(b.id);
 
                     return `
-                            <div class="battle-cal-event ${hasConflict ? "conflict" : ""}">
-                                <strong>${escAdmin(b.title || "Battle")}</strong>
-                                <span>${getBattleStart(b).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit"
-                    })}</span>
-                                ${hasConflict ? `<em>Conflict</em>` : ""}
-                            </div>
+                        <div class="battle-cal-event ${hasConflict ? "conflict" : ""}">
+                            <strong>${escAdmin(b.title || "Battle")}</strong>
+
+                            <span>
+                                ${getBattleStart(b).toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit"
+                                })}
+                            </span>
+
+                            <span class="battle-status-badge ${statusClass(b.status)}">
+                                ${formatStatus(b.status)}
+                            </span>
+
+                            ${hasConflict ? `<em>Conflict</em>` : ""}
+                        </div>
                         `;
                 }).join("")}
                 </div>
@@ -949,13 +957,13 @@
                 <span>
                     ${escAdmin(b.opponentName || "No opponent")} •
                     ${formatBattleDate(b.startsAtUtc)} •
-                    ${escAdmin(b.status || "pending")}
+                    ${formatStatus(b.status)}
                 </span>
                 ${b.description ? `<span>${escAdmin(b.description)}</span>` : ""}
             </div>
 
-            <span class="pill ${b.status === "approved" ? "good" : b.status === "declined" ? "bad" : "warn"}">
-                ${escAdmin(b.status || "pending")}
+            <span class="pill ${statusClass(b.status)}">
+                ${formatStatus(b.status)}
             </span>
         </div>
 
@@ -1221,6 +1229,7 @@
 
                 await loadTournaments();
 
+
             } catch (err) {
                 setAdminOutput(err.message || String(err));
                 M.setStatus("Failed to create tournament.", "bad");
@@ -1304,6 +1313,25 @@
         M.el("btnSavePreferencesTop")?.addEventListener("click", savePreferences);
 
 
+    }
+
+    function formatStatus(status) {
+        switch ((status || "").toLowerCase()) {
+            case "pending": return "Pending";
+            case "approved": return "Approved";
+            case "declined": return "Declined";
+            case "completed": return "Completed";
+            default: return status;
+        }
+    }
+
+    function statusClass(status) {
+        switch ((status || "").toLowerCase()) {
+            case "approved": return "good";
+            case "declined": return "bad";
+            case "completed": return "neutral";
+            default: return "warn";
+        }
     }
 
     async function boot() {
