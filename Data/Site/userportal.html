@@ -438,6 +438,55 @@
                 </div>
             </section>
 
+            <div id="battleDetailsModal" class="modal hidden">
+                <div class="modal-card">
+                    <button id="battleModalClose" class="modal-close" type="button">×</button>
+
+                    <h2 id="battleModalTitle">Battle Details</h2>
+
+                    <div id="battleViewMode">
+                        <div id="battleModalBody"></div>
+
+                        <div class="modal-actions">
+                            <button id="battleEditBtn" class="btn primary" type="button">Edit Battle</button>
+                            <button id="battleCloseBtn" class="btn" type="button">Close</button>
+                        </div>
+                    </div>
+
+                    <form id="battleEditMode" class="hidden">
+                        <div class="field">
+                            <label>Title</label>
+                            <input id="battleEditTitle" />
+                        </div>
+
+                        <div class="field">
+                            <label>Room Code</label>
+                            <input id="battleEditRoomRef" />
+                        </div>
+
+                        <div class="field">
+                            <label>Starts</label>
+                            <input id="battleEditStartsAt" type="datetime-local" />
+                        </div>
+
+                        <div class="field">
+                            <label>Ends</label>
+                            <input id="battleEditEndsAt" type="datetime-local" />
+                        </div>
+
+                        <div class="field">
+                            <label>Description</label>
+                            <textarea id="battleEditDescription"></textarea>
+                        </div>
+
+                        <div class="modal-actions">
+                            <button id="battleSaveBtn" class="btn primary" type="submit">Save Battle</button>
+                            <button id="battleCancelEditBtn" class="btn" type="button">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
             <section class="tab-panel" data-panel="admin" data-admin-only hidden>
                 <div class="portal-grid">
                     <div class="card span-12">

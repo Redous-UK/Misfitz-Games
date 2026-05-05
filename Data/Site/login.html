@@ -397,7 +397,7 @@
                         }
                     }
 
-                    location.href = "/lobby.html";
+                    location.href = "/userportal.html";
                 } catch (e) {
                     el("loginOut").textContent = pretty({
                         ok: false,
@@ -429,7 +429,7 @@
             // Buttons
             el("btnMe").addEventListener("click", () => refreshMe());
             el("btnMe2").addEventListener("click", () => refreshMe());
-            el("btnGoLobby").addEventListener("click", () => (location.href = "/lobby.html"));
+            el("btnGoLobby").addEventListener("click", () => (location.href = "/userportal.html"));
 
             // Enter submits
             el("loginPass").addEventListener("keydown", (ev) => {

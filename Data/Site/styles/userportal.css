@@ -565,3 +565,37 @@ button, input, select, textarea {
         text-transform: uppercase;
         font-size: 10px;
     }
+
+.hidden {
+    display: none !important;
+}
+
+.modal.hidden {
+    display: none !important;
+}
+
+.modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0.65);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.modal-card {
+    width: min(720px, 96vw);
+    max-height: 90vh;
+    overflow: auto;
+    background: #111827;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 18px;
+    padding: 20px;
+}
+
+.battle-clickable,
+.battle-cal-event {
+    cursor: pointer;
+}

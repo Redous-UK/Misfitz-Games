@@ -781,6 +781,9 @@
 
     let battleCalendarDate = new Date();
 
+    let currentBattle = null;
+    let latestBattles = [];
+
     function getBattleStart(b) {
         return new Date(b.startsAtUtc || b.StartsAtUtc);
     }
@@ -828,6 +831,7 @@
         try {
             const result = await battleApi("/api/battles");
             const battles = result?.battles || [];
+            latestBattles = battles;
 
             const conflictIds = findBattleConflicts(battles);
 
@@ -865,7 +869,7 @@
                     const hasConflict = conflictIds.has(b.id);
 
                     return `
-                        <div class="battle-cal-event ${hasConflict ? "conflict" : ""}">
+                        <div class="battle-cal-event ${hasConflict ? "conflict" : ""}" data-battle-id="${escAdmin(b.id)}">
                             <strong>${escAdmin(b.title || "Battle")}</strong>
 
                             <span>
@@ -951,7 +955,7 @@
         }
 
         return battles.map(b => `
-        <div class="list-row">
+        <div class="list-row battle-clickable" data-battle-id="${escAdmin(b.id)}">
             <div class="list-copy">
                 <strong>${escAdmin(b.title || "Untitled Battle")}</strong>
                 <span>
@@ -986,6 +990,7 @@
         try {
             const result = await battleApi("/api/battles");
             const battles = result?.battles || [];
+            latestBattles = battles;
 
             host.innerHTML = `
             <div class="card span-12">
@@ -1012,6 +1017,7 @@
         try {
             const result = await battleApi("/api/battles/me");
             const battles = result?.battles || [];
+            latestBattles = battles;
 
             host.innerHTML = `
             <div class="card span-12">
@@ -1111,6 +1117,7 @@
     function bindBattleStatusButtons() {
         M.qsa("[data-battle-status]").forEach(btn => {
             btn.addEventListener("click", async () => {
+                e.stopPropagation();
                 if (!requireAdminAction()) return;
 
                 const [id, status] = String(btn.dataset.battleStatus || "").split("|");
@@ -1138,6 +1145,103 @@
                 }
             });
         });
+    }
+
+    // let currentBattle = null;
+
+    document.addEventListener("click", async (e) => {
+        const item = e.target.closest("[data-battle-id]");
+        if (!item) return;
+
+        await openBattleDetails(item.dataset.battleId);
+    });
+
+    async function openBattleDetails(battleId) {
+        const battle = latestBattles.find(b => String(b.id) === String(battleId));
+
+        if (!battle) {
+            M.setStatus("Battle details not found in loaded list.", "bad");
+            return;
+        }
+
+        currentBattle = battle;
+
+        document.getElementById("battleModalTitle").textContent = battle.title ?? "Scheduled Battle";
+
+        document.getElementById("battleModalBody").innerHTML = `
+        <div><strong>Room:</strong> ${escapeHtml(battle.roomRef ?? "")}</div>
+        <div><strong>Starts:</strong> ${escapeHtml(battle.startsAtLocal ?? battle.startsAtUtc ?? "")}</div>
+        <div><strong>Ends:</strong> ${escapeHtml(battle.endsAtLocal ?? battle.endsAtUtc ?? "")}</div>
+        <div><strong>Status:</strong> ${escapeHtml(battle.status ?? "Scheduled")}</div>
+        <div><strong>Description:</strong><br>${escapeHtml(battle.description ?? "")}</div>
+    `;
+
+        document.getElementById("battleViewMode").classList.remove("hidden");
+        document.getElementById("battleEditMode").classList.add("hidden");
+        document.getElementById("battleDetailsModal").classList.remove("hidden");
+    }
+
+    document.getElementById("battleEditBtn")?.addEventListener("click", () => {
+        if (!currentBattle) return;
+
+        document.getElementById("battleEditTitle").value = currentBattle.title ?? "";
+        document.getElementById("battleEditRoomRef").value = currentBattle.roomRef ?? "";
+        document.getElementById("battleEditStartsAt").value = toDateTimeLocal(currentBattle.startsAtUtc);
+        document.getElementById("battleEditEndsAt").value = toDateTimeLocal(currentBattle.endsAtUtc);
+        document.getElementById("battleEditDescription").value = currentBattle.description ?? "";
+
+        document.getElementById("battleViewMode").classList.add("hidden");
+        document.getElementById("battleEditMode").classList.remove("hidden");
+    });
+
+    document.getElementById("battleEditMode")?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (!currentBattle) return;
+
+        const payload = {
+            title: document.getElementById("battleEditTitle").value.trim(),
+            roomRef: document.getElementById("battleEditRoomRef").value.trim(),
+            startsAtUtc: new Date(document.getElementById("battleEditStartsAt").value).toISOString(),
+            endsAtUtc: new Date(document.getElementById("battleEditEndsAt").value).toISOString(),
+            description: document.getElementById("battleEditDescription").value.trim()
+        };
+
+        await battleApi(`/api/battles/${encodeURIComponent(currentBattle.id)}`, {
+            method: "PUT",
+            body: JSON.stringify(payload)
+        });
+
+        closeBattleModal();
+        await renderBattleCalendar();
+        //await renderAllBattles(); -- render calender or all battles (switch between views)
+    });
+
+    function closeBattleModal() {
+        document.getElementById("battleDetailsModal").classList.add("hidden");
+        currentBattle = null;
+    }
+
+    document.getElementById("battleModalClose")?.addEventListener("click", closeBattleModal);
+    document.getElementById("battleCloseBtn")?.addEventListener("click", closeBattleModal);
+    document.getElementById("battleCancelEditBtn")?.addEventListener("click", () => {
+        document.getElementById("battleEditMode").classList.add("hidden");
+        document.getElementById("battleViewMode").classList.remove("hidden");
+    });
+
+    function toDateTimeLocal(value) {
+        if (!value) return "";
+        const d = new Date(value);
+        d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+        return d.toISOString().slice(0, 16);
+    }
+
+    function escapeHtml(s) {
+        return String(s ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
     }
 
     async function loadTournaments() {
@@ -1261,7 +1365,7 @@
 
     function bindActions() {
         M.el("btnBackToLobby")?.addEventListener("click", () => {
-            window.location.href = "/lobby.html";
+            window.location.href = "/userportal.html";
         });
 
         const openRoom = () => {
