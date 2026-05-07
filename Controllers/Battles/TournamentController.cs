@@ -15,8 +15,21 @@ public sealed class TournamentsController(AppDbContext db) : ControllerBase
     [HttpGet("/api/tournaments")]
     public async Task<IActionResult> ListTournaments(CancellationToken ct)
     {
-        var tournaments = await db.Tournaments
+        var tournamentRows = await db.Tournaments
             .AsNoTracking()
+            .ToListAsync(ct);
+
+        var signupCounts = await db.TournamentSignups
+            .AsNoTracking()
+            .GroupBy(x => x.TournamentId)
+            .Select(g => new
+            {
+                TournamentId = g.Key,
+                Count = g.Count()
+            })
+            .ToDictionaryAsync(x => x.TournamentId, x => x.Count, ct);
+
+        var tournaments = tournamentRows
             .OrderBy(x => x.StartsAtUtc)
             .Select(x => new
             {
@@ -30,9 +43,9 @@ public sealed class TournamentsController(AppDbContext db) : ControllerBase
                 x.CreatedByUserId,
                 x.CreatedAtUtc,
                 x.Status,
-                SignupCount = db.TournamentSignups.Count(s => s.TournamentId == x.Id)
+                SignupCount = signupCounts.TryGetValue(x.Id, out var count) ? count : 0
             })
-            .ToListAsync(ct);
+            .ToList();
 
         return Ok(new { ok = true, tournaments });
     }
