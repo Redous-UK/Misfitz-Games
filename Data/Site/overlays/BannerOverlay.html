@@ -8,7 +8,7 @@
     <style>
         :root {
             --banner-width: 1500px;
-            --banner-height: 150px;
+            --banner-height: 190px;
             --bg: rgba(8, 10, 20, 0.72);
             --panel: rgba(25, 18, 45, 0.88);
             --card: rgba(255, 255, 255, 0.12);
@@ -77,24 +77,25 @@
         .banner-inner {
             position: relative;
             z-index: 1;
-            display: grid;
-            grid-template-columns: 220px 1fr;
-            gap: 14px;
-            align-items: center;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
             min-height: var(--banner-height);
             padding: 14px;
         }
 
         .title-panel {
-            height: 100%;
-            min-height: 122px;
-            border-radius: 22px;
-            padding: 14px;
+            width: 100%;
+            min-height: auto;
+            border-radius: 16px;
+            padding: 8px 12px;
             background: rgba(0, 0, 0, 0.22);
             border: 1px solid rgba(255, 255, 255, 0.14);
             display: flex;
-            flex-direction: column;
-            justify-content: center;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
         }
 
         .eyebrow {
@@ -103,23 +104,26 @@
             font-weight: 900;
             letter-spacing: 0.15em;
             text-transform: uppercase;
-            margin-bottom: 6px;
+            margin-bottom: 0;
             text-shadow: 2px 2px 0 rgba(254, 44, 85, 0.55);
+            white-space: nowrap;
         }
 
         .title-panel h1 {
             margin: 0;
-            font-size: 28px;
+            font-size: 24px;
             line-height: 1;
             font-weight: 950;
             text-shadow: 0 5px 18px rgba(0, 0, 0, 0.45);
+            white-space: nowrap;
         }
 
         .subtitle {
-            margin-top: 8px;
+            margin-top: 0;
             color: var(--muted);
             font-size: 13px;
             font-weight: 800;
+            white-space: nowrap;
         }
 
         .selected-gifts {
@@ -127,13 +131,14 @@
             grid-template-columns: repeat(6, minmax(0, 1fr));
             gap: 10px;
             align-items: stretch;
+            width: 100%;
         }
 
         .gift-card {
             min-width: 0;
-            min-height: 122px;
-            padding: 10px;
-            border-radius: 20px;
+            min-height: 108px;
+            padding: 8px;
+            border-radius: 18px;
             background: var(--card);
             border: 1px solid rgba(255, 255, 255, 0.16);
             box-shadow: inset 0 0 24px rgba(255, 255, 255, 0.055);
@@ -173,19 +178,20 @@
         }
 
         .gift-icon-box {
-            width: 64px;
-            height: 64px;
-            border-radius: 18px;
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
             background: rgba(255, 255, 255, 0.12);
             border: 1px solid rgba(255, 255, 255, 0.16);
             display: grid;
             place-items: center;
-            margin-bottom: 7px;
+            margin-bottom: 5px;
+            flex: 0 0 auto;
         }
 
         .gift-icon {
-            width: 50px;
-            height: 50px;
+            width: 42px;
+            height: 42px;
             object-fit: contain;
             filter: drop-shadow(0 8px 12px rgba(0,0,0,0.4));
             animation: floatGift 2.4s ease-in-out infinite;
@@ -204,7 +210,7 @@
         .gift-name {
             width: 100%;
             margin: 0;
-            font-size: 15px;
+            font-size: 13px;
             line-height: 1.1;
             font-weight: 950;
             white-space: nowrap;
@@ -212,15 +218,26 @@
             text-overflow: ellipsis;
         }
 
-        .gift-price {
-            margin-top: 5px;
-            padding: 4px 7px;
+        .gift-price,
+        .gift-points {
+            margin-top: 4px;
+            padding: 3px 6px;
             border-radius: 999px;
+            font-size: 11px;
+            font-weight: 950;
+            white-space: nowrap;
+        }
+
+        .gift-price {
             background: rgba(0, 0, 0, 0.25);
             border: 1px solid rgba(255, 255, 255, 0.14);
             color: var(--gold);
-            font-size: 12px;
-            font-weight: 950;
+        }
+
+        .gift-points {
+            background: rgba(37, 244, 238, 0.16);
+            border: 1px solid rgba(37, 244, 238, 0.26);
+            color: var(--tiktok-cyan);
         }
 
         .empty-slot {
@@ -239,7 +256,7 @@
             top: 16px;
             left: 16px;
             z-index: 20;
-            width: 360px;
+            width: 430px;
             max-height: calc(100vh - 32px);
             overflow: auto;
             padding: 14px;
@@ -257,7 +274,7 @@
 
         .setup-row {
             display: grid;
-            grid-template-columns: 26px 1fr 80px;
+            grid-template-columns: 26px 1fr 80px 80px;
             gap: 6px;
             align-items: center;
             margin-bottom: 7px;
@@ -294,30 +311,44 @@
             display: none;
         }
 
-        @media (max-width: 1200px) {
-            .selected-gifts {
-                grid-template-columns: repeat(3, minmax(0, 1fr));
+        @media (max-width: 900px) {
+            body {
+                padding: 12px;
             }
 
             .gift-banner {
-                --banner-height: auto;
-            }
-        }
-
-        @media (max-width: 760px) {
-            body {
-                padding: 16px;
+                width: calc(100vw - 24px);
             }
 
-            .banner-inner {
-                grid-template-columns: 1fr;
+            .title-panel h1 {
+                font-size: 20px;
+            }
+
+            .eyebrow,
+            .subtitle {
+                font-size: 11px;
             }
 
             .selected-gifts {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 6px;
+            }
+
+            .gift-card {
+                padding: 6px;
+            }
+
+            .gift-name {
+                font-size: 11px;
+            }
+
+            .gift-price,
+            .gift-points {
+                font-size: 10px;
+                padding: 2px 5px;
             }
         }
     </style>
+
 </head>
 <body class="obs-mode">
     <aside class="setup-panel">
@@ -404,12 +435,13 @@
                 const card = document.createElement("article");
                 card.className = `gift-card ${gift.featured ? "featured" : ""}`;
                 card.innerHTML = `
-                                  <div class="gift-icon-box">
-                                    <img class="gift-icon" src="${escapeAttr(gift.iconUrl || fallbackIcon)}" alt="${escapeAttr(gift.name)}" />
-                                  </div>
-                                  <h2 class="gift-name">${escapeHtml(gift.name)}</h2>
-                                  <div class="gift-price">${formatNumber(gift.coins)} coins</div>
-                                `;
+                                      <div class="gift-icon-box">
+                                        <img class="gift-icon" src="${escapeAttr(gift.iconUrl || fallbackIcon)}" alt="${escapeAttr(gift.name)}" />
+                                      </div>
+                                      <h2 class="gift-name">${escapeHtml(gift.name)}</h2>
+                                      <div class="gift-price">${formatNumber(gift.coins)} coins</div>
+                                      <div class="gift-points">${formatNumber(gift.points)} points</div>
+                                    `;
 
                 selectedGiftsEl.appendChild(card);
             }
@@ -419,11 +451,11 @@
             const slot = document.createElement("article");
             slot.className = "gift-card empty-slot";
             slot.innerHTML = `
-                                <div class="gift-icon-box">+</div>
-                                <h2 class="gift-name">Gift ${index + 1}</h2>
-                                <div class="gift-price">Empty</div>
-                                <div class="gift-points">Empty</div>
-                              `;
+                                    <div class="gift-icon-box">+</div>
+                                    <h2 class="gift-name">Gift ${index + 1}</h2>
+                                    <div class="gift-price">Empty</div>
+                                    <div class="gift-points">Empty</div>
+                                  `;
             return slot;
         }
 
@@ -435,11 +467,11 @@
                 const row = document.createElement("div");
                 row.className = "setup-row";
                 row.innerHTML = `
-                                  <strong>${i + 1}</strong>
-                                  <input id="giftName${i}" value="${escapeAttr(gift.name || "")}" placeholder="Gift name" />
-                                  <input id="giftCoins${i}" value="${escapeAttr(gift.coins || "")}" placeholder="Coins" />
-                                  <input id="giftPoints${i}" value="${escapeAttr(gift.points || "")}" placeholder="Points" />
-                                `;
+                                      <strong>${i + 1}</strong>
+                                      <input id="giftName${i}" value="${escapeAttr(gift.name || "")}" placeholder="Gift name" />
+                                      <input id="giftCoins${i}" value="${escapeAttr(gift.coins || "")}" placeholder="Coins" />
+                                      <input id="giftPoints${i}" value="${escapeAttr(gift.points || "")}" placeholder="Points" />
+                                    `;
                 setupRowsEl.appendChild(row);
             }
         }
