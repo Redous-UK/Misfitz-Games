@@ -16,10 +16,14 @@ public sealed class BattlesController(AppDbContext db) : ControllerBase
     [HttpGet("/api/battles")]
     public async Task<IActionResult> ListBattles(CancellationToken ct)
     {
-        var battles = await db.BattleEvents
+        var battlesRows = await db.BattleEvents
             .AsNoTracking()
-            .OrderBy(x => x.StartsAtUtc)
             .ToListAsync(ct);
+
+        var battles = battlesRows
+            .OrderBy(x => x.StartsAtUtc)
+            .ToList();
+
 
         return Ok(new { ok = true, battles });
     }
@@ -42,11 +46,14 @@ public sealed class BattlesController(AppDbContext db) : ControllerBase
         if (!TryGetUserId(out var userId))
             return Unauthorized(new { ok = false, error = "Invalid user id." });
 
-        var battles = await db.BattleEvents
+        var battlesRows = await db.BattleEvents
             .AsNoTracking()
             .Where(x => x.RequestedByUserId == userId || x.OwnerUserId == userId)
-            .OrderBy(x => x.StartsAtUtc)
             .ToListAsync(ct);
+
+        var battles = battlesRows
+            .OrderBy(x => x.StartsAtUtc)
+            .ToList();
 
         return Ok(new { ok = true, battles });
     }
