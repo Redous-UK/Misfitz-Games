@@ -1156,6 +1156,13 @@
         await openBattleDetails(item.dataset.battleId);
     });
 
+    document.addEventListener("click", async (e) => {
+        const item = e.target.closest("[data-tournament-id]");
+        if (!item) return;
+
+        await openTournamentDetails(item.dataset.tournamentId);
+    });
+
     async function openBattleDetails(battleId) {
         const battle = latestBattles.find(b => String(b.id) === String(battleId));
 
@@ -1244,11 +1251,13 @@
             .replaceAll("'", "&#039;");
     }
 
+    let currentTournament = null;
+
     async function loadTournaments() {
         const listEl = M.el("tournamentList");
         if (!listEl) return;
 
-        listEl.innerHTML = "Loading...";
+        listEl.innerHTML = "Loading tournaments...";
 
         try {
             const result = await battleApi("/api/tournaments");
@@ -1260,11 +1269,18 @@
             }
 
             listEl.innerHTML = list.map(t => `
-            <div class="list-row">
+            <div class="list-row tournament-clickable" data-tournament-id="${escAdmin(t.id)}">
                 <div class="list-copy">
-                    <strong>${escAdmin(t.name)}</strong>
-                    <span>${escAdmin(t.game)}</span>
+                    <strong>${escAdmin(t.title || "Untitled Tournament")}</strong>
+                    <span>
+                        ${formatBattleDate(t.startsAtUtc)} → ${formatBattleDate(t.endsAtUtc)}
+                    </span>
+                    <span>
+                        Signups: ${t.signupCount ?? 0}/${t.requiredSignups ?? 0}
+                        ${t.prize ? ` • Prize: ${escAdmin(t.prize)}` : ""}
+                    </span>
                 </div>
+                <span class="pill ${statusClass(t.status)}">${formatStatus(t.status)}</span>
             </div>
         `).join("");
 
@@ -1278,68 +1294,119 @@
         const host = M.el("battleViewHost");
         if (!host) return;
 
+        const isAdminUser = document.body.classList.contains("is-admin");
+
         host.innerHTML = `
         <div class="card span-12">
             <div class="section-head">
                 <div>
                     <h4>Tournaments</h4>
-                    <p>Create and manage tournament brackets linked to battles.</p>
+                    <p>Admin-created tournaments that members can sign up for.</p>
                 </div>
-                <button class="btn primary" id="btnCreateTournament" type="button">Create Tournament</button>
+                ${isAdminUser ? `<button class="btn primary" id="btnCreateTournament" type="button">Create Tournament</button>` : ""}
             </div>
 
-            <div class="field">
-                <label for="tournamentName">Tournament name</label>
-                <input id="tournamentName" placeholder="Friday Night Showdown" />
-            </div>
+            ${isAdminUser ? `
+                <div id="tournamentCreateBox" class="card hidden">
+                    <div class="field">
+                        <label for="tournamentTitle">Tournament title</label>
+                        <input id="tournamentTitle" placeholder="Friday Night Showdown" />
+                    </div>
 
-            <div class="field">
-                <label for="tournamentGame">Game</label>
-                <select id="tournamentGame">
-                    <option value="riddle_me_this">Riddle Me This</option>
-                    <option value="trivia">Daily Trivia</option>
-                    <option value="contexto">Contexto</option>
-                    <option value="hangman">Hangman</option>
-                    <option value="higher_lower">Higher or Lower</option>
-                </select>
-            </div>
+                    <div class="field">
+                        <label for="tournamentRequiredSignups">Required signups</label>
+                        <input id="tournamentRequiredSignups" type="number" min="1" value="8" />
+                    </div>
 
-            <div id="tournamentList" class="stack" style="margin-top:16px;">
-                <div class="emptyState">Tournament storage not wired yet.</div>
-            </div>
+                    <div class="field">
+                        <label for="tournamentPrize">Prize</label>
+                        <input id="tournamentPrize" placeholder="Coins, gift, shoutout, etc." />
+                    </div>
+
+                    <div class="field">
+                        <label for="tournamentStartsAt">Start date</label>
+                        <input id="tournamentStartsAt" type="datetime-local" />
+                    </div>
+
+                    <div class="field">
+                        <label for="tournamentEndsAt">End date</label>
+                        <input id="tournamentEndsAt" type="datetime-local" />
+                    </div>
+
+                    <div class="field">
+                        <label for="tournamentStatus">Status</label>
+                        <select id="tournamentStatus">
+                            <option value="draft">Draft</option>
+                            <option value="open">Open</option>
+                            <option value="active">Active</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label for="tournamentDescription">Description</label>
+                        <textarea id="tournamentDescription"></textarea>
+                    </div>
+
+                    <button class="btn primary" id="btnSaveNewTournament" type="button">Save Tournament</button>
+                </div>
+            ` : ""}
+
+            <div id="tournamentList" class="stack" style="margin-top:16px;"></div>
         </div>
     `;
 
-        M.el("btnCreateTournament")?.addEventListener("click", async () => {
-            const name = M.el("tournamentName")?.value?.trim();
-            const game = M.el("tournamentGame")?.value;
-
-            if (!name) {
-                M.setStatus("Tournament name is required.", "bad");
-                return;
-            }
-
-            try {
-                M.setStatus("Creating tournament...");
-
-                const result = await battleApi("/api/tournaments", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ name, game })
-                });
-
-                setAdminOutput(result);
-                M.setStatus("Tournament created.", "good");
-
-                await loadTournaments();
-
-
-            } catch (err) {
-                setAdminOutput(err.message || String(err));
-                M.setStatus("Failed to create tournament.", "bad");
-            }
+        M.el("btnCreateTournament")?.addEventListener("click", () => {
+            M.el("tournamentCreateBox")?.classList.toggle("hidden");
         });
+
+        M.el("btnSaveNewTournament")?.addEventListener("click", createTournament);
+
+        loadTournaments();
     }
+
+    async function createTournament() {
+        const title = M.el("tournamentTitle")?.value?.trim() || "";
+        const requiredSignups = Number(M.el("tournamentRequiredSignups")?.value || 0);
+        const prize = M.el("tournamentPrize")?.value?.trim() || "";
+        const startsRaw = M.el("tournamentStartsAt")?.value || "";
+        const endsRaw = M.el("tournamentEndsAt")?.value || "";
+        const status = M.el("tournamentStatus")?.value || "draft";
+        const description = M.el("tournamentDescription")?.value?.trim() || "";
+
+        if (!title) return M.setStatus("Tournament title is required.", "bad");
+        if (!requiredSignups || requiredSignups <= 0) return M.setStatus("Required signups must be greater than zero.", "bad");
+        if (!startsRaw || !endsRaw) return M.setStatus("Start and end dates are required.", "bad");
+
+        try {
+            M.setStatus("Creating tournament...");
+
+            const result = await battleApi("/api/tournaments", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    title,
+                    requiredSignups,
+                    prize,
+                    description,
+                    startsAtUtc: new Date(startsRaw).toISOString(),
+                    endsAtUtc: new Date(endsRaw).toISOString(),
+                    status
+                })
+            });
+
+            setAdminOutput(result);
+            M.setStatus("Tournament created.", "good");
+            await loadTournaments();
+
+        } catch (err) {
+            setAdminOutput(err.message || String(err));
+            M.setStatus("Failed to create tournament.", "bad");
+        }
+    }
+
+
 
     function bindBattleActions() {
         M.qsa("[data-battle-view]").forEach(btn => {

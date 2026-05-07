@@ -47,6 +47,8 @@ public sealed record CreateTournamentDto(
 
 public sealed record UpdateTournamentDto(
     string? Title,
+    string Name,
+    string Game,
     int RequiredSignups,
     string? Prize,
     string? Description,
