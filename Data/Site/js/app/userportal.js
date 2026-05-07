@@ -1406,6 +1406,37 @@
         }
     }
 
+    async function openTournamentDetails(tournamentId) {
+        try {
+            const result = await battleApi(`/api/tournaments/${encodeURIComponent(tournamentId)}`);
+            const tournament = result?.tournament || result;
+
+            currentTournament = tournament;
+
+            M.el("tournamentModalTitle").textContent =
+                tournament.title || "Tournament Details";
+
+            M.el("tournamentModalBody").innerHTML = `
+            <div><strong>Title:</strong> ${escapeHtml(tournament.title ?? "")}</div>
+            <div><strong>Required Signups:</strong> ${escapeHtml(tournament.requiredSignups ?? "")}</div>
+            <div><strong>Current Signups:</strong> ${escapeHtml(tournament.signupCount ?? 0)}</div>
+            <div><strong>Prize:</strong> ${escapeHtml(tournament.prize ?? "-")}</div>
+            <div><strong>Starts:</strong> ${escapeHtml(formatBattleDate(tournament.startsAtUtc))}</div>
+            <div><strong>Ends:</strong> ${escapeHtml(formatBattleDate(tournament.endsAtUtc))}</div>
+            <div><strong>Status:</strong> ${escapeHtml(formatStatus(tournament.status ?? "draft"))}</div>
+            <div><strong>Description:</strong><br>${escapeHtml(tournament.description ?? "")}</div>
+        `;
+
+            M.el("tournamentViewMode").classList.remove("hidden");
+            M.el("tournamentEditMode").classList.add("hidden");
+            M.el("tournamentDetailsModal").classList.remove("hidden");
+
+        } catch (err) {
+            setAdminOutput(err.message || String(err));
+            M.setStatus("Failed to load tournament details.", "bad");
+        }
+    }
+
 
 
     function bindBattleActions() {

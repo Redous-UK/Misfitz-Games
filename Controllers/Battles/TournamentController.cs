@@ -55,36 +55,45 @@ public sealed class TournamentsController(AppDbContext db) : ControllerBase
     {
         var tournament = await db.Tournaments
             .AsNoTracking()
-            .Where(x => x.Id == id)
-            .Select(x => new
-            {
-                x.Id,
-                x.Title,
-                x.RequiredSignups,
-                x.Prize,
-                x.Description,
-                x.StartsAtUtc,
-                x.EndsAtUtc,
-                x.CreatedByUserId,
-                x.CreatedAtUtc,
-                x.Status,
-                SignupCount = db.TournamentSignups.Count(s => s.TournamentId == x.Id),
-                Signups = db.TournamentSignups
-                    .Where(s => s.TournamentId == x.Id)
-                    .OrderBy(s => s.SignedUpAtUtc)
-                    .Select(s => new
-                    {
-                        s.Id,
-                        s.UserId,
-                        s.SignedUpAtUtc
-                    })
-                    .ToList()
-            })
-            .FirstOrDefaultAsync(ct);
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
 
-        return tournament is null
-            ? NotFound(new { ok = false, error = "Tournament not found." })
-            : Ok(new { ok = true, tournament });
+        if (tournament is null)
+            return NotFound(new { ok = false, error = "Tournament not found." });
+
+        var signupRows = await db.TournamentSignups
+            .AsNoTracking()
+            .Where(s => s.TournamentId == id)
+            .ToListAsync(ct);
+
+        var signups = signupRows
+            .OrderBy(s => s.SignedUpAtUtc)
+            .Select(s => new
+            {
+                s.Id,
+                s.UserId,
+                s.SignedUpAtUtc
+            })
+            .ToList();
+
+        return Ok(new
+        {
+            ok = true,
+            tournament = new
+            {
+                tournament.Id,
+                tournament.Title,
+                tournament.RequiredSignups,
+                tournament.Prize,
+                tournament.Description,
+                tournament.StartsAtUtc,
+                tournament.EndsAtUtc,
+                tournament.CreatedByUserId,
+                tournament.CreatedAtUtc,
+                tournament.Status,
+                SignupCount = signups.Count,
+                Signups = signups
+            }
+        });
     }
 
     [HttpPost("/api/tournaments")]
