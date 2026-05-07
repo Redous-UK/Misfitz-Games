@@ -23,6 +23,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<RoomPlayerScore> RoomPlayerScores => Set<RoomPlayerScore>();
     public DbSet<BattleEvent> BattleEvents => Set<BattleEvent>();
     public DbSet<Tournament> Tournaments => Set<Tournament>();
+    public DbSet<TournamentSignup> TournamentSignups => Set<TournamentSignup>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -109,5 +110,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<RoomPlayerScore>()
             .HasIndex(x => new { x.RoomId, x.UserId })
             .IsUnique();
+
+        modelBuilder.Entity<TournamentSignup>()
+            .HasIndex(x => new { x.TournamentId, x.UserId })
+            .IsUnique();
+
+        modelBuilder.Entity<TournamentSignup>()
+            .HasOne(x => x.Tournament)
+            .WithMany()
+            .HasForeignKey(x => x.TournamentId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
