@@ -553,7 +553,7 @@ const GAME_CONTROL_SCHEMAS = {
             { key: "numCards", label: "Number of cards", type: "number", default: 5, min: 3, max: 10 }
         ]
     },
-    riddle_me_this: {
+    riddles: {
         title: "Riddle Me This",
         controls: [
             { key: "category", label: "Category", type: "select", default: "general", options: ["general", "science", "hard"] },

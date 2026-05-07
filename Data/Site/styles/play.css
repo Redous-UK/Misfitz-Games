@@ -145,13 +145,13 @@ body {
 }
 
 /* Panels */
-.game-panel {
-    display: none;
+.game-panel[hidden] {
+    display: none !important;
 }
 
-    .game-panel.active {
-        display: block;
-    }
+.game-panel:not([hidden]) {
+    display: block !important;
+}
 
 /* =========================
    Side Panel

@@ -1,0 +1,245 @@
+﻿<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Misfitz Overlay</title>
+    <link rel="stylesheet" href="/styles/site.css" />
+</head>
+<body>
+    <div class="wrap">
+        <div class="card">
+            <div class="row" style="justify-content:space-between;">
+                <div class="title" id="roomTitle">Misfitz Overlay</div>
+                <div class="badge" id="statusBadge">Loading…</div>
+            </div>
+
+            <div class="muted" id="subLine"></div>
+
+            <div id="contextoBlock">
+                <div class="sectionTitle">RECENT GUESSES</div>
+                <ul id="guessesList"></ul>
+
+                <div class="sectionTitle">TOP SCORES</div>
+                <ul id="scoresList"></ul>
+            </div>
+
+            <div id="noGameBlock" class="muted hidden" style="margin-top:10px;">
+                No active game in this room.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const el = (id) => document.getElementById(id);
+        const POLL_MS = 1200;
+
+        function pretty(x) {
+            try { return JSON.stringify(x, null, 2); } catch { return String(x); }
+        }
+
+        async function api(path, opts = {}) {
+            console.log("API:", path, opts);
+
+            const fetchOpts = {
+                credentials: "include",
+                ...opts,
+                headers: {
+                    ...(opts.headers || {}),
+                    ...(opts.body ? { "Content-Type": "application/json" } : {}),
+                },
+            };
+
+            try {
+                const res = await fetch(path, fetchOpts);
+                console.log("FETCH RES", res.status, res.statusText, "for", path);
+
+                const text = await res.text();
+                let payload = null;
+
+                if (text) {
+                    try { payload = JSON.parse(text); }
+                    catch { payload = { _nonJson: true, raw: text }; }
+                }
+
+                if (!res.ok) {
+                    console.error("API ERROR:", { path, status: res.status, statusText: res.statusText, payload, text });
+
+                    const msg =
+                        payload?.error ||
+                        payload?.message ||
+                        `HTTP ${res.status} ${res.statusText} @ ${path}`;
+
+                    const err = new Error(msg);
+                    err.status = res.status;
+                    err.path = path;
+                    err.payload = payload;
+                    err.raw = text;
+                    throw err;
+                }
+
+                return payload;
+            } catch (err) {
+                console.error("FETCH FAILED:", { path, name: err?.name, message: err?.message, err });
+                throw err;
+            }
+        }
+
+        function escapeHtml(s) {
+            return String(s ?? "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        function setStatus(text, kind = "warn") {
+            const b = el("statusBadge");
+            if (!b) return;
+            b.textContent = text;
+            b.className = "badge " + (kind === "ok" ? "ok" : kind === "bad" ? "bad" : "warn");
+        }
+
+        function getRoomRef() {
+            const qs = new URLSearchParams(location.search);
+            const roomId = (qs.get("roomId") || "").trim();
+            return roomId;
+        }
+
+        function normalizeState(raw) {
+            // supports both shapes: { ...state } or { ok:true, state:{...} }
+            return raw?.state ?? raw;
+        }
+
+        function getContextoState(state) {
+            const gs = state?.gameState ?? state?.GameState;
+            return gs;
+        }
+
+        function renderGuesses(state) {
+            const ul = el("guessesList");
+            if (!ul) return;
+            ul.innerHTML = "";
+
+            const gs = getContextoState(state);
+            const guesses = gs?.recentGuesses ?? gs?.RecentGuesses ?? [];
+            const arr = Array.isArray(guesses) ? guesses : [];
+
+            if (arr.length === 0) {
+                ul.innerHTML = `<li class="small">No guesses yet…</li>`;
+                return;
+            }
+
+            // newest first
+            const list = arr.slice(0, 12);
+
+            for (const g of list) {
+                const user = g.username ?? g.Username ?? "Unknown";
+                const guess = g.guess ?? g.Guess ?? "";
+                const rankOrScore = g.rankOrScore ?? g.RankOrScore ?? g.rank ?? g.Rank ?? "";
+
+                const li = document.createElement("li");
+                li.className = "item";
+                li.innerHTML = `
+                    <div class="guess-left">
+                        <span class="username">${escapeHtml(String(user))}</span>
+                        <span class="guess">${escapeHtml(String(guess))}</span>
+                    </div>
+                    <div class="guess-right">
+                        <div class="rank">#${escapeHtml(String(rankOrScore))}</div>
+                    </div>
+                `;
+                ul.appendChild(li);
+            }
+        }
+
+        function renderScores(leaderboard) {
+            const ul = el("scoresList");
+            if (!ul) return;
+            ul.innerHTML = "";
+
+            const top = leaderboard?.top ?? leaderboard?.Top ?? [];
+            const arr = Array.isArray(top) ? top : [];
+
+            if (arr.length === 0) {
+                ul.innerHTML = `<li class="small">No scores yet…</li>`;
+                return;
+            }
+
+            for (const row of arr.slice(0, 10)) {
+                const userId = row.userId ?? row.UserId ?? "user";
+                const score = row.score ?? row.Score ?? 0;
+
+                const li = document.createElement("li");
+                li.className = "item";
+                li.innerHTML = `
+              <div>
+                <div class="who">${escapeHtml(String(userId))}</div>
+                <div class="small">score</div>
+              </div>
+              <div class="right">
+                <div class="small">&nbsp;</div>
+                <div class="who">${escapeHtml(String(score))}</div>
+              </div>
+            `;
+                ul.appendChild(li);
+            }
+        }
+
+        function showNoGame(isNoGame) {
+            const a = el("contextoBlock");
+            const b = el("noGameBlock");
+            if (a) a.classList.toggle("hidden", !!isNoGame);
+            if (b) b.classList.toggle("hidden", !isNoGame);
+        }
+
+        async function refresh(roomRef) {
+            try {
+                const raw = await api(`/rooms/${encodeURIComponent(roomRef)}/state`);
+                const state = normalizeState(raw);
+
+                const roomName = state?.roomName ?? state?.RoomName ?? "Room";
+                const activeGame = state?.activeGame ?? state?.ActiveGame ?? 0;
+
+                el("roomTitle").textContent = `${roomName}`;
+                el("subLine").textContent = `Room: ${roomRef}`;
+
+                // Contexto is enum 1 in your logs; also support string
+                const isContexto = activeGame === 1 || String(activeGame).toLowerCase() === "contexto";
+                showNoGame(!isContexto);
+
+                if (isContexto) {
+                    renderGuesses(state);
+                    const lb = await api(`/rooms/${encodeURIComponent(roomRef)}/leaderboard`);
+                    renderScores(lb);
+                    setStatus("Live", "ok");
+                } else {
+                    setStatus("No game", "warn");
+                }
+            } catch (e) {
+                setStatus("Offline", "bad");
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const roomRef = getRoomRef();
+            if (!roomRef) {
+                setStatus("Missing roomId", "bad");
+                el("subLine").textContent = "Open this as /overlay.html?roomId=ROOMCODE";
+                showNoGame(true);
+                return;
+            }
+
+            // NOTE: Overlay should not force-login. If your /rooms/{id}/state is protected,
+            // either (A) allow anonymous GET for overlay, or (B) open overlay from an authed browser session.
+
+            refresh(roomRef);
+            setInterval(() => {
+                if (document.hidden) return;
+                refresh(roomRef);
+            }, POLL_MS);
+        });
+    </script>
+</body>
+</html>

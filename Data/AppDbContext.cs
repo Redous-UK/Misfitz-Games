@@ -2,6 +2,7 @@
 using Misfitz_Games.Models;
 using Misfitz_Games.Models.Effects;
 using Misfitz_Games.Models.Games;
+using Misfitz_Games.Models.Battles;
 
 namespace Misfitz_Games.Data;
 
@@ -20,6 +21,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Riddle> Riddles => Set<Riddle>();
     public DbSet<RiddleCatalog> RiddleCatalogs => Set<RiddleCatalog>();
     public DbSet<RoomPlayerScore> RoomPlayerScores => Set<RoomPlayerScore>();
+    public DbSet<BattleEvent> BattleEvents => Set<BattleEvent>();
+    public DbSet<Tournament> Tournaments => Set<Tournament>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

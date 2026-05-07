@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Misfitz_Games.Data;
 
@@ -10,9 +11,11 @@ using Misfitz_Games.Data;
 namespace Misfitz_Games.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260503224431_AddBattleEvents")]
+    partial class AddBattleEvents
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.11");
@@ -54,31 +57,6 @@ namespace Misfitz_Games.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("BattleEvents");
-                });
-
-            modelBuilder.Entity("Misfitz_Games.Models.Battles.Tournament", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("CreatedByUserId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Game")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Tournaments");
                 });
 
             modelBuilder.Entity("Misfitz_Games.Models.Effects.Device", b =>

@@ -563,7 +563,7 @@
         async function requireAdmin() {
             const me = await api("/member/me");
             if (!me.isAuth) { location.href = "/login.html"; return; }
-            if (me.role !== "admin") { location.href = "/lobby.html"; return; }
+            if (me.role !== "admin") { location.href = "/userportal.html"; return; }
             updateAdminLink(me);
             return me;
         }
@@ -630,7 +630,7 @@
             window.open(`/overlay.html?roomId=${encodeURIComponent(code)}`, "_blank");
         };
 
-        el("btnLobby").onclick = () => location.href = "/lobby.html";
+        el("btnLobby").onclick = () => location.href = "/userportal.html";
 
         el("btnLogout").onclick = async () => {
             try { el("adminOut").textContent = pretty(await api("/member/logout", { method: "POST" })); }

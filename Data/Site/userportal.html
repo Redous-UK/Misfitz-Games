@@ -21,10 +21,12 @@
                 <button class="active" data-tab="overview">Overview<span class="small">Snapshot & account summary</span></button>
                 <button data-tab="profile">Profile<span class="small">Identity, bio, display info</span></button>
                 <button data-tab="room">Room<span class="small">Room defaults & portal link</span></button>
+                <button data-tab="battles">Battle Calendar<span class="small">Battles, requests & schedule</span></button>
                 <button data-tab="notifications">Notifications<span class="small">Email, alerts, reminders</span></button>
                 <button data-tab="privacy">Privacy & Security<span class="small">Access, visibility, sessions</span></button>
                 <button data-tab="appearance">Appearance<span class="small">Theme and portal styling</span></button>
                 <button data-tab="danger">Danger Zone<span class="small">Delete, export, ownership</span></button>
+                <button data-tab="admin" data-admin-only hidden>Admin<span class="small">Admin tools & diagnostics</span></button>
             </nav>
 
             <div class="sidebar-footer">
@@ -81,6 +83,7 @@
                             <button class="btn" type="button" data-jump="room">Manage room defaults</button>
                             <button class="btn" type="button" data-jump="notifications">Tune alerts</button>
                             <button class="btn" type="button" data-jump="privacy">Change privacy & security</button>
+                            <button class="btn" type="button" data-jump="admin" data-admin-only hidden>Open admin tools</button>
                         </div>
                     </div>
                 </div>
@@ -250,6 +253,30 @@
                 </div>
             </section>
 
+            <section class="tab-panel" data-panel="battles">
+                <div class="portal-grid">
+                    <div class="card span-12">
+                        <div class="section-head">
+                            <div>
+                                <h4>Battle Calendar</h4>
+                                <p>View battles, check your requests, or request a new battle.</p>
+                            </div>
+                            <button class="btn" id="btnReloadBattles" type="button">Reload</button>
+                        </div>
+
+                        <div class="admin-grid">
+                            <button class="btn" data-battle-view="calendar" type="button">Calendar</button>
+                            <button class="btn primary" data-battle-view="all" type="button">All Battles</button>
+                            <button class="btn" data-battle-view="mine" type="button">My Battles</button>
+                            <button class="btn" data-battle-view="request" type="button">Request Battle</button>
+                            <button class="btn" data-battle-view="tournaments" type="button">Tournaments</button>
+                        </div>
+
+                        <div id="battleViewHost" style="margin-top:16px;"></div>
+                    </div>
+                </div>
+            </section>
+
             <section class="tab-panel" data-panel="notifications">
                 <div class="portal-grid">
                     <div class="card span-6">
@@ -407,6 +434,92 @@
                             <button class="btn" type="button">Disable account</button>
                             <button class="btn" type="button">Delete account</button>
                         </div>
+                    </div>
+                </div>
+            </section>
+
+            <div id="battleDetailsModal" class="modal hidden">
+                <div class="modal-card">
+                    <button id="battleModalClose" class="modal-close" type="button">×</button>
+
+                    <h2 id="battleModalTitle">Battle Details</h2>
+
+                    <div id="battleViewMode">
+                        <div id="battleModalBody"></div>
+
+                        <div class="modal-actions">
+                            <button id="battleEditBtn" class="btn primary" type="button">Edit Battle</button>
+                            <button id="battleCloseBtn" class="btn" type="button">Close</button>
+                        </div>
+                    </div>
+
+                    <form id="battleEditMode" class="hidden">
+                        <div class="field">
+                            <label>Title</label>
+                            <input id="battleEditTitle" />
+                        </div>
+
+                        <div class="field">
+                            <label>Room Code</label>
+                            <input id="battleEditRoomRef" />
+                        </div>
+
+                        <div class="field">
+                            <label>Starts</label>
+                            <input id="battleEditStartsAt" type="datetime-local" />
+                        </div>
+
+                        <div class="field">
+                            <label>Ends</label>
+                            <input id="battleEditEndsAt" type="datetime-local" />
+                        </div>
+
+                        <div class="field">
+                            <label>Description</label>
+                            <textarea id="battleEditDescription"></textarea>
+                        </div>
+
+                        <div class="modal-actions">
+                            <button id="battleSaveBtn" class="btn primary" type="submit">Save Battle</button>
+                            <button id="battleCancelEditBtn" class="btn" type="button">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <section class="tab-panel" data-panel="admin" data-admin-only hidden>
+                <div class="portal-grid">
+                    <div class="card span-12">
+                        <div class="section-head">
+                            <div>
+                                <h4>Admin Control Centre</h4>
+                                <p>Internal tools for site management, game content, diagnostics, and room support.</p>
+                            </div>
+                            <span class="pill warn" id="adminStatus">Admin access</span>
+                        </div>
+
+                        <div class="admin-grid">
+                            <button class="btn primary" id="btnAdminSiteEditor" type="button">Site Editor</button>
+                            <button class="btn" data-admin-section="room" type="button">Room</button>
+                            <button class="btn" data-admin-section="debug" type="button">Debug</button>
+                            <button class="btn" data-admin-section="users" type="button">Users</button>
+                            <button class="btn" id="btnAdminSql" type="button">SQL</button>
+                        </div>
+
+                        <div id="adminSectionHost" class="admin-view-host">
+                            <div class="emptyState">Select an admin tool.</div>
+                        </div>
+                    </div>
+
+                    <div class="card span-12">
+                        <div class="section-head">
+                            <div>
+                                <h4>Admin Output</h4>
+                                <p>Results from admin tools will appear here.</p>
+                            </div>
+                            <button class="btn" id="btnAdminClearOutput" type="button">Clear</button>
+                        </div>
+                        <pre id="adminOutput" class="admin-output">Admin output will appear here...</pre>
                     </div>
                 </div>
             </section>

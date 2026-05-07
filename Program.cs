@@ -7,6 +7,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Misfitz_Games.Data;
 using Misfitz_Games.Hubs;
+using Misfitz_Games.Models.Battles;
+using Misfitz_Games.Models.Battles.Requests;
 using Misfitz_Games.Services;
 using Misfitz_Games.Services.Games.Contexto;
 using Misfitz_Games.Services.Games.Hangman;
@@ -25,6 +27,11 @@ namespace Misfitz_Games;
 
 public static class Program
 {
+    private static readonly string[] handler = ["admin", "member", "guest"];
+    private static readonly string[] handlerArray = ["pending", "approved", "declined", "completed"];
+
+    public sealed record UpdateUserRoleRequest(string Role);
+
     public static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
@@ -413,6 +420,61 @@ public static class Program
             return Results.Json(new { ok = true });
         });
 
+        app.MapGet("/admin/sql", async context =>
+        {
+            context.Response.Redirect("/admin/admin-dashboard.html");
+        })
+.RequireAuthorization("AdminOnly");
+
+        app.MapGet("/admin/users", async (AppDbContext db) =>
+        {
+            var users = await db.Users
+                .AsNoTracking()
+                .OrderBy(u => u.Username)
+                .Select(u => new
+                {
+                    u.Id,
+                    u.Username,
+                    u.Email,
+                    u.DisplayName,
+                    u.Role,
+                    u.CreatedUtc
+                })
+                .ToListAsync();
+
+            return Results.Ok(new { users });
+        })
+.RequireAuthorization("AdminOnly");
+
+
+        app.MapPost("/admin/users/{userId}/role", async (
+    Guid userId,
+    UpdateUserRoleRequest request,
+    AppDbContext db) =>
+        {
+            var allowed = handler;
+            var role = (request.Role ?? "").Trim().ToLowerInvariant();
+
+            if (!allowed.Contains(role))
+                return Results.BadRequest(new { ok = false, error = "Invalid role." });
+
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user is null)
+                return Results.NotFound(new { ok = false, error = "User not found." });
+
+            user.Role = role;
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new
+            {
+                ok = true,
+                userId = user.Id,
+                role = user.Role
+            });
+        })
+.RequireAuthorization("AdminOnly");
+
         // ===================== NEW: /admin/site endpoints (used by your new folder-only explorer) =====================
         // Your admin HTML is calling:
         //   GET /admin/site/list?path=
@@ -489,6 +551,138 @@ public static class Program
                 return Results.Problem("admin/site/read failed");
             }
         });
+
+
+        // ===================== Battle System =====================
+
+        app.MapGet("/api/battles", async (AppDbContext db) =>
+        {
+            var battles = await db.BattleEvents
+                .AsNoTracking()
+                .ToListAsync();
+
+            battles = [.. battles.OrderBy(x => x.StartsAtUtc)];
+
+            return Results.Ok(new { battles });
+        })
+.RequireAuthorization("AdminOnly");
+
+        app.MapGet("/api/battles/me", async (
+    ClaimsPrincipal user,
+    AppDbContext db) =>
+        {
+            var rawUserId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!Guid.TryParse(rawUserId, out var userId))
+                return Results.Unauthorized();
+
+            var battles = await db.BattleEvents
+                .AsNoTracking()
+                .Where(x => x.RequestedByUserId == userId)
+                .ToListAsync();
+
+            battles = [.. battles.OrderBy(x => x.StartsAtUtc)];
+
+            return Results.Ok(new { battles });
+        })
+.RequireAuthorization();
+
+        app.MapPost("/api/battles/request", async (
+    RequestBattleDto dto,
+    ClaimsPrincipal user,
+    AppDbContext db) =>
+        {
+            var rawUserId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!Guid.TryParse(rawUserId, out var userId))
+                return Results.Unauthorized();
+
+            if (string.IsNullOrWhiteSpace(dto.Title))
+                return Results.BadRequest(new { ok = false, error = "Title is required." });
+
+            if (dto.StartsAtUtc <= DateTimeOffset.UtcNow)
+                return Results.BadRequest(new { ok = false, error = "Battle date must be in the future." });
+
+            var battle = new BattleEvent
+            {
+                RequestedByUserId = userId,
+                Title = dto.Title.Trim(),
+                Description = dto.Description?.Trim() ?? "",
+                OpponentName = dto.OpponentName?.Trim() ?? "",
+                StartsAtUtc = dto.StartsAtUtc,
+                Status = "pending"
+            };
+
+            db.BattleEvents.Add(battle);
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new { ok = true, battle });
+        })
+.RequireAuthorization();
+
+        app.MapPost("/api/battles/{id:guid}/status", async (
+    Guid id,
+    UpdateBattleStatusDto dto,
+    AppDbContext db) =>
+        {
+            var allowed = handlerArray;
+            var status = (dto.Status ?? "").Trim().ToLowerInvariant();
+
+            if (!allowed.Contains(status))
+                return Results.BadRequest(new { ok = false, error = "Invalid status." });
+
+            var battle = await db.BattleEvents.FirstOrDefaultAsync(x => x.Id == id);
+
+            if (battle is null)
+                return Results.NotFound(new { ok = false, error = "Battle not found." });
+
+            battle.Status = status;
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new { ok = true, battle });
+        })
+.RequireAuthorization("AdminOnly");
+
+        // ===================== Tournaments =====================
+
+        app.MapPost("/api/tournaments", async (
+    ClaimsPrincipal user,
+    AppDbContext db,
+    Tournament dto) =>
+        {
+            var rawUserId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!Guid.TryParse(rawUserId, out var userId))
+                return Results.Unauthorized();
+
+            if (string.IsNullOrWhiteSpace(dto.Name))
+                return Results.BadRequest(new { ok = false, error = "Name required." });
+
+            var t = new Tournament
+            {
+                Name = dto.Name.Trim(),
+                Game = dto.Game?.Trim() ?? "",
+                CreatedByUserId = userId
+            };
+
+            db.Tournaments.Add(t);
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new { ok = true, tournament = t });
+        })
+.RequireAuthorization();
+
+        app.MapGet("/api/tournaments", async (AppDbContext db) =>
+        {
+            var list = await db.Tournaments
+                .AsNoTracking()
+                .ToListAsync();
+
+            list = [.. list.OrderBy(x => x.StartsAtUtc)];
+
+            return Results.Ok(new { tournaments = list });
+        })
+.RequireAuthorization();
 
         // ===================== DB migrate =====================
         var skipMigrate = builder.Configuration["SKIP_MIGRATE"] == "1";
@@ -716,6 +910,7 @@ public static class Program
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(relPath));
         return Convert.ToHexString(hash);
     }
+
 
     private static string TryDecode(byte[] bytes)
     {
