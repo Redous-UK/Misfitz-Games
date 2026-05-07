@@ -487,6 +487,73 @@
                 </div>
             </div>
 
+            <div id="tournamentDetailsModal" class="modal hidden">
+                <div class="modal-card">
+                    <button id="tournamentModalClose" class="modal-close" type="button">×</button>
+
+                    <h2 id="tournamentModalTitle">Tournament Details</h2>
+
+                    <div id="tournamentViewMode">
+                        <div id="tournamentModalBody"></div>
+
+                        <div class="modal-actions">
+                            <button id="tournamentSignupBtn" class="btn primary" type="button">Sign Up</button>
+                            <button id="tournamentCancelSignupBtn" class="btn" type="button">Cancel Signup</button>
+                            <button id="tournamentEditBtn" class="btn" type="button" data-admin-only hidden>Edit Tournament</button>
+                            <button id="tournamentCloseBtn" class="btn" type="button">Close</button>
+                        </div>
+                    </div>
+
+                    <form id="tournamentEditMode" class="hidden">
+                        <div class="field">
+                            <label>Tournament Title</label>
+                            <input id="tournamentEditTitle" />
+                        </div>
+
+                        <div class="field">
+                            <label>Required Signups</label>
+                            <input id="tournamentEditRequiredSignups" type="number" min="1" />
+                        </div>
+
+                        <div class="field">
+                            <label>Prize</label>
+                            <input id="tournamentEditPrize" />
+                        </div>
+
+                        <div class="field">
+                            <label>Start Date</label>
+                            <input id="tournamentEditStartsAt" type="datetime-local" />
+                        </div>
+
+                        <div class="field">
+                            <label>End Date</label>
+                            <input id="tournamentEditEndsAt" type="datetime-local" />
+                        </div>
+
+                        <div class="field">
+                            <label>Status</label>
+                            <select id="tournamentEditStatus">
+                                <option value="draft">Draft</option>
+                                <option value="open">Open</option>
+                                <option value="active">Active</option>
+                                <option value="completed">Completed</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
+                        </div>
+
+                        <div class="field">
+                            <label>Description</label>
+                            <textarea id="tournamentEditDescription"></textarea>
+                        </div>
+
+                        <div class="modal-actions">
+                            <button id="tournamentSaveBtn" class="btn primary" type="submit">Save Tournament</button>
+                            <button id="tournamentCancelEditBtn" class="btn" type="button">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
             <section class="tab-panel" data-panel="admin" data-admin-only hidden>
                 <div class="portal-grid">
                     <div class="card span-12">
